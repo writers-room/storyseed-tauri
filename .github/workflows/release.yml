@@ -45,7 +45,7 @@ jobs:
         run: npx tauri icon app-icon.png
 
       - name: 빌드 + 릴리스 + latest.json 생성
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # 아래 두 개는 저장소 Settings → Secrets에 등록해야 합니다(자동 업데이트 서명).
@@ -57,4 +57,11 @@ jobs:
           releaseBody: "이번 버전의 변경 사항을 여기에 적어주세요. (자동 업데이트 지원)"
           releaseDraft: false
           prerelease: false
+          # 릴리스 파일명을 영문으로 고정 — 한글 파일명이 GitHub 업로드 과정에서
+          # 임의로 바뀌면서 tauri-action이 설치 파일과 .sig 파일을 짝짓지 못해
+          # latest.json 생성을 건너뛰던 문제(v0에서 발생)를 막기 위함.
+          releaseAssetNamePattern: "storyseed_[version]_[arch][setup][ext]"
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
