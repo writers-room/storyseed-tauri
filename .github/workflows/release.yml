@@ -54,7 +54,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "스토리시드 ${{ github.ref_name }}"
-          releaseBody: "이번 버전의 변경 사항을 여기에 적어주세요. (자동 업데이트 지원)"
+          releaseBody: "자동 업데이트 지원"
           releaseDraft: false
           prerelease: false
           # 릴리스 파일명을 영문으로 고정 — 한글 파일명이 GitHub 업로드 과정에서

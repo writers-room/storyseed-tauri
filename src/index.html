@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.1</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.4</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -179,6 +179,8 @@
   .ed{min-height:100%;outline:none;padding:16px 26px 60px;max-width:var(--ed-maxw,none);margin:0 auto;
     font-size:var(--ed-size,15.5px);line-height:var(--ed-line,2.0);color:var(--ink);
     font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif);word-break:keep-all;}
+  /* 붙여넣기 등으로 글꼴이 개별 지정된 텍스트가 섞여 있어도, 에디터에는 항상 선택한 글꼴 하나만 표시되게 강제 */
+  .ed,.ed *{font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif) !important;}
   .ed div,.ed p{margin-bottom:var(--ed-para,0px);min-height:1em;}
   .ed{text-justify:inter-character;}
   .ed [style*="justify"],.ed.alljustify,.ed.alljustify div,.ed.alljustify p{text-align:justify;text-justify:inter-character;text-align-last:left;}
@@ -791,12 +793,9 @@
         <div class="prefs-cat" data-cat="paste" style="display:none">
           <div class="set-row">붙여넣을 때 서식 기본값
             <select id="setPasteFormat"><option value="plain">제거 (텍스트만)</option><option value="keep">유지 (원본 서식)</option></select></div>
-          <div class="set-row">붙여넣을 때 줄바꿈 기본값
-            <select id="setPasteDefault"><option value="유지">유지</option><option value="제거">빈 줄 제거</option><option value="추가">빈 줄 추가</option></select></div>
           <div class="set-row">붙여넣은 뒤 선택 상자 보이기 (매번 묻기) <input type="checkbox" id="setPasteAsk"></div>
           <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.7;margin-top:8px">
-            붙여넣기는 항상 서식 없는 텍스트로 들어가요 (Ctrl+V = Ctrl+Shift+V).<br>
-            선택 상자를 켜두면 붙여넣은 직후 줄바꿈 처리를 바로 바꿀 수 있어요.</div>
+            줄바꿈은 원본 그대로 들어가요 — 필요하면 내보내기할 때 다시 조정할 수 있어요.</div>
         </div>
         <div class="prefs-cat" data-cat="backup" style="display:none">
           <div class="set-row">자동 저장 주기 <select id="mbAutoSave">
@@ -919,13 +918,6 @@
 <div class="paste-box" id="pasteBox">
   <div class="pb-row"><span class="pb-lab">서식</span>
     <button data-pf="plain">제거(텍스트만)</button><button data-pf="keep">유지</button></div>
-  <div class="pb-row pb-brk"><span class="pb-lab">줄바꿈</span>
-    <button data-pm="유지">유지</button><button data-pm="제거">빈 줄 제거</button><button data-pm="추가">빈 줄 추가</button></div>
-  <div class="pb-adv" id="pbAdv" style="display:none">
-    <label>지문 사이<input type="range" class="pbN" data-k="jj" min="0" max="3"><b data-v="jj">1</b></label>
-    <label>대사↔지문<input type="range" class="pbN" data-k="dj" min="0" max="3"><b data-v="dj">1</b></label>
-    <label>대사 사이<input type="range" class="pbN" data-k="dd" min="0" max="3"><b data-v="dd">1</b></label>
-  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -946,7 +938,7 @@ let rootPath=null,seojaePath=null,snapsPath=null,trashPath=null;
 let settings={dark:false,resetHour:4,replaceEllipsis:true,replaceQuotes:true,indent:false,
   toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
   autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',
-  replaceDash:true,quotePair:false,pasteDefault:'유지',pasteAsk:true,
+  replaceDash:true,quotePair:false,pasteAsk:true,
   uiScale:100,showWork:true,pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
   fontSyn:'',fontNote:'',fontMemo:'',
   userRepl:[['->','→'],['<-','←']],
@@ -986,7 +978,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.3";
+const APP_VERSION="beta 2.0.4";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1285,6 +1277,12 @@ function renderTree(){
         clearMultiSel(false);lastSelPath=n.path;
         openDoc(n);};
     }
+    d.addEventListener('dblclick',e=>{
+      // 이름 더블클릭 → 인라인 이름 바꾸기 (Scrivener 스타일: Esc 취소, Enter/포커스 아웃 확정)
+      if(e.target.closest('.nm-edit'))return;
+      e.preventDefault();e.stopPropagation();
+      if(renamingPath!==n.path)startInlineRename(n);
+    });
     d.addEventListener('dragover',e=>{
       e.preventDefault();
       d.classList.remove('drag-before','drag-after','drag-over');
@@ -1738,43 +1736,32 @@ function insertBigText(ed,text){
     sel.removeAllRanges();sel.addRange(r);
   }
 }
-function pasteInsert(i,raw,rawHtml,mode,format){
+function pasteInsert(i,raw,rawHtml,format){
   const ed=$('ed'+i);
   if(format==='keep'&&rawHtml){
     const clean=sanitizePastedHtml(rawHtml);
     pasteSuppressChars+=(raw||ed.textContent||'').replace(/\n/g,'').length;
     document.execCommand('insertHTML',false,clean);
   }else{
-    const text=pasteTransform(raw||'',mode);
+    const text=pasteTransform(raw||'','유지');   // 줄바꿈은 항상 원본 그대로(다른 프로그램 붙여넣기 대비)
     pasteSuppressChars+=text.replace(/\n/g,'').length;
     if(text.length>10000)insertBigText(ed,text);
     else document.execCommand('insertText',false,text);
   }
   clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
-  pasteState={pane:i,raw,rawHtml,mode,format};
+  pasteState={pane:i,raw,rawHtml,format};
 }
 function doPaste(i,raw,rawHtml){
-  const mode=settings.pasteDefault||'유지';
   let format=settings.pasteFormat||'plain';
   if(format==='keep'&&!rawHtml)format='plain';   // 서식 정보 없으면 텍스트로
   $('ed'+i).focus();
-  pasteInsert(i,raw,rawHtml,mode,format);
-  if(settings.pasteAsk!==false)showPasteBox(i,mode,format);
+  pasteInsert(i,raw,rawHtml,format);
+  if(settings.pasteAsk!==false)showPasteBox(i,format);
 }
-function showPasteBox(i,mode,format){
+function showPasteBox(i,format){
   const box=$('pasteBox');
   format=format||(pasteState&&pasteState.format)||'plain';
-  ['유지','제거','추가'].forEach(m=>{
-    box.querySelector('[data-pm="'+m+'"]').classList.toggle('on',m===mode);
-  });
   box.querySelectorAll('[data-pf]').forEach(b=>b.classList.toggle('on',b.dataset.pf===format));
-  // 서식 유지 중이면 줄바꿈 옵션은 비활성(원본 서식을 그대로 두므로)
-  box.querySelector('.pb-brk').style.opacity=format==='keep'?'.4':'1';
-  box.querySelector('.pb-brk').style.pointerEvents=format==='keep'?'none':'';
-  // '추가'일 때만 간격 세부 옵션 노출
-  const g=settings.pasteGaps||(settings.pasteGaps={jj:1,dj:1,dd:1});
-  $('pbAdv').style.display=(mode==='추가'&&format!=='keep')?'flex':'none';
-  box.querySelectorAll('.pbN').forEach(r=>{r.value=g[r.dataset.k];box.querySelector('[data-v="'+r.dataset.k+'"]').textContent=g[r.dataset.k];});
   // 커서 근처에 배치
   const sel=getSelection();let x=innerWidth/2,y=innerHeight/2;
   if(sel.rangeCount){
@@ -1787,45 +1774,23 @@ function showPasteBox(i,mode,format){
   box.style.left=Math.min(x,innerWidth-230)+'px';
   box.style.top=Math.min(y+6,innerHeight-160)+'px';
   box.classList.add('show');
-  clearTimeout(box._tm);box._tm=setTimeout(hidePasteBox,mode==='추가'?15000:7000);
+  clearTimeout(box._tm);box._tm=setTimeout(hidePasteBox,7000);
 }
 function hidePasteBox(){const b=$('pasteBox');if(b)b.classList.remove('show');}
-function reapplyPaste(next){
+function reapplyPaste(format){
   if(!pasteState)return;
   const i=pasteState.pane,ed=$('ed'+i);
-  const mode=next.mode!==undefined?next.mode:pasteState.mode;
-  let format=next.format!==undefined?next.format:pasteState.format;
   if(format==='keep'&&!pasteState.rawHtml)format='plain';
   ed.focus();
   document.execCommand('undo');   // 직전 붙여넣기 취소
-  pasteInsert(i,pasteState.raw,pasteState.rawHtml,mode,format);
-  showPasteBox(i,mode,format);
+  pasteInsert(i,pasteState.raw,pasteState.rawHtml,format);
+  showPasteBox(i,format);
 }
-document.querySelectorAll('#pasteBox [data-pm]').forEach(b=>{
-  b.addEventListener('mousedown',e=>e.preventDefault());
-  b.addEventListener('click',()=>{
-    if(!pasteState)return;
-    const m=b.dataset.pm;
-    if(m===pasteState.mode&&m!=='추가'){hidePasteBox();return;}
-    reapplyPaste({mode:m});
-  });
-});
 document.querySelectorAll('#pasteBox [data-pf]').forEach(b=>{
   b.addEventListener('mousedown',e=>e.preventDefault());
   b.addEventListener('click',()=>{
     if(!pasteState)return;
-    reapplyPaste({format:b.dataset.pf});
-  });
-});
-// 간격 세부 옵션 슬라이더
-document.querySelectorAll('#pasteBox .pbN').forEach(r=>{
-  r.addEventListener('mousedown',e=>e.stopPropagation());
-  r.addEventListener('input',()=>{
-    const g=settings.pasteGaps||(settings.pasteGaps={jj:1,dj:1,dd:1});
-    g[r.dataset.k]=+r.value;
-    $('pasteBox').querySelector('[data-v="'+r.dataset.k+'"]').textContent=r.value;
-    saveMeta();
-    clearTimeout(r._tm);r._tm=setTimeout(()=>reapplyPaste('추가'),250);
+    reapplyPaste(b.dataset.pf);
   });
 });
 addEventListener('mousedown',e=>{if(!e.target.closest('#pasteBox'))hidePasteBox();});
@@ -2496,7 +2461,6 @@ function applySettings(){
   $('setDefaultGoal').value=settings.defaultGoal||5000;
   $('setDash').checked=settings.replaceDash!==false;
   $('setQuotePair').checked=!!settings.quotePair;
-  $('setPasteDefault').value=settings.pasteDefault||'유지';
   $('setPasteFormat').value=settings.pasteFormat||'plain';
   $('setPasteAsk').checked=settings.pasteAsk!==false;
   $('setUiScale').value=String(settings.uiScale||100);
@@ -2567,7 +2531,6 @@ $('setFontSyn').onchange=e=>{settings.fontSyn=e.target.value;applyAreaFonts();sa
 $('setFontNote').onchange=e=>{settings.fontNote=e.target.value;applyAreaFonts();saveMeta();};
 $('setFontMemo').onchange=e=>{settings.fontMemo=e.target.value;applyAreaFonts();saveMeta();};
 $('setLoadFonts').onclick=()=>loadLocalFonts();
-$('setPasteDefault').onchange=e=>{settings.pasteDefault=e.target.value;saveMeta();};
 $('setPasteFormat').onchange=e=>{settings.pasteFormat=e.target.value;saveMeta();};
 $('setPasteAsk').onchange=e=>{settings.pasteAsk=e.target.checked;saveMeta();};
 function renderUserRepl(){
@@ -2671,7 +2634,14 @@ function applySplit(on,quiet){
   $('splitHandle').style.display=splitOn?'flex':'none';
   $('splitBtn').classList.toggle('active',splitOn);
   if(splitOn){setActivePane(1);if(!quiet)toast('분할 화면을 클릭한 뒤 바인더에서 문서를 선택하세요');}
-  else{$('paneEl0').style.flex='';setActivePane(0);}
+  else{
+    // 무조건 왼쪽이 남는 게 아니라, 커서가 있던(마지막으로 활성이던) 쪽을 남긴다
+    if(activePane===1){
+      if($('ed1').isContentEditable)syncNow(1);
+      const tmp=panes[0];panes[0]=panes[1];panes[1]=tmp;
+    }
+    $('paneEl0').style.flex='';setActivePane(0);
+  }
   renderAllPanes();
 }
 $('splitBtn').onclick=()=>{applySplit(!splitOn);scheduleSession();};
