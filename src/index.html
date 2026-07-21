@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.1</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.2</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -986,7 +986,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.1";
+const APP_VERSION="beta 2.0.2";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -2017,18 +2017,10 @@ async function loadLocalFonts(){
 $('tbFont').onchange=async e=>{
   if(e.target.value==='__local'){e.target.value=settings.font;await loadLocalFonts();return;}
   const fam=e.target.value;
-  const ed=$('ed'+activePane),sel=getSelection();
-  // 툴바 글꼴은 '선택한 부분'에만 적용 — 전체 글꼴은 바뀌지 않는다(환경설정에서 기본 글꼴 관리).
-  if(sel&&!sel.isCollapsed&&ed.contains(sel.anchorNode)){
-    ed.focus();
-    try{document.execCommand('styleWithCSS',false,true);}catch{}
-    document.execCommand('fontName',false,fam);
-    syncNow(activePane);
-    toast('선택한 부분의 글꼴을 바꿨어요');
-  }else{
-    toast('바꿀 부분을 먼저 블록으로 선택하세요');
-  }
-  e.target.value=settings.font;   // 드롭다운은 기본 글꼴 표시로 복귀
+  // 툴바 글꼴은 에디터 전체 글꼴을 바꾼다 (부분 글꼴 지정 기능은 없음)
+  settings.font=fam;
+  rebuildFontSelect();applyEditorStyle();saveMeta();
+  toast('에디터 글꼴을 바꿨어요');
 };
 $('tbSize').onchange=async e=>{
   if(e.target.value==='__custom'){
@@ -3095,8 +3087,7 @@ function makeDocx(items,o){
           +(r.sup?'<w:vertAlign w:val="superscript"/>':'')+(r.sub?'<w:vertAlign w:val="subscript"/>':'')
           +(r.color?'<w:color w:val="'+r.color+'"/>':'')
           +(r.bg?'<w:shd w:val="clear" w:color="auto" w:fill="'+r.bg+'"/>':'')
-          +(r.px?'<w:sz w:val="'+Math.round(r.px*1.5)+'"/>':'')
-          +(r.font?'<w:rFonts w:ascii="'+xmlEsc(r.font)+'" w:eastAsia="'+xmlEsc(r.font)+'" w:hAnsi="'+xmlEsc(r.font)+'"/>':'');
+          +(r.px?'<w:sz w:val="'+Math.round(r.px*1.5)+'"/>':'');
         return '<w:r>'+(rpr?'<w:rPr>'+rpr+'</w:rPr>':'')+'<w:t xml:space="preserve">'+xmlEsc(r.text)+'</w:t></w:r>';
       }).join('')||'<w:r><w:t xml:space="preserve">'+xmlEsc(it.text)+'</w:t></w:r>';
     }else{
@@ -3316,7 +3307,6 @@ function runsToInline(runs){
     if(deco)st+='text-decoration:'+deco.trim()+';';
     if(r.color)st+='color:#'+r.color+';';
     if(r.bg)st+='background-color:#'+r.bg+';';
-    if(r.font)st+="font-family:'"+r.font.replace(/'/g,'')+"';";
     if(r.px)st+='font-size:'+r.px+'px;';
     if(r.sup)st+='vertical-align:super;font-size:.8em;';
     if(r.sub)st+='vertical-align:sub;font-size:.8em;';
@@ -3433,7 +3423,7 @@ function makeHwpx(items,title,o){
   function fontId(name){if(!name||name==='함초롬바탕')return 0;if(fontMap.has(name))return fontMap.get(name);const id=nextFontId++;fontMap.set(name,id);return id;}
   let nextCharId=1;const charMap=new Map();const charDefs=[];
   function charId(r){
-    const fid=fontId(r.font);
+    const fid=0; // 폰트 종류는 내보내지 않음 — 항상 기본 글꼴 사용
     const key=[!!r.b,!!r.i,!!r.u,!!r.st,r.color||'',r.bg||'',r.px||'',!!r.sup,!!r.sub,fid].join('|');
     if(charMap.has(key))return charMap.get(key);
     const id=nextCharId++;charMap.set(key,id);
