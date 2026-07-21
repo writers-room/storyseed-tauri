@@ -1,0 +1,59 @@
+name: 스토리시드 설치 파일 만들기 (mac + windows)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            label: mac
+            args: "--target universal-apple-darwin --bundles dmg"
+            rust_targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+          - platform: windows-latest
+            label: windows
+            args: "--bundles nsis"
+            rust_targets: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust 설치
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - name: 의존성 설치
+        run: npm install
+
+      - name: 앱 아이콘 생성
+        run: npx tauri icon app-icon.png
+
+      - name: 빌드
+        run: npm run build -- ${{ matrix.args }}
+
+      - name: 설치 파일 업로드 (mac · Intel+Apple Silicon 겸용)
+        if: matrix.label == 'mac'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 스토리시드-mac
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+
+      - name: 설치 파일 업로드 (windows exe)
+        if: matrix.label == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 스토리시드-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe

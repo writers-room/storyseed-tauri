@@ -1,0 +1,60 @@
+name: 스토리시드 릴리스 (자동 업데이트)
+
+# 태그(v2.0.0 등)를 push하면 실행됩니다.
+#   git tag v2.0.0 && git push origin v2.0.0
+# tauri-action이 mac/windows 설치본과 함께 자동 업데이트용 latest.json(서명 포함)을
+# GitHub Release에 올려줍니다. 앱은 이 latest.json을 보고 새 버전을 감지합니다.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+            rust_targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+          - platform: windows-latest
+            args: ""
+            rust_targets: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust 설치
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - name: 의존성 설치
+        run: npm install
+
+      - name: 앱 아이콘 생성
+        run: npx tauri icon app-icon.png
+
+      - name: 빌드 + 릴리스 + latest.json 생성
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 아래 두 개는 저장소 Settings → Secrets에 등록해야 합니다(자동 업데이트 서명).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "스토리시드 ${{ github.ref_name }}"
+          releaseBody: "이번 버전의 변경 사항을 여기에 적어주세요. (자동 업데이트 지원)"
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
