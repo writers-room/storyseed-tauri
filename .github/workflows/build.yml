@@ -40,6 +40,9 @@ jobs:
         run: npx tauri icon app-icon.png
 
       - name: 빌드
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run build -- ${{ matrix.args }}
 
       - name: 설치 파일 업로드 (mac · Intel+Apple Silicon 겸용)
