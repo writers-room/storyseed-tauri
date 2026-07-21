@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.2</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.1</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -986,7 +986,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.2";
+const APP_VERSION="beta 2.0.1";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1075,11 +1075,26 @@ let autoDetectedProject=null;
 async function openLibrary(mode){
   let p=null;autoDetectedProject=null;
   if(mode==='last')p=localStorage.getItem('lastLib');
+  else if(mode==='new'){
+    // 새 프로젝트: 위치를 고르면 그 안에 새 폴더를 만들어 프로젝트로 시작한다(빈 폴더를 직접 찾지 않아도 됨)
+    let parent;
+    try{parent=await DLG.open({directory:true,title:'새 프로젝트를 만들 위치를 선택하세요'});}
+    catch(e){welcomeError('폴더 선택 중 오류: '+e);return;}
+    if(!parent)return;
+    const nm=await modal('새 프로젝트 폴더 이름을 지어주세요','새 프로젝트 만들기');
+    if(!nm)return;
+    const newPath=parent.replace(/[\\/]+$/,'')+'/'+nm;
+    try{
+      if(await FS.exists(newPath)){welcomeError('『'+nm+'』 폴더가 이미 있어요. 다른 이름으로 다시 시도해 주세요.');return;}
+      await FS.mkdir(newPath,{recursive:true});
+    }catch(e){welcomeError('폴더를 만드는 중 오류가 발생했어요: '+(e&&e.message?e.message:e));return;}
+    p=newPath;
+  }
   else{try{p=await DLG.open({directory:true,title:'프로젝트 폴더를 선택하세요'});}
     catch(e){welcomeError('폴더 선택 중 오류: '+e);return;}}
   if(!p)return;
-  // 하위 폴더를 골랐다면 상위 프로젝트를 찾아 안내
-  if(mode!=='last'){
+  // 하위 폴더를 골랐다면 상위 프로젝트를 찾아 안내(새로 만든 폴더는 검사할 필요 없음)
+  if(mode!=='last'&&mode!=='new'){
     try{
       const norm=p.replace(/[\\/]+$/,'');
       const parts=norm.split(/[\\/]/);
