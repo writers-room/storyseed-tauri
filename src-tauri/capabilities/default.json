@@ -12,7 +12,15 @@
     "dialog:allow-save",
     "opener:default",
     "opener:allow-reveal-item-in-dir",
-    "opener:allow-open-path",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "**" },
+        { "path": "**/*" },
+        { "path": "**/.*" },
+        { "path": "**/.*/**" }
+      ]
+    },
     "updater:default",
     "process:default",
     "process:allow-restart",
