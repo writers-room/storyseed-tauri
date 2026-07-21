@@ -11,7 +11,7 @@
       "endpoints": [
         "https://github.com/writers-room/storyseed-tauri/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVCNUM3NDdCMzkxQTlCMDIKUldRQ214bzVlM1JjVzNZSFFYVGg2ZWJyMnlPZEovQ1dxbitSenFRM2t4T2l5R3RnSGVUZVEyTTUK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE2MTk4QUFBNzY4RDQ4RUUKUldUdVNJMTJxb29acHAzWFpsMHpjY1lXaGFwcHcrUGUzcGVreGgyVkJHREJRVlU0ZXo0Wmo2eUkK"
     }
   },
   "app": {
