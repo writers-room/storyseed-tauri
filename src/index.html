@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.4</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.5</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -978,7 +978,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.4";
+const APP_VERSION="beta 2.0.5";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1099,6 +1099,8 @@ async function openLibrary(mode){
       if(found){p=found;autoDetectedProject=found;}   // 묻지 않고 자동으로 상위 프로젝트를 연다
     }catch{}
   }
+  // 다른 프로젝트를 열기 전에, 이전 프로젝트의 디바운스 중이던 설정·세션 저장을 먼저 끝낸다
+  if(seojaePath){try{await saveAll();}catch{}try{await flushMetaAndSessionNow();}catch{}}
   try{
     rootPath=p;
     curWork=null;works=[];treeData=[];selectedFolder=null;
@@ -1876,6 +1878,33 @@ async function snapshotIfDue(t,force){
 }
 addEventListener('beforeunload',()=>{saveAll();});
 setInterval(saveAll,60*1000); // 1분 안전망
+// 즉시(디바운스 없이) 세팅·세션을 디스크에 쓴다 — 앱 종료 직전에 쓰는 최종 저장용
+async function flushMetaAndSessionNow(){
+  if(!seojaePath)return;
+  clearTimeout(metaTimer);clearTimeout(sessionTimer);
+  try{
+    await writeFile(seojaePath+'/stats.json',JSON.stringify(stats));
+    await writeFile(seojaePath+'/settings.json',JSON.stringify(settings));
+  }catch{}
+  try{
+    if(typeof captureSession==='function')captureSession();   // sessions 객체를 최신 상태로 갱신
+    await writeFile(seojaePath+'/session.json',JSON.stringify(sessions));
+  }catch{}
+}
+// 창을 닫을 때 beforeunload는 비동기 저장을 기다려주지 않아 저장이 씹힐 수 있다.
+// Tauri의 실제 창 닫기 요청 이벤트를 가로채, 저장이 끝난 뒤에 창을 닫는다.
+let appClosing=false;
+if(T&&T.window&&T.window.getCurrentWindow){
+  const appWin=T.window.getCurrentWindow();
+  appWin.onCloseRequested(async(ev)=>{
+    if(appClosing)return;   // 저장 완료 후 스스로 닫을 때는 그대로 진행
+    ev.preventDefault();
+    try{await saveAll();}catch{}
+    try{await flushMetaAndSessionNow();}catch{}
+    appClosing=true;
+    try{await appWin.destroy();}catch{try{await appWin.close();}catch{}}
+  });
+}
 
 /* ═══════════ 서식 툴바 ═══════════ */
 document.querySelectorAll('.tb-btn').forEach(b=>{
@@ -2627,15 +2656,23 @@ document.querySelectorAll('.resize-handle').forEach(h=>h.addEventListener('mouse
     scheduleSession();
     removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
   addEventListener('mousemove',move);addEventListener('mouseup',up);}));
+let lastSplitPane=1;   // 직전에 분할 해제할 때 활성이던 쪽 — 다시 분할하면 그 자리로 복원
 function applySplit(on,quiet){
   splitOn=on;
   document.body.classList.toggle('split',splitOn);
   $('paneEl1').style.display=splitOn?'flex':'none';
   $('splitHandle').style.display=splitOn?'flex':'none';
   $('splitBtn').classList.toggle('active',splitOn);
-  if(splitOn){setActivePane(1);if(!quiet)toast('분할 화면을 클릭한 뒤 바인더에서 문서를 선택하세요');}
-  else{
+  if(splitOn){
+    if(lastSplitPane===1){
+      // 분할 해제 때 오른쪽→왼쪽으로 옮겨뒀던 내용을 다시 오른쪽으로 되돌린다
+      const tmp=panes[0];panes[0]=panes[1];panes[1]=tmp;
+    }
+    setActivePane(lastSplitPane);
+    if(!quiet)toast('분할 화면을 클릭한 뒤 바인더에서 문서를 선택하세요');
+  }else{
     // 무조건 왼쪽이 남는 게 아니라, 커서가 있던(마지막으로 활성이던) 쪽을 남긴다
+    lastSplitPane=activePane;
     if(activePane===1){
       if($('ed1').isContentEditable)syncNow(1);
       const tmp=panes[0];panes[0]=panes[1];panes[1]=tmp;
@@ -3448,7 +3485,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.1"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.5"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
