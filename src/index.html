@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.5</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.6</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -978,7 +978,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.5";
+const APP_VERSION="beta 2.0.6";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1893,17 +1893,29 @@ async function flushMetaAndSessionNow(){
 }
 // 창을 닫을 때 beforeunload는 비동기 저장을 기다려주지 않아 저장이 씹힐 수 있다.
 // Tauri의 실제 창 닫기 요청 이벤트를 가로채, 저장이 끝난 뒤에 창을 닫는다.
+// 단, 저장 작업이 무슨 이유로든 멈춰버려도(디스크 지연 등) 창은 절대 먹통이 되지 않도록
+// 최대 대기시간(타임아웃)을 두고, finally에서 반드시 창을 닫는다.
+function timeout(ms){return new Promise(res=>setTimeout(res,ms));}
 let appClosing=false;
 if(T&&T.window&&T.window.getCurrentWindow){
-  const appWin=T.window.getCurrentWindow();
-  appWin.onCloseRequested(async(ev)=>{
-    if(appClosing)return;   // 저장 완료 후 스스로 닫을 때는 그대로 진행
-    ev.preventDefault();
-    try{await saveAll();}catch{}
-    try{await flushMetaAndSessionNow();}catch{}
-    appClosing=true;
-    try{await appWin.destroy();}catch{try{await appWin.close();}catch{}}
-  });
+  let appWin;
+  try{appWin=T.window.getCurrentWindow();}catch{appWin=null;}
+  if(appWin){
+    appWin.onCloseRequested(async(ev)=>{
+      if(appClosing)return;   // 저장 완료 후 스스로 닫을 때는 그대로 진행
+      try{ev.preventDefault();}catch{}
+      try{
+        await Promise.race([
+          (async()=>{try{await saveAll();}catch{} try{await flushMetaAndSessionNow();}catch{}})(),
+          timeout(3000)   // 저장이 3초 안에 안 끝나도 그냥 넘어간다(멈춤 방지)
+        ]);
+      }catch{}
+      appClosing=true;
+      try{await appWin.destroy();}
+      catch{try{await appWin.close();}
+        catch{try{location.reload();}catch{}}}   // 최후 수단: 그래도 실패하면 강제로라도 반응하게
+    });
+  }
 }
 
 /* ═══════════ 서식 툴바 ═══════════ */
@@ -3485,7 +3497,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.5"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.6"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
