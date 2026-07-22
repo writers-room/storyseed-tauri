@@ -1913,7 +1913,9 @@ if(T&&T.window&&T.window.getCurrentWindow){
       appClosing=true;
       try{await appWin.destroy();}
       catch{try{await appWin.close();}
-        catch{try{location.reload();}catch{}}}   // 최후 수단: 그래도 실패하면 강제로라도 반응하게
+        catch{try{if(T.process&&T.process.exit)await T.process.exit(0);}catch{}}}
+        // (location.reload()는 쓰지 않는다 — 창은 그대로 남은 채 화면만 새로고침돼
+        //  "프로젝트만 닫히고 앱은 안 닫히는" 것처럼 보이는 원인이었음)
     });
   }
 }
