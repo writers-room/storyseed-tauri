@@ -3096,7 +3096,7 @@ dependencies = [
 
 [[package]]
 name = "seojae"
-version = "2.0.8"
+version = "2.0.9"
 dependencies = [
  "serde",
  "serde_json",

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.8</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.9</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -44,7 +44,33 @@
   .wm-item:hover{background:var(--sage-100);}
   .wm-item.on{background:var(--sage-150);color:var(--ink);font-weight:600;}
   .wm-new{border-top:1px solid var(--sage-150);margin-top:4px;padding-top:8px;color:var(--sage-600);}
-  .topbar .spacer{flex:1;}
+  .topbar .spacer{flex:1;min-width:0;}
+  .topbar>*{flex-shrink:0;white-space:nowrap;}
+  /* 1단계: 작업량 글자수부터 접는다(없어도 글쓰기에 지장이 없는 정보). */
+  .topbar.tbfit1 #workStat{display:none!important;}
+  /* 2단계: '스토리시드. beta' 로고를 접는다(앱을 켠 사람은 이미 무슨 앱인지 안다). */
+  .topbar.tbfit2 .logo,.topbar.tbfit2 .top-divider{display:none!important;}
+  /* 3단계: 작품명을 남는 만큼만 보여주고 말줄임표를 붙인다. 실제로 넘치는 양은 보통 수십 px이라
+     이 단계에서 대부분 해결된다. 다만 flex-shrink:0을 예외적으로 풀어야 줄어들 수 있고,
+     min-width로 하한을 두지 않으면 한 글자까지 뭉개져 4단계와 다를 게 없어진다. */
+  .topbar.tbfit3 .work-switcher{flex-shrink:1;min-width:0;}
+  .topbar.tbfit3 .work-switcher b{flex-shrink:1;min-width:4.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 4단계: 작품명을 완전히 접고 📚와 ▾만 남긴다. 눌러서 작품을 바꾸는 기능은 끝까지 살아 있다. */
+  .topbar.tbfit4 .work-switcher b{display:none;}
+  .topbar.tbfit4 .work-switcher{gap:4px;padding:5px 8px;}
+  /* 5단계: 아이콘 세 개를 지우는 대신 ⋯ 하나로 합친다. 정보는 감춰도 되지만 기능으로 가는 길은
+     끊으면 안 되기 때문. 세 개(약 100px)가 하나(30px)로 줄어 절약 폭도 가장 크다. */
+  .tb-more{position:relative;display:none;}
+  .topbar.tbfit5 .tb-more{display:block;}
+  .topbar.tbfit5 #tbToggle,.topbar.tbfit5 #focusBtn,.topbar.tbfit5 #darkBtn{display:none;}
+  .tb-more-menu{display:none;position:absolute;top:34px;right:0;min-width:150px;z-index:100;
+    background:var(--paper);border:1px solid var(--sage-200);border-radius:10px;
+    box-shadow:0 6px 20px rgba(0,0,0,.15);padding:5px;}
+  .tb-more-menu.open{display:block;}
+  .tbm-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;
+    font-size:13px;color:var(--ink-soft);cursor:pointer;white-space:nowrap;}
+  .tbm-item:hover{background:var(--sage-100);}
+  .tbm-item>span:first-child{width:16px;text-align:center;color:var(--ink-faint);}
   .stat-chip{font-size:12px;color:var(--ink-faint);background:var(--paper);
     border:1px solid var(--sage-200);border-radius:20px;padding:4px 12px;}
   .stat-chip b{color:var(--sage-600);}
@@ -129,8 +155,7 @@
   .seg button.on{background:var(--paper);color:var(--sage-700);box-shadow:0 1px 2px rgba(0,0,0,.06);}
   .tr-edit{flex:1;border:none;outline:none;resize:none;background:transparent;
     padding:8px 14px 20px;font-size:13px;line-height:1.8;color:var(--ink-soft);font-family:inherit;}
-  /* ── 에디터 영역 ── */
-  .editor-area{flex:1;background:var(--sage-100);display:flex;flex-direction:column;min-width:280px;}
+  .editor-area{flex:1;background:var(--sage-100);display:flex;flex-direction:column;min-width:200px;}
   .toolbar{position:relative;height:36px;display:flex;align-items:center;gap:4px;padding:0 12px;flex-shrink:0;
     border-bottom:1px solid var(--sage-200);background:var(--sage-150);overflow-x:auto;}
   body.no-toolbar .toolbar{display:none;}
@@ -187,8 +212,9 @@
   /* 붙여넣기 등으로 글꼴이 개별 지정된 텍스트가 섞여 있어도, 에디터에는 항상 선택한 글꼴 하나만 표시되게 강제 */
   .ed,.ed *{font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif) !important;}
   .ed div,.ed p{margin-bottom:var(--ed-para,0px);min-height:1em;}
-  .ed{text-justify:inter-character;}
-  .ed [style*="justify"],.ed.alljustify,.ed.alljustify div,.ed.alljustify p{text-align:justify;text-justify:inter-character;text-align-last:left;}
+  .ed [style*="justify"],.ed.alljustify,.ed.alljustify div,.ed.alljustify p{
+    text-align:justify;text-justify:auto;text-align-last:left;
+    word-break:normal;line-break:auto;overflow-wrap:normal;}
   /* .ed 컨테이너 자체에도 적용해야 <div>로 감싸이지 않은 '첫 줄'까지 들여쓰기가 된다 */
   body.indent .ed,body.indent .ed div,body.indent .ed p{text-indent:1em;}
   .ed:empty::before{content:attr(data-ph);color:var(--ink-faint);}
@@ -276,7 +302,8 @@
   .welcome .hint{font-size:11px;color:var(--ink-faint);margin-top:14px;}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:300;display:none;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
-  .modal{background:var(--paper);border-radius:14px;padding:22px;min-width:320px;box-shadow:0 10px 40px rgba(0,0,0,.2);}
+  .modal{background:var(--paper);border-radius:14px;padding:22px;min-width:min(320px,92vw);
+    max-width:94vw;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.2);}
   .modal h3{font-size:14px;margin-bottom:12px;color:var(--ink);}
   .modal input[type=text]{width:100%;border:1px solid var(--sage-200);border-radius:8px;padding:9px 12px;
     font-size:13px;margin-bottom:14px;background:var(--sage-50);color:var(--ink);outline:none;}
@@ -311,8 +338,19 @@
   .ur-row .del{margin-left:auto;cursor:pointer;opacity:.5;font-size:11px;}
   .ur-row .del:hover{opacity:1;}
   .theme-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0 4px;}
-  .theme-sw{height:40px;border-radius:9px;cursor:pointer;border:2px solid transparent;position:relative;overflow:hidden;}
+  .theme-sw{height:50px;border-radius:9px;cursor:pointer;border:2px solid transparent;position:relative;overflow:hidden;}
   .theme-sw.on{border-color:var(--ink);}
+  .theme-sw .tsw-page{position:absolute;left:5px;top:5px;right:5px;bottom:14px;border-radius:4px;
+    padding:0 6px;display:flex;flex-direction:column;gap:3px;justify-content:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.16);}
+  .theme-sw .tsw-page i{display:block;height:2px;border-radius:1px;opacity:.8;}
+  .theme-sw .tsw-page i:nth-child(1){width:88%;}
+  .theme-sw .tsw-page i:nth-child(2){width:96%;}
+  .theme-sw .tsw-page i:nth-child(3){width:52%;}
+  .theme-sw .tsw-dot{position:absolute;right:8px;top:8px;width:6px;height:6px;border-radius:50%;
+    box-shadow:0 0 0 1.5px rgba(255,255,255,.35);}
+  /* 어두운 테마는 '누르면 다크 모드로 바뀐다'를 클릭 전에 알려준다. */
+  .theme-sw .tsw-moon{position:absolute;left:7px;top:5px;font-size:10px;line-height:1;opacity:.85;}
   .theme-sw .nm{position:absolute;left:0;right:0;bottom:0;font-size:9px;text-align:center;padding:1px 0;
     background:rgba(0,0,0,.28);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .set-row input[type=number]{width:52px;border:1px solid var(--sage-200);border-radius:6px;padding:3px 6px;
@@ -570,6 +608,14 @@
   <button class="icon-btn" id="tbToggle" title="서식 툴바 보이기/숨기기">Aa</button>
   <button class="icon-btn" id="focusBtn" title="집중 모드">◐</button>
   <button class="icon-btn" id="darkBtn" title="다크 모드">☾</button>
+  <div class="tb-more" id="tbMoreWrap">
+    <button class="icon-btn" id="tbMore" title="더 보기">⋯</button>
+    <div class="tb-more-menu" id="tbMoreMenu">
+      <div class="tbm-item" data-act="tbToggle"><span>Aa</span> 서식 툴바</div>
+      <div class="tbm-item" data-act="focusBtn"><span>◐</span> 집중 모드</div>
+      <div class="tbm-item" data-act="darkBtn"><span id="tbmDarkIcon">☾</span> <span id="tbmDarkLabel">다크 모드</span></div>
+    </div>
+  </div>
 
 </div>
 
@@ -659,7 +705,7 @@
         <button class="tb-btn tb-color-btn" id="tbColorBtn" title="글자 색">가<span class="tb-color-bar" id="tbColorBar"></span></button>
         <div class="color-pop" id="colorPop">
           <div class="cp-row"><input type="color" id="tbColor" value="#c9a86a"><span style="font-size:11px;color:var(--ink-faint)">색을 고르거나 아래에서 선택</span></div>
-          <div class="cp-row"><button class="ur-add" id="cpDefaultBtn" title="글자 색을 검정(#000000)으로">기본값(검정)</button></div>
+          <div class="cp-row"><button class="ur-add" id="cpDefaultBtn" title="색상 서식을 제거해 기본 글자색으로 되돌립니다">기본값(색상 없음)</button></div>
           <div class="cp-sec">최근 사용</div><div class="cp-grid" id="cpRecent"></div>
           <div class="cp-sec">즐겨찾기 <span class="cp-hint">빈칸=현재색 저장 · 우클릭=삭제</span></div><div class="cp-grid" id="cpFav"></div>
         </div>
@@ -826,9 +872,9 @@
           <div class="set-row">프로그램 배율 (화면이 잘려 보일 때) <select id="setUiScale">
             <option value="80">80%</option><option value="90">90%</option><option value="100">100%</option>
             <option value="110">110%</option><option value="125">125%</option><option value="150">150%</option></select></div>
-          <div class="set-row">오늘 작업량 표시 <input type="checkbox" id="setShowWork"></div>
-          <div class="set-row" style="padding-left:14px">　ㄴ 작성 글자수 <input type="checkbox" id="setShowWritten"></div>
-          <div class="set-row" style="padding-left:14px">　ㄴ 지운 글자수 <input type="checkbox" id="setShowDeleted"></div>
+          <div class="set-row" style="border:none;padding-bottom:0;color:var(--ink-faint);font-size:12px">오늘 작업량 표시 (하나라도 켜면 표시돼요)</div>
+          <div class="set-row">작성 글자수 <input type="checkbox" id="setShowWritten"></div>
+          <div class="set-row">지운 글자수 <input type="checkbox" id="setShowDeleted"></div>
         </div>
         <div class="prefs-cat" data-cat="fonts" style="display:none">
           <div style="font-size:12px;color:var(--ink-faint);margin-bottom:6px">영역별 기본 글꼴</div>
@@ -872,7 +918,7 @@
             <option value="10">10분</option><option value="30">30분</option><option value="60">60분</option></select></div>
         </div>
         <div class="prefs-cat" data-cat="theme" style="display:none">
-          <div style="font-size:12px;color:var(--ink-faint);margin-bottom:4px">눈이 편안한 색 10종</div>
+          <div style="font-size:12px;color:var(--ink-faint);margin-bottom:4px">색 20종 · 어두운 테마(미드나잇~다크코코아)는 고르면 다크 모드로 전환돼요</div>
           <div class="theme-grid" id="themeGrid"></div>
         </div>
         <div class="prefs-cat" data-cat="about" style="display:none">
@@ -1014,7 +1060,7 @@ function defaultSettings(){
     toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
     autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',
     replaceDash:true,quotePair:false,pasteAsk:true,
-    uiScale:100,showWork:true,showWritten:true,showDeleted:false,
+    uiScale:100,showWritten:true,showDeleted:false,
     pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
     fontSyn:'',fontNote:'',fontMemo:'',
     userRepl:[['->','→'],['<-','←']],
@@ -1060,7 +1106,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.8";
+const APP_VERSION="beta 2.0.9";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1187,7 +1233,7 @@ async function openLibrary(mode){
     rootPath=p;
     curWork=null;works=[];treeData=[];selectedFolder=null;
     panes.forEach(pn=>{pn.tabs=[];pn.tab=null;});activePane=0;
-    workTreatment='';$('workName').textContent='작품 없음';$('tree').innerHTML='';
+    workTreatment='';$('workName').textContent='작품 없음';fitTopbar();$('tree').innerHTML='';
     seojaePath=rootPath+'/.서재';snapsPath=seojaePath+'/snapshots';trashPath=seojaePath+'/휴지통';
     await FS.mkdir(snapsPath,{recursive:true});
     await FS.mkdir(trashPath,{recursive:true});
@@ -1261,7 +1307,7 @@ function renderWorkMenu(){
 }
 async function loadWork(w){
   await saveAll();
-  curWork=w;$('workName').textContent=w.disp||w.name;selectedFolder=null;
+  curWork=w;$('workName').textContent=w.disp||w.name;fitTopbar();selectedFolder=null;
   settings.lastWork=w.name;saveMeta();   // 다음에 켤 때도 마지막 작품이 열리도록 기억
   panes.forEach(p=>{p.tabs=[];p.tab=null;});activePane=0;
   try{workTreatment=await readFile(w.path+'/treatment.md');}catch{workTreatment='';}
@@ -2164,7 +2210,9 @@ function autoReplaceCE(){
 }
 function updateTodayChip(){const s=dayStat();
   $('todayChars').textContent=settings.showWritten!==false?('작성 '+fmt(s.w)+'자'):'';
-  $('todayDel').textContent=(settings.showDeleted===true&&s.d)?'· 지우기 '+fmt(s.d)+'자':'';}
+  const wOn=settings.showWritten!==false;
+  $('todayDel').textContent=(settings.showDeleted===true&&s.d)?((wOn?'· ':'')+'지우기 '+fmt(s.d)+'자'):'';
+  if(typeof fitTopbar==='function')fitTopbar();}
 
 /* ═══════════ 저장·스냅샷 ═══════════ */
 async function saveTab(t){
@@ -2311,7 +2359,30 @@ $('tbColorBtn').addEventListener('click',e=>{e.stopPropagation();
   }});
 $('tbColor').addEventListener('input',e=>applyColor(e.target.value));
 $('cpDefaultBtn').addEventListener('mousedown',e=>e.preventDefault());
-$('cpDefaultBtn').addEventListener('click',()=>applyColor('#000000'));   // 8번: 글자 색 기본값(검정)으로 되돌리기
+const COLOR_SENTINEL='#010203';
+function clearTextColor(){
+  const ed=$('ed'+activePane);
+  ed.focus();restoreSel();
+  document.execCommand('styleWithCSS',false,true);
+  document.execCommand('foreColor',false,COLOR_SENTINEL);
+  ed.querySelectorAll('font[color],[style*="color"]').forEach(el=>{
+    const c=(el.getAttribute('color')||el.style.color||'').replace(/\s/g,'').toLowerCase();
+    const isSentinel=(c==='#010203'||c==='rgb(1,2,3)');
+    if(!isSentinel)return;
+    el.removeAttribute('color');
+    el.style.removeProperty('color');
+    if(!el.getAttribute('style'))el.removeAttribute('style');
+    // 색 지정만 남아 있던 껍데기 태그면 통째로 벗겨서 불필요한 마크업이 쌓이지 않게 한다.
+    if((el.tagName==='FONT'||el.tagName==='SPAN')&&el.attributes.length===0){
+      const p=el.parentNode;while(el.firstChild)p.insertBefore(el.firstChild,el);p.removeChild(el);
+    }
+  });
+  ed.normalize();
+  const t=panes[activePane].tab;if(t){t.body=ed.innerHTML;t.dirty=true;
+    clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());}
+  toast('글자 색상 서식을 지웠어요');
+}
+$('cpDefaultBtn').addEventListener('click',clearTextColor);
 $('colorPop').addEventListener('mousedown',e=>{if(e.target.id!=='tbColor')e.preventDefault();});
 addEventListener('click',e=>{if(!e.target.closest('.tb-colorwrap'))$('colorPop').classList.remove('open');});
 // customFonts는 문자열(구버전) 또는 {css,label}(신버전) 혼용 → {css,label}로 정규화
@@ -2870,7 +2941,6 @@ function applySettings(){
   $('setPasteFormat').value=settings.pasteFormat||'plain';
   $('setPasteAsk').checked=settings.pasteAsk!==false;
   $('setUiScale').value=String(settings.uiScale||100);
-  $('setShowWork').checked=settings.showWork!==false;
   $('setShowWritten').checked=settings.showWritten!==false;
   $('setShowDeleted').checked=settings.showDeleted===true;
   applyUiScale();applyWorkVisibility();
@@ -2890,7 +2960,7 @@ function applySettings(){
   if(settings.freeH)$('freeArea').style.height=settings.freeH;
   if(settings.freeSize)$('freeTa').style.fontSize=settings.freeSize+'px';
 }
-/* ═══════════ 테마 (눈이 편안한 색 10종) ═══════════ */
+/* ═══════════ 테마 (기본 10 + 다크 5 + 파스텔 5 = 20종) ═══════════ */
 const THEMES=[
  {id:'sage',name:'세이지',v:{'--sage-50':'#f6f8f3','--sage-100':'#eef2e9','--sage-150':'#e4eadd','--sage-200':'#d5decb','--sage-300':'#b9c7a9','--sage-400':'#9cb086','--sage-500':'#7f9668','--sage-600':'#65794f','--sage-700':'#4f6040','--ink':'#333c2e','--ink-soft':'#5c6653','--ink-faint':'#8a927f','--paper':'#fbfcf9','--accent':'#c9a86a'}},
  {id:'mist',name:'미스트',v:{'--sage-50':'#f4f7f8','--sage-100':'#eaf0f2','--sage-150':'#dfe8ec','--sage-200':'#ccdadf','--sage-300':'#aac2ca','--sage-400':'#88a6b0','--sage-500':'#6b8b96','--sage-600':'#526e79','--sage-700':'#3f5760','--ink':'#2e3b40','--ink-soft':'#526069','--ink-faint':'#84959c','--paper':'#fafcfd','--accent':'#c99f74'}},
@@ -2901,13 +2971,34 @@ const THEMES=[
  {id:'mint',name:'민트',v:{'--sage-50':'#f2f8f5','--sage-100':'#e7f1ec','--sage-150':'#dbe9e2','--sage-200':'#c3dbd0','--sage-300':'#9fc4b3','--sage-400':'#7cac96','--sage-500':'#5f907b','--sage-600':'#487261','--sage-700':'#37584b','--ink':'#2c3a33','--ink-soft':'#4e6459','--ink-faint':'#83988e','--paper':'#f9fdfb','--accent':'#c99f74'}},
  {id:'peach',name:'피치',v:{'--sage-50':'#fbf6f1','--sage-100':'#f6ece3','--sage-150':'#f0e1d3','--sage-200':'#e8ceb8','--sage-300':'#d7ac8c','--sage-400':'#c68e69','--sage-500':'#ac7150','--sage-600':'#8a5a3f','--sage-700':'#6b4631','--ink':'#3e332a','--ink-soft':'#635347','--ink-faint':'#9a8776','--paper':'#fefaf6','--accent':'#8a9a6b'}},
  {id:'slate',name:'슬레이트',v:{'--sage-50':'#f4f6f8','--sage-100':'#e9edf1','--sage-150':'#dee4ea','--sage-200':'#cbd4dd','--sage-300':'#a8b6c4','--sage-400':'#8598ab','--sage-500':'#697d92','--sage-600':'#516474','--sage-700':'#3e4d5a','--ink':'#2d363f','--ink-soft':'#4f5d69','--ink-faint':'#82909c','--paper':'#fafcfd','--accent':'#c7a06f'}},
- {id:'sepia',name:'세피아',v:{'--sage-50':'#f9f5ee','--sage-100':'#f1ebdf','--sage-150':'#e9e0cf','--sage-200':'#dccdb2','--sage-300':'#c6ac84','--sage-400':'#b08f60','--sage-500':'#95744a','--sage-600':'#775c39','--sage-700':'#5c472b','--ink':'#3b3121','--ink-soft':'#5e503a','--ink-faint':'#94856c','--paper':'#fdfaf3','--accent':'#7f9061'}}
+ {id:'sepia',name:'세피아',v:{'--sage-50':'#f9f5ee','--sage-100':'#f1ebdf','--sage-150':'#e9e0cf','--sage-200':'#dccdb2','--sage-300':'#c6ac84','--sage-400':'#b08f60','--sage-500':'#95744a','--sage-600':'#775c39','--sage-700':'#5c472b','--ink':'#3b3121','--ink-soft':'#5e503a','--ink-faint':'#94856c','--paper':'#fdfaf3','--accent':'#7f9061'}},
+ {id:'midnight',name:'미드나잇',dark:true,
+  v:{'--sage-50':'#f5f6f9','--sage-100':'#eceef4','--sage-150':'#e1e5ee','--sage-200':'#ccd3e1','--sage-300':'#a9b4c8','--sage-400':'#8794ad','--sage-500':'#6b7992','--sage-600':'#535f75','--sage-700':'#404a5c','--ink':'#2c333f','--ink-soft':'#4e5768','--ink-faint':'#818b9c','--paper':'#fbfcfe','--accent':'#c9a86a'},
+  dv:{'--sage-50':'#232833','--sage-100':'#1d212b','--sage-150':'#272d38','--sage-200':'#333b48','--sage-300':'#434d5d','--sage-400':'#5d6a7e','--sage-500':'#7b8ba0','--sage-600':'#9aa9bd','--sage-700':'#bccada','--ink':'#dde3ec','--ink-soft':'#b3bcc9','--ink-faint':'#798494','--paper':'#232a35','--accent':'#c9a86a','--postit':'#2e3140','--postit-border':'#3d4152','--postit-ink':'#cfd6e4'}},
+ {id:'charcoal',name:'차콜',dark:true,
+  v:{'--sage-50':'#f7f7f7','--sage-100':'#efefef','--sage-150':'#e6e6e6','--sage-200':'#d5d5d5','--sage-300':'#b8b8b8','--sage-400':'#9a9a9a','--sage-500':'#7e7e7e','--sage-600':'#646464','--sage-700':'#4e4e4e','--ink':'#333333','--ink-soft':'#585858','--ink-faint':'#8c8c8c','--paper':'#fcfcfc','--accent':'#c2a06f'},
+  dv:{'--sage-50':'#2a2a2a','--sage-100':'#212121','--sage-150':'#2e2e2e','--sage-200':'#3b3b3b','--sage-300':'#4c4c4c','--sage-400':'#6a6a6a','--sage-500':'#8a8a8a','--sage-600':'#a9a9a9','--sage-700':'#c9c9c9','--ink':'#e6e6e6','--ink-soft':'#bdbdbd','--ink-faint':'#858585','--paper':'#282828','--accent':'#c2a06f','--postit':'#343026','--postit-border':'#454032','--postit-ink':'#d8cfa8'}},
+ {id:'pine',name:'딥파인',dark:true,
+  v:{'--sage-50':'#f3f7f6','--sage-100':'#e8f0ee','--sage-150':'#dce7e4','--sage-200':'#c5d7d2','--sage-300':'#a1bfb7','--sage-400':'#7ea79c','--sage-500':'#628b80','--sage-600':'#4b6e64','--sage-700':'#39544d','--ink':'#2b3a35','--ink-soft':'#4d635c','--ink-faint':'#829790','--paper':'#f9fdfc','--accent':'#c7a877'},
+  dv:{'--sage-50':'#1f2a27','--sage-100':'#19221f','--sage-150':'#222d2a','--sage-200':'#2d3b37','--sage-300':'#3b4d47','--sage-400':'#546b63','--sage-500':'#6f8a80','--sage-600':'#8fa89e','--sage-700':'#b0c5bc','--ink':'#dde7e3','--ink-soft':'#b4c2bc','--ink-faint':'#7c8b85','--paper':'#1f2926','--accent':'#c7a877','--postit':'#2f3325','--postit-border':'#3e4331','--postit-ink':'#d3d5a6'}},
+ {id:'plum',name:'딥플럼',dark:true,
+  v:{'--sage-50':'#f8f5f9','--sage-100':'#f0ecf3','--sage-150':'#e7e0ec','--sage-200':'#d6cbdf','--sage-300':'#baaac6','--sage-400':'#9e8bad','--sage-500':'#836f93','--sage-600':'#675674','--sage-700':'#504259','--ink':'#342e3a','--ink-soft':'#574e5f','--ink-faint':'#8b8394','--paper':'#fdfaff','--accent':'#c39d6f'},
+  dv:{'--sage-50':'#2b2530','--sage-100':'#231e28','--sage-150':'#302935','--sage-200':'#3d3543','--sage-300':'#4e4455','--sage-400':'#6a5d73','--sage-500':'#8a7c93','--sage-600':'#a99cb1','--sage-700':'#c8bccf','--ink':'#e6e0ea','--ink-soft':'#bfb6c6','--ink-faint':'#8b8292','--paper':'#2a2430','--accent':'#c9a86a','--postit':'#37303f','--postit-border':'#473e50','--postit-ink':'#dcd0e6'}},
+ {id:'cocoa',name:'다크코코아',dark:true,
+  v:{'--sage-50':'#f9f6f3','--sage-100':'#f1ece7','--sage-150':'#e8e0d9','--sage-200':'#d8ccc1','--sage-300':'#bfae9e','--sage-400':'#a6917d','--sage-500':'#8b7663','--sage-600':'#6f5d4d','--sage-700':'#57483b','--ink':'#3a322b','--ink-soft':'#5e5347','--ink-faint':'#948878','--paper':'#fdfbf8','--accent':'#8a9a6b'},
+  dv:{'--sage-50':'#2c2622','--sage-100':'#241f1b','--sage-150':'#322b26','--sage-200':'#403731','--sage-300':'#52463d','--sage-400':'#6f5f52','--sage-500':'#8e7c6b','--sage-600':'#ac9a88','--sage-700':'#cabaa8','--ink':'#eae2d8','--ink-soft':'#c1b5a7','--ink-faint':'#8d8275','--paper':'#2b2521','--accent':'#c2a473','--postit':'#39301f','--postit-border':'#4a3f2b','--postit-ink':'#e0d3a6'}},
+ {id:'cotton',name:'솜사탕',v:{'--sage-50':'#f4fbf9','--sage-100':'#e9f7f3','--sage-150':'#ddf1ec','--sage-200':'#c4e6df','--sage-300':'#9fd6cd','--sage-400':'#7cc4ba','--sage-500':'#5aaaa0','--sage-600':'#438a81','--sage-700':'#356c65','--ink':'#2f4b47','--ink-soft':'#4f6f6a','--ink-faint':'#87a5a0','--paper':'#fbfffe','--accent':'#f0a3bd'}},
+ {id:'lemonade',name:'레몬라임',v:{'--sage-50':'#fbfcf0','--sage-100':'#f5f8e3','--sage-150':'#edf3d5','--sage-200':'#dfe9ba','--sage-300':'#c6d894','--sage-400':'#abc470','--sage-500':'#8fab54','--sage-600':'#728a41','--sage-700':'#5a6c33','--ink':'#3b4526','--ink-soft':'#5d6942','--ink-faint':'#93a074','--paper':'#fdfef6','--accent':'#f2c85b'}},
+ {id:'skyblue',name:'하늘크림',v:{'--sage-50':'#f3f9fd','--sage-100':'#e7f3fb','--sage-150':'#daecf8','--sage-200':'#c0dff3','--sage-300':'#99c9e9','--sage-400':'#74b1dc','--sage-500':'#5495c4','--sage-600':'#3f769f','--sage-700':'#325c7c','--ink':'#2c4356','--ink-soft':'#4d6579','--ink-faint':'#85a0b5','--paper':'#fbfdff','--accent':'#f5cf7e'}},
+ {id:'cottonpink',name:'코튼핑크',v:{'--sage-50':'#fdf5f9','--sage-100':'#faebf3','--sage-150':'#f5dfec','--sage-200':'#eec7dd','--sage-300':'#e0a5c6','--sage-400':'#cf85ae','--sage-500':'#b76a94','--sage-600':'#955376','--sage-700':'#74405c','--ink':'#4a3242','--ink-soft':'#6d515f','--ink-faint':'#a88898','--paper':'#fffbfd','--accent':'#9d8fd6'}},
+ {id:'apricot',name:'애프리콧',v:{'--sage-50':'#fff8f2','--sage-100':'#ffefe3','--sage-150':'#ffe5d3','--sage-200':'#fbd0b5','--sage-300':'#f3b28d','--sage-400':'#e79468','--sage-500':'#cf7a4e','--sage-600':'#a9613d','--sage-700':'#844b2f','--ink':'#4c3729','--ink-soft':'#6f5443','--ink-faint':'#a98a74','--paper':'#fffcf9','--accent':'#6cc3ae'}}
 ];
 function applyTheme(){
   const t=THEMES.find(x=>x.id===settings.theme)||THEMES[0];
   let css='body:not(.dark){';
   for(const[k,val] of Object.entries(t.v))css+=k+':'+val+';';
   css+='}';
+  if(t.dv){css+='body.dark{';for(const[k,val] of Object.entries(t.dv))css+=k+':'+val+';';css+='}';}
   let el=$('themeStyle');
   if(!el){el=document.createElement('style');el.id='themeStyle';document.head.appendChild(el);}
   el.textContent=css;
@@ -2916,9 +3007,23 @@ function renderThemeGrid(){
   const g=$('themeGrid');if(!g)return;g.innerHTML='';
   THEMES.forEach(t=>{
     const d=document.createElement('div');d.className='theme-sw'+((settings.theme||'sage')===t.id?' on':'');
-    d.style.background='linear-gradient(135deg,'+t.v['--sage-100']+' 0%,'+t.v['--sage-300']+' 60%,'+t.v['--accent']+' 100%)';
-    d.innerHTML='<span class="nm">'+t.name+'</span>';
-    d.onclick=()=>{settings.theme=t.id;applyTheme();renderThemeGrid();saveMeta();};
+    const pv=(t.dark&&t.dv)?t.dv:t.v;
+    d.style.background=pv['--sage-100'];
+    d.innerHTML=
+      '<div class="tsw-page" style="background:'+pv['--paper']+'">'+
+        '<i style="background:'+pv['--ink']+'"></i>'+
+        '<i style="background:'+pv['--ink']+'"></i>'+
+        '<i style="background:'+pv['--ink-faint']+'"></i>'+
+      '</div>'+
+      '<span class="tsw-dot" style="background:'+pv['--accent']+'"></span>'+
+      (t.dark?'<span class="tsw-moon" style="color:'+pv['--ink-soft']+'">☾</span>':'')+
+      '<span class="nm">'+escHtml(t.name)+'</span>';
+    // 어두운 테마는 다크 모드로, 밝은 테마는 라이트 모드로 함께 전환한다.
+    // (전환 후에도 상단 ☀/☾ 버튼으로 언제든 반대 모드로 바꿀 수 있다.)
+    d.onclick=()=>{
+      settings.theme=t.id;settings.dark=!!t.dark;
+      applyTheme();applySettings();applyFocusOpts();renderThemeGrid();saveMeta();
+    };
     g.appendChild(d);
   });
 }
@@ -2946,12 +3051,52 @@ document.querySelectorAll('.pn-item').forEach(b=>b.addEventListener('click',()=>
 }));
 $('setDash').onchange=e=>{settings.replaceDash=e.target.checked;saveMeta();};
 $('setQuotePair').onchange=e=>{settings.quotePair=e.target.checked;saveMeta();};
-function applyUiScale(){document.body.style.zoom=(settings.uiScale||100)/100;}
-function applyWorkVisibility(){const el=$('workStat');if(el)el.style.display=(settings.showWork!==false)?'':'none';}
+function applyUiScale(){
+  const s=(settings.uiScale||100)/100;
+  const b=document.body;
+  b.style.zoom=s;
+  if(s===1){b.style.width='';b.style.height='';}
+  else{
+    b.style.width=(window.innerWidth/s)+'px';
+    b.style.height=(window.innerHeight/s)+'px';
+  }
+}
+addEventListener('resize',()=>{if((settings.uiScale||100)!==100)applyUiScale();});
+function fitTopbar(){
+  const tb=document.querySelector('.topbar');if(!tb)return;
+  tb.classList.remove('tbfit1','tbfit2','tbfit3','tbfit4','tbfit5');
+  const over=()=>tb.scrollWidth>tb.clientWidth+1;
+  if(!over())return;
+  tb.classList.add('tbfit1');if(!over())return;
+  tb.classList.add('tbfit2');if(!over())return;
+  tb.classList.add('tbfit3');if(!over())return;
+  tb.classList.add('tbfit4');if(!over())return;
+  tb.classList.add('tbfit5');
+}
+addEventListener('resize',fitTopbar);
+if(window.ResizeObserver){
+  try{new ResizeObserver(()=>fitTopbar()).observe(document.body);}catch(e){}
+}
+$('tbMore').onclick=e=>{
+  e.stopPropagation();
+  $('tbmDarkLabel').textContent=settings.dark?'라이트 모드':'다크 모드';
+  $('tbmDarkIcon').textContent=settings.dark?'\u2600':'\u263e';
+  $('tbMoreMenu').classList.toggle('open');
+};
+$('tbMoreMenu').addEventListener('click',e=>{
+  const it=e.target.closest('.tbm-item');if(!it)return;
+  $('tbMoreMenu').classList.remove('open');
+  const b=$(it.dataset.act);if(b)b.click();
+});
+addEventListener('click',()=>{const m=$('tbMoreMenu');if(m)m.classList.remove('open');});
+function applyWorkVisibility(){
+  const on=(settings.showWritten!==false)||(settings.showDeleted===true);
+  const el=$('workStat');if(el)el.style.display=on?'':'none';
+  fitTopbar();
+}
 $('setUiScale').onchange=e=>{settings.uiScale=+e.target.value||100;applyUiScale();saveMeta();};
-$('setShowWork').onchange=e=>{settings.showWork=e.target.checked;applyWorkVisibility();saveMeta();};
-$('setShowWritten').onchange=e=>{settings.showWritten=e.target.checked;updateTodayChip();saveMeta();};
-$('setShowDeleted').onchange=e=>{settings.showDeleted=e.target.checked;updateTodayChip();saveMeta();};
+$('setShowWritten').onchange=e=>{settings.showWritten=e.target.checked;updateTodayChip();applyWorkVisibility();saveMeta();};
+$('setShowDeleted').onchange=e=>{settings.showDeleted=e.target.checked;updateTodayChip();applyWorkVisibility();saveMeta();};
 $('setFontEd').onchange=e=>{settings.font=e.target.value?fontCss(e.target.value):BASE_FONTS[0][1];rebuildFontSelect();applyEditorStyle();saveMeta();};
 $('setFontSyn').onchange=e=>{settings.fontSyn=e.target.value;applyAreaFonts();saveMeta();};
 $('setFontNote').onchange=e=>{settings.fontNote=e.target.value;applyAreaFonts();saveMeta();};
@@ -3637,7 +3782,7 @@ $('mbRenameWork').addEventListener('click',async()=>{
   try{
     await writeFile(curWork.path+'/.이름',trimmed);
     curWork.disp=trimmed;
-    $('workName').textContent=trimmed;
+    $('workName').textContent=trimmed;fitTopbar();
     await scanWorks();
     toast('작품 이름을 바꿨어요: '+trimmed);
   }catch(e){toast('⚠ 이름 변경 실패: '+e);}
@@ -3662,7 +3807,7 @@ async function switchAwayFrom(workName){
   }else{
     curWork=null;treeData=[];selectedFolder=null;
     panes.forEach(pn=>{pn.tabs=[];pn.tab=null;});activePane=0;
-    workTreatment='';$('workName').textContent='작품 없음';$('tree').innerHTML='';
+    workTreatment='';$('workName').textContent='작품 없음';fitTopbar();$('tree').innerHTML='';
     renderAllPanes();renderTreatment();renderMemo();renderWorkMenu();
   }
 }
@@ -4230,7 +4375,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.8"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.9"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
