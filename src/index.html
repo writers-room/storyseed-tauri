@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.9</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.1.0</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -206,7 +206,7 @@
   .pane-title{padding:7px 22px 0;font-size:11px;color:var(--ink-faint);display:flex;gap:8px;align-items:center;flex-shrink:0;
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
   .ed-scroll{flex:1;overflow-y:auto;}
-  .ed{min-height:100%;outline:none;padding:16px 26px 60px;max-width:var(--ed-maxw,none);margin:0 auto;
+  .ed{min-height:100%;outline:none;padding:16px 26px calc(60px + var(--ed-padb,0px));max-width:var(--ed-maxw,none);margin:0 auto;
     font-size:var(--ed-size,15.5px);line-height:var(--ed-line,2.0);color:var(--ink);
     font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif);word-break:keep-all;}
   /* 붙여넣기 등으로 글꼴이 개별 지정된 텍스트가 섞여 있어도, 에디터에는 항상 선택한 글꼴 하나만 표시되게 강제 */
@@ -872,6 +872,9 @@
           <div class="set-row">프로그램 배율 (화면이 잘려 보일 때) <select id="setUiScale">
             <option value="80">80%</option><option value="90">90%</option><option value="100">100%</option>
             <option value="110">110%</option><option value="125">125%</option><option value="150">150%</option></select></div>
+          <div class="set-row">글판 아래 여백 <span><input type="range" id="setEdPadB" min="0" max="50" step="5" style="width:110px"> <b id="setEdPadBV" style="min-width:34px;display:inline-block;text-align:right">끔</b></span></div>
+          <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.7;margin:-2px 0 8px">
+            에디터 아래쪽을 설정한 만큼 비워 둬요. 마지막 줄을 쓸 때도 커서가 그 여백 위로 올라와서, 시선이 화면 바닥에 붙지 않아요. <b>0%</b>면 꺼져요.</div>
           <div class="set-row" style="border:none;padding-bottom:0;color:var(--ink-faint);font-size:12px">오늘 작업량 표시 (하나라도 켜면 표시돼요)</div>
           <div class="set-row">작성 글자수 <input type="checkbox" id="setShowWritten"></div>
           <div class="set-row">지운 글자수 <input type="checkbox" id="setShowDeleted"></div>
@@ -1060,7 +1063,7 @@ function defaultSettings(){
     toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
     autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',
     replaceDash:true,quotePair:false,pasteAsk:true,
-    uiScale:100,showWritten:true,showDeleted:false,
+    uiScale:100,showWritten:true,showDeleted:false,edPadBottom:0,
     pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
     fontSyn:'',fontNote:'',fontMemo:'',
     userRepl:[['->','→'],['<-','←']],
@@ -1106,7 +1109,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.9";
+const APP_VERSION="beta 2.1.0";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1138,7 +1141,25 @@ function dayKey(){const d=new Date(Date.now()-settings.resetHour*3600*1000);
 function dayStat(){const k=dayKey();if(!stats[k]||typeof stats[k]==='number')stats[k]={w:+stats[k]||0,d:0};return stats[k];}
 function fmt(n){return n.toLocaleString('ko-KR');}
 function AS(){return (settings.autoSaveSec||2)*1000;}
+// 파일·폴더 이름으로 쓸 수 없는 글자를 '보이는 모양이 같은' 전각 글자로 바꾼다.
+// 지우거나 _로 바꾸면 탐색기에서 봤을 때 제목이 뭉개지는데, 전각으로 바꾸면 눈에는
+// 거의 그대로 보이면서 파일 시스템에는 안전하다. 화면에 뜨는 제목은 어차피
+// 표시 이름(문서는 front-matter의 제목, 폴더는 .이름 파일)을 쓰므로 원문 그대로 남는다.
+const FN_MAP={'\\':'￥','/':'／',':':'：','*':'＊','?':'？','"':'＂','<':'＜','>':'＞','|':'｜'};
+// 윈도우가 장치 이름으로 예약해 둔 단어들. 이 이름으로는 폴더조차 만들 수 없다.
+const FN_RESERVED=/^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+function safeFileBase(name){
+  let s=String(name==null?'':name).replace(/[\\/:*?"<>|]/g,c=>FN_MAP[c]||'_');
+  s=s.replace(/[\x00-\x1f\x7f]/g,'');      // 제어 문자는 흔적 없이 제거
+  s=s.replace(/^\s+/,'');                    // 앞 공백은 정렬을 흐트러뜨린다
+  s=s.replace(/[.\s]+$/,'');                 // 윈도우는 끝의 마침표·공백을 멋대로 잘라낸다
+  if(FN_RESERVED.test(s))s='_'+s;
+  if(!s)s='이름 없음';
+  if(s.length>120)s=s.slice(0,120);          // 경로 길이 제한(윈도우 260자) 여유
+  return s;
+}
 async function uniqueFileName(dirAbs,base,ext,selfName){
+  base=safeFileBase(base);
   let name=base+ext,i=2;
   while(name!==selfName&&await FS.exists(dirAbs+'/'+name)){name=base+' ('+i+')'+ext;i++;}
   return name;
@@ -1203,7 +1224,7 @@ async function openLibrary(mode){
     if(!parent)return;
     const nm=await modal('새 프로젝트 폴더 이름을 지어주세요','새 프로젝트 만들기');
     if(!nm)return;
-    const newPath=parent.replace(/[\\/]+$/,'')+'/'+nm;
+    const newPath=parent.replace(/[\\/]+$/,'')+'/'+safeFileBase(nm);
     try{
       if(await FS.exists(newPath)){welcomeError('『'+nm+'』 폴더가 이미 있어요. 다른 이름으로 다시 시도해 주세요.');return;}
       await FS.mkdir(newPath,{recursive:true});
@@ -1251,7 +1272,10 @@ async function openLibrary(mode){
     applySettings();
     await scanWorks();
     if(mode==='new'&&works.length===0){const nm=await modal('첫 작품의 제목을 지어주세요','새 작품');
-      if(nm){await FS.mkdir(rootPath+'/'+nm,{recursive:true});await scanWorks();}}
+      if(nm){const fn=await uniqueFileName(rootPath,nm,'');
+        await FS.mkdir(rootPath+'/'+fn,{recursive:true});
+        if(fn!==nm.trim())await writeFile(rootPath+'/'+fn+'/.이름',nm.trim());
+        await scanWorks();}}
     if(works.length){
       // 항상 첫 번째(가나다순) 작품이 아니라, 마지막으로 작업하던 작품을 연다
       const lastW=works.find(w=>w.name===settings.lastWork);
@@ -1301,7 +1325,11 @@ function renderWorkMenu(){
   const nw=document.createElement('div');nw.className='wm-item wm-new';nw.textContent='＋ 새 작품 만들기';
   nw.onclick=async e=>{e.stopPropagation();m.classList.remove('open');
     const nm=await modal('새 작품 제목');if(!nm)return;
-    await FS.mkdir(rootPath+'/'+nm,{recursive:true});await scanWorks();
+    const fn=await uniqueFileName(rootPath,nm,'');
+    await FS.mkdir(rootPath+'/'+fn,{recursive:true});
+    // 원래 쓰신 제목을 그대로 화면에 띄우기 위해 표시 이름을 따로 남긴다.
+    if(fn!==nm.trim())await writeFile(rootPath+'/'+fn+'/.이름',nm.trim());
+    await scanWorks();
     await loadWork(works.find(w=>w.name===nm));};
   m.appendChild(nw);
 }
@@ -1778,7 +1806,7 @@ async function updateSelCount(){
     try{
       const dd=await getDocData(d);
       const txt=plainTextOf(dd.body);
-      all+=txt.length;no+=txt.replace(/\s/g,'').length;bytes+=enc.encode(txt).length;
+      const c=countOf(txt);all+=c.all;no+=c.no;bytes+=enc.encode(txt).length;
     }catch{}
   }
   if(seq!==selCountSeq)return;
@@ -1966,7 +1994,7 @@ function renderPane(i){
 function updateCounts(i){
   const t=panes[i].tab;if(!t)return;
   const txt=plainTextOf(t.body);
-  const all=txt.length,no=txt.replace(/\s/g,'').length;
+  const c=countOf(txt),all=c.all,no=c.no;
   $('chars'+i).textContent=fmt(all)+'자 / 공백 제외 '+fmt(no)+'자';
   const goal=t.meta.목표글자수||5000,pct=Math.min(100,Math.round(no/goal*100));
   $('goal'+i).style.width=pct+'%';$('goalPct'+i).textContent=pct+'%';
@@ -2943,7 +2971,8 @@ function applySettings(){
   $('setUiScale').value=String(settings.uiScale||100);
   $('setShowWritten').checked=settings.showWritten!==false;
   $('setShowDeleted').checked=settings.showDeleted===true;
-  applyUiScale();applyWorkVisibility();
+  $('setEdPadB').value=String(settings.edPadBottom||0);
+  applyUiScale();applyWorkVisibility();applyEdPadBottom();
   renderUserRepl();
   if(![...$('tbSize').options].some(o=>o.value===String(settings.size))){
     const o=document.createElement('option');o.value=String(settings.size);o.textContent=settings.size;
@@ -3904,8 +3933,16 @@ $('mbSaveAs').addEventListener('click',async()=>{
 });
 
 /* ═══════════ 내보내기 (TXT/DOCX/RTF/PDF) ═══════════ */
+// 아래아 한글의 '공백 포함 글자수'는 문단 나눔을 글자로 세지 않는다(칸을 차지하지 않으므로).
+// 문장 안의 공백은 센다. '공백 제외'는 원래도 \s를 전부 걸러내 한글과 값이 같았다.
+function countOf(txt){
+  return {all:txt.replace(/[\r\n]/g,'').length, no:txt.replace(/\s/g,'').length};
+}
 function plainTextOf(body){
-  let s=body.replace(/<\/(div|p)>/gi,'\n').replace(/<br[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
+  // contenteditable은 <div>글<br></div>처럼 문단 끝에 자리채움용 <br>을 넣는다. 그대로 두면
+  // 한 문단이 줄바꿈 두 개가 되어 글자수가 부풀고 내보내기에도 빈 줄이 낀다. 먼저 걷어낸다.
+  let s=body.replace(/<br[^>]*>\s*(?=<\/(div|p)>)/gi,'')
+            .replace(/<\/(div|p)>/gi,'\n').replace(/<br[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
   const ta=document.createElement('textarea');ta.innerHTML=s;s=ta.value;
   return s.replace(/\u200b/g,'').replace(/\n{3,}/g,'\n\n').replace(/^\n+/,'').trimEnd();}
 function toRTF(text){
@@ -4375,7 +4412,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.9"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.1.0"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -4622,7 +4659,9 @@ addEventListener('mousemove',()=>{
 
 /* ═══════════ 타자기 스크롤 ═══════════ */
 function typewriterScroll(){
-  if(!document.body.classList.contains('focus')||!settings.typewriter)return;
+  const tw=document.body.classList.contains('focus')&&!!settings.typewriter;
+  const gap=settings.edPadBottom||0;
+  if(!tw&&!gap)return;
   const ed=$('ed'+activePane);
   const sel=getSelection();
   if(!sel||!sel.rangeCount||!ed.contains(sel.anchorNode))return;
@@ -4633,10 +4672,38 @@ function typewriterScroll(){
   if(!rect)return;
   const sc=ed.closest('.ed-scroll');
   const scr=sc.getBoundingClientRect();
-  const delta=(rect.top+rect.height/2)-(scr.top+scr.height/2);
-  if(Math.abs(delta)>4)sc.scrollTop+=delta;
+  if(tw){
+    const delta=(rect.top+rect.height/2)-(scr.top+scr.height/2);
+    if(Math.abs(delta)>4)sc.scrollTop+=delta;
+    return;
+  }
+  // 글판 아래 여백: 커서가 여백선 아래로 내려갈 때만 밀어 올린다(위쪽 편집 시 화면이 튀지 않게).
+  const limit=scr.bottom-scr.height*gap/100;
+  const over=rect.bottom-limit;
+  if(over>1)sc.scrollTop+=over;
 }
 $('twToggle').onchange=e=>{settings.typewriter=e.target.checked;saveMeta();if(e.target.checked)typewriterScroll();};
+/* ═══════════ 글판 아래 여백 ═══════════ */
+function applyEdPadBottom(){
+  const pct=settings.edPadBottom||0;
+  document.querySelectorAll('.ed-scroll').forEach(sc=>{
+    const ed=sc.querySelector('.ed');if(!ed)return;
+    ed.style.setProperty('--ed-padb', pct?Math.round(sc.clientHeight*pct/100)+'px':'0px');
+  });
+  const v=$('setEdPadBV');if(v)v.textContent=pct?pct+'%':'끔';
+}
+$('setEdPadB').oninput=e=>{
+  settings.edPadBottom=+e.target.value;
+  applyEdPadBottom();saveMeta();typewriterScroll();
+};
+addEventListener('resize',applyEdPadBottom);
+// 분할 켜기/끄기, 바인더 접기, 프로그램 배율 변경으로도 글판 높이가 달라지므로 높이를 직접 관찰한다.
+if(window.ResizeObserver){
+  try{
+    const ro=new ResizeObserver(()=>applyEdPadBottom());
+    document.querySelectorAll('.ed-scroll').forEach(sc=>ro.observe(sc));
+  }catch(e){}
+}
 $('focusXCenter').onclick=()=>{settings.focusX=50;applyFocusOpts();saveMeta();toast('가운데로 되돌렸어요');};
 
 /* ═══════════ TTS — 소리내어 읽기 ═══════════ */
