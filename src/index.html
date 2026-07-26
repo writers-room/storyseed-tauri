@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.7</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.0.8</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -174,6 +174,9 @@
   .tab.on{background:var(--paper);color:var(--ink);font-weight:600;border-color:var(--sage-200);}
   .tab .x{font-size:10px;opacity:.5;padding:0 2px;}
   .tab .x:hover{opacity:1;}
+  .tab.tab-dragging{opacity:.4;}
+  .tab.drag-before{box-shadow:-2px 0 0 var(--sage-500);}
+  .tab.drag-after{box-shadow:2px 0 0 var(--sage-500);}
   .tab .dirty{color:var(--accent);font-size:9px;}
   .pane-title{padding:7px 22px 0;font-size:11px;color:var(--ink-faint);display:flex;gap:8px;align-items:center;flex-shrink:0;
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
@@ -214,7 +217,7 @@
   body.focus .editor-pane{border:none !important;box-shadow:none !important;border-radius:0;background:transparent;flex:1 !important;}
   body.focus .ed{max-width:var(--focus-w,760px);margin:0;
     margin-left:calc((100% - min(var(--focus-w,760px),100%))*var(--focus-x,0.5));
-    background:var(--paper);border-radius:0 0 0 0;padding:40px 40px 40vh;
+    background:var(--focus-page-bg,var(--paper));border-radius:0 0 0 0;padding:40px 40px 40vh;
     font-size:var(--focus-size,var(--ed-size,15.5px)) !important;}
   body.focus .ed-scroll{padding:0;}
   .focus-exit{display:none;position:fixed;top:14px;right:16px;z-index:50;background:var(--paper);
@@ -488,6 +491,9 @@
   .paste-box .pb-adv label{display:flex;align-items:center;gap:8px;font-size:12px;justify-content:space-between;}
   .paste-box .pb-adv input[type=range]{width:90px;}
   .paste-box .pb-adv b{min-width:12px;text-align:center;color:var(--ink);}
+  .paste-box .pb-noask{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-faint);
+    border-top:1px solid var(--sage-150);padding-top:5px;cursor:pointer;user-select:none;}
+  .paste-box .pb-noask input{width:12px;height:12px;margin:0;}
   .exp-pop{display:none;position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:390;
     background:var(--paper);border:1px solid var(--sage-300);border-radius:14px;padding:10px 16px;
     box-shadow:0 8px 30px rgba(0,0,0,.18);align-items:center;gap:12px;font-size:13px;color:var(--ink);}
@@ -520,6 +526,11 @@
       <div class="mb-op" id="mbSaveAs">새 이름으로 저장…</div>
       <div class="mb-op" id="mbNewWork">새 프로젝트 만들기…</div>
       <div class="mb-op" id="mbOpenLib">다른 프로젝트 불러오기…</div>
+      <div class="mb-op" id="mbRenameWork">작품 이름 바꾸기…</div>
+      <div class="mb-sep"></div>
+      <div class="mb-op" id="mbHideWork">작품 숨기기</div>
+      <div class="mb-op" id="mbHiddenWorks">숨긴 작품 관리…</div>
+      <div class="mb-op" id="mbDeleteWork">작품 완전 삭제…</div>
       <div class="mb-sep"></div>
       <div class="mb-op" id="mbExport">내보내기… (현재 문서)</div>
     </div>
@@ -569,7 +580,9 @@
   <label><input type="checkbox" id="twToggle"> 타자기 스크롤</label>
   <span class="fopt">폭 <input type="range" id="focusW" min="420" max="1200" step="20"></span>
   <span class="fopt">글자 <button class="fbtn" id="focusSizeDown">−</button><button class="fbtn" id="focusSizeUp">＋</button></span>
+  <span class="fopt">문서 <input type="color" id="focusPageBg" style="width:26px;height:20px;border:none;background:transparent;cursor:pointer"></span>
   <span class="fopt">배경 <input type="color" id="focusBg" style="width:26px;height:20px;border:none;background:transparent;cursor:pointer"></span>
+  <button class="fbtn" id="focusColorReset" title="문서·배경 색상을 기본값으로">색상 초기화</button>
   <span class="fopt">밝기 <input type="range" id="focusBright" min="55" max="115"></span>
   <button class="fbtn" id="focusDarkBtn" title="다크 모드">☾</button>
 </div>
@@ -646,6 +659,7 @@
         <button class="tb-btn tb-color-btn" id="tbColorBtn" title="글자 색">가<span class="tb-color-bar" id="tbColorBar"></span></button>
         <div class="color-pop" id="colorPop">
           <div class="cp-row"><input type="color" id="tbColor" value="#c9a86a"><span style="font-size:11px;color:var(--ink-faint)">색을 고르거나 아래에서 선택</span></div>
+          <div class="cp-row"><button class="ur-add" id="cpDefaultBtn" title="글자 색을 검정(#000000)으로">기본값(검정)</button></div>
           <div class="cp-sec">최근 사용</div><div class="cp-grid" id="cpRecent"></div>
           <div class="cp-sec">즐겨찾기 <span class="cp-hint">빈칸=현재색 저장 · 우클릭=삭제</span></div><div class="cp-grid" id="cpFav"></div>
         </div>
@@ -755,6 +769,22 @@
 </div>
 
 <!-- 휴지통 모달 -->
+<!-- 숨긴 작품 관리 -->
+<div class="modal-bg" id="hiddenWorksBg">
+  <div class="big-modal" style="width:min(480px,92vw)">
+    <h3>숨긴 작품 관리<span class="close" id="hiddenWorksClose">✕</span></h3>
+    <div style="flex:1;overflow-y:auto" id="hiddenWorksList"></div>
+  </div>
+</div>
+<!-- 작품 완전 삭제 확인 -->
+<div class="modal-bg" id="delWorkBg">
+  <div class="modal">
+    <h3 id="delWorkTitle" style="white-space:pre-line"></h3>
+    <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:10px 0 4px">그래도 완전히 삭제하시려면, 아래 칸에 <b>삭제합니다</b> 라고 직접 입력해 주세요.</p>
+    <input type="text" id="delWorkInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="이곳에 입력해 주세요">
+    <div class="btns"><button class="cancel" id="delWorkCancel">취소</button><button class="ok danger" id="delWorkOk">확인</button></div>
+  </div>
+</div>
 <div class="modal-bg" id="trashBg">
   <div class="big-modal" style="width:min(560px,92vw)">
     <h3>🗑 휴지통<span class="close" id="trashClose">✕</span></h3>
@@ -797,6 +827,8 @@
             <option value="80">80%</option><option value="90">90%</option><option value="100">100%</option>
             <option value="110">110%</option><option value="125">125%</option><option value="150">150%</option></select></div>
           <div class="set-row">오늘 작업량 표시 <input type="checkbox" id="setShowWork"></div>
+          <div class="set-row" style="padding-left:14px">　ㄴ 작성 글자수 <input type="checkbox" id="setShowWritten"></div>
+          <div class="set-row" style="padding-left:14px">　ㄴ 지운 글자수 <input type="checkbox" id="setShowDeleted"></div>
         </div>
         <div class="prefs-cat" data-cat="fonts" style="display:none">
           <div style="font-size:12px;color:var(--ink-faint);margin-bottom:6px">영역별 기본 글꼴</div>
@@ -848,6 +880,10 @@
           <div class="set-row">만든 곳 <span style="color:var(--ink-faint)">StoryCrew</span></div>
           <div class="set-row">업데이트 <button class="ur-add" id="btnCheckUpdate">지금 확인</button></div>
           <div id="updateStatus" style="font-size:11.5px;color:var(--ink-faint);margin-top:2px"></div>
+          <div style="border-top:1px solid var(--sage-150);margin:12px 0 8px"></div>
+          <div class="set-row">모든 설정 <button class="ur-add" id="btnResetSettings">기본값으로</button></div>
+          <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.6;margin-top:2px">
+            레이아웃과 환경설정만 초기화돼요. 작성하신 글, 폴더·문서 구성과 위치는 그대로 남아요.</div>
         </div>
       </div>
     </div>
@@ -953,6 +989,7 @@
 <div class="paste-box" id="pasteBox">
   <div class="pb-row"><span class="pb-lab">서식</span>
     <button data-pf="plain">제거(텍스트만)</button><button data-pf="keep">유지</button></div>
+  <label class="pb-noask"><input type="checkbox" id="pasteNoAsk">다시 묻지 않음</label>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -970,14 +1007,20 @@ const BASE_FONTS=[
   ["고정폭","monospace"]
 ];
 let rootPath=null,seojaePath=null,snapsPath=null,trashPath=null;
-let settings={dark:false,resetHour:4,replaceEllipsis:true,replaceQuotes:true,indent:false,
-  toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
-  autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',
-  replaceDash:true,quotePair:false,pasteAsk:true,
-  uiScale:100,showWork:true,pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
-  fontSyn:'',fontNote:'',fontMemo:'',
-  userRepl:[['->','→'],['<-','←']],
-  exp:{jj:'유지',jjN:1,dj:'유지',djN:1,dd:'유지',ddN:1,sceneSym:'* * *',sceneBr:1,author:'',order:'binder'}};
+// 6번(모든 설정 기본값으로)에서도 재사용하기 위해, 초기 기본값을 함수로 뽑아뒀다 —
+// 호출할 때마다 새 객체를 반환하니 재설정 시에도 이전 값이 참조로 섞여 남지 않는다.
+function defaultSettings(){
+  return {dark:false,resetHour:4,replaceEllipsis:true,replaceQuotes:true,indent:false,
+    toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
+    autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',
+    replaceDash:true,quotePair:false,pasteAsk:true,
+    uiScale:100,showWork:true,showWritten:true,showDeleted:false,
+    pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
+    fontSyn:'',fontNote:'',fontMemo:'',
+    userRepl:[['->','→'],['<-','←']],
+    exp:{jj:'유지',jjN:1,dj:'유지',djN:1,dd:'유지',ddN:1,sceneSym:'* * *',sceneBr:1,author:'',order:'binder'}};
+}
+let settings=defaultSettings();
 let stats={};
 let works=[],curWork=null,treeData=[],selectedFolder=null;
 const panes=[{tabs:[],tab:null,zoom:100},{tabs:[],tab:null,zoom:100}];
@@ -1017,7 +1060,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.0.7";
+const APP_VERSION="beta 2.0.8";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1184,10 +1227,25 @@ async function scanWorks(){
   const entries=await FS.readDir(rootPath);
   for(const en of entries)
     if(en.isDirectory&&!en.name.startsWith('.')){
+      // 숨긴 작품(.hidden 마커 존재)은 평소 작품 목록에서 제외한다.
+      if(await FS.exists(rootPath+'/'+en.name+'/.hidden'))continue;
       let disp=en.name;try{disp=(await readFile(rootPath+'/'+en.name+'/.이름')).trim()||en.name;}catch{}
       works.push({name:en.name,disp,path:rootPath+'/'+en.name});
     }
   works.sort((a,b)=>(a.disp||a.name).localeCompare(b.disp||b.name,'ko'));renderWorkMenu();
+}
+// 숨긴 작품 목록: .hidden 마커가 있는 폴더만 골라낸다.
+async function scanHiddenWorks(){
+  const hidden=[];
+  const entries=await FS.readDir(rootPath);
+  for(const en of entries)
+    if(en.isDirectory&&!en.name.startsWith('.')){
+      if(!(await FS.exists(rootPath+'/'+en.name+'/.hidden')))continue;
+      let disp=en.name;try{disp=(await readFile(rootPath+'/'+en.name+'/.이름')).trim()||en.name;}catch{}
+      hidden.push({name:en.name,disp,path:rootPath+'/'+en.name});
+    }
+  hidden.sort((a,b)=>(a.disp||a.name).localeCompare(b.disp||b.name,'ko'));
+  return hidden;
 }
 function renderWorkMenu(){
   const m=$('workMenu');m.innerHTML='';
@@ -1386,7 +1444,8 @@ function renderTree(){
       if(dragNodes.length>1||dragSeps.length){
         const destPath=(into&&n.type==='dir')?n.path:n.parentPath;
         const destAbs=(into&&n.type==='dir')?n.abs:n.parentAbs;
-        await moveMany(dragNodes,destAbs,destPath,dragSeps);
+        const anchor=(into&&n.type==='dir')?null:n;
+        await moveMany(dragNodes,destAbs,destPath,dragSeps,anchor,before);
         dragSeps=[];
         return;
       }
@@ -1458,7 +1517,7 @@ function visOrderIndex(path){return visList.findIndex(x=>x.path===path);}
 // 유저가 바인더에서 보던 상대 순서(구분선 포함)를 그대로 보존해서 목적지 폴더 맨 끝에
 // 이어붙인다 — 2번 버그 수정: 이동 후 알파벳/오름차순으로 재정렬되던 문제, 구분선이
 // 함께 이동되지 않던 문제.
-async function moveMany(nodes,destAbs,destPath,seps){
+async function moveMany(nodes,destAbs,destPath,seps,anchor,before){
   seps=seps||[];
   // 조상이 함께 선택된 노드는 제외(중복 이동 방지)
   const paths=new Set(nodes.map(n=>n.path));
@@ -1483,13 +1542,21 @@ async function moveMany(nodes,destAbs,destPath,seps){
     }
   }
   // 목적지 폴더의 기존 순서는 그대로 두고, 옮겨온 항목들만 서로의 상대 순서를 지킨 채
-  // 맨 끝에 붙인다(유저가 정렬한 순서가 항상 최우선).
+  // 붙인다. 드롭 대상이 형제들 사이(before/after)였다면 그 위치에 끼워 넣고,
+  // 폴더 안으로(into) 드롭했다면 기존처럼 맨 끝에 붙인다.
   if(finalNames.length){
     const tkey=orderKey(destPath);
     const sibs=(destPath===''?treeData:(findNodeByPath(destPath)||{}).children||[]);
     let ord=orders[tkey]?[...orders[tkey]]:[];
     sibs.forEach(n=>{if(!ord.includes(n.name)&&!finalNames.includes(n.name))ord.push(n.name);});
-    finalNames.forEach(nm=>{ord=ord.filter(x=>x!==nm);ord.push(nm);});
+    finalNames.forEach(nm=>{ord=ord.filter(x=>x!==nm);});
+    if(anchor&&anchor.parentPath===destPath&&ord.includes(anchor.name)){
+      let idx=ord.indexOf(anchor.name);
+      if(!before)idx++;
+      ord.splice(idx,0,...finalNames);
+    }else{
+      finalNames.forEach(nm=>ord.push(nm));
+    }
     orders[tkey]=ord;saveOrders();
   }
   clearMultiSel();
@@ -1745,19 +1812,79 @@ function closeTab(paneIdx,tab){
   renderPane(paneIdx);renderPaneTabs(0);renderPaneTabs(1);renderTree();renderMemo();
   if(trMode==='doc')renderTreatment();
 }
+// 탭을 드래그해서 순서를 바꾸거나(같은 탭바 안), 분할된 화면의 반대쪽 패널로 옮길 수 있게
+// 한다(5번). dragTab에 드래그 시작한 탭을 기억해뒀다가, 놓는 위치에 따라 재정렬하거나
+// 다른 패널의 tabs 배열로 옮긴다.
+let dragTab=null;
+function moveTabToPane(tab,fromPane,toPane,beforeTab){
+  if(fromPane===toPane){
+    const arr=panes[fromPane].tabs;
+    const idx=arr.indexOf(tab);if(idx<0)return;
+    arr.splice(idx,1);
+    let insertAt=(beforeTab&&beforeTab!==tab)?arr.indexOf(beforeTab):arr.length;
+    if(insertAt<0)insertAt=arr.length;
+    arr.splice(insertAt,0,tab);
+    renderPaneTabs(fromPane);
+    return;
+  }
+  const fp=panes[fromPane],tp=panes[toPane];
+  fp.tabs=fp.tabs.filter(x=>x!==tab);
+  if(fp.tab===tab)fp.tab=fp.tabs[fp.tabs.length-1]||null;
+  tp.tabs=tp.tabs.filter(x=>x!==tab);
+  let insertAt=beforeTab?tp.tabs.indexOf(beforeTab):tp.tabs.length;
+  if(insertAt<0)insertAt=tp.tabs.length;
+  tp.tabs.splice(insertAt,0,tab);
+  tp.tab=tab;
+  activePane=toPane;
+  document.querySelectorAll('.editor-pane').forEach((el,j)=>el.classList.toggle('pane-active',j===activePane));
+  renderAllPanes();renderTree();renderMemo();
+  if(trMode==='doc')renderTreatment();
+}
 function renderPaneTabs(i){
   const bar=$('tabbar'+i),p=panes[i];bar.innerHTML='';
   p.tabs.forEach(t=>{
     const d=document.createElement('div');
     d.className='tab'+(p.tab===t?' on':'');
     d.innerHTML=(t.meta.아이콘||'📄')+' '+t.name+(t.dirty?' <span class="dirty">●</span>':'')+' <span class="x">✕</span>';
+    d.draggable=true;
     d.onclick=e=>{
       if(e.target.classList.contains('x')){closeTab(i,t);return;}
       setActivePane(i);p.tab=t;renderPane(i);renderPaneTabs(i);renderTree();renderMemo();
       if(trMode==='doc')renderTreatment();
     };
+    d.addEventListener('dragstart',e=>{
+      dragTab={pane:i,tab:t};
+      e.dataTransfer.effectAllowed='move';
+      d.classList.add('tab-dragging');
+    });
+    d.addEventListener('dragend',()=>{
+      dragTab=null;d.classList.remove('tab-dragging');
+      bar.querySelectorAll('.tab').forEach(x=>x.classList.remove('drag-before','drag-after'));
+    });
+    d.addEventListener('dragover',e=>{
+      if(!dragTab)return;
+      e.preventDefault();
+      d.classList.remove('drag-before','drag-after');
+      const r=d.getBoundingClientRect();
+      d.classList.add(e.clientX-r.left<r.width/2?'drag-before':'drag-after');
+    });
+    d.addEventListener('dragleave',()=>d.classList.remove('drag-before','drag-after'));
+    d.addEventListener('drop',e=>{
+      if(!dragTab)return;
+      e.preventDefault();e.stopPropagation();
+      const before=d.classList.contains('drag-before');
+      d.classList.remove('drag-before','drag-after');
+      const nextTab=p.tabs[p.tabs.indexOf(t)+1]||null;
+      moveTabToPane(dragTab.tab,dragTab.pane,i,before?t:nextTab);
+    });
     bar.appendChild(d);
   });
+  bar.ondragover=e=>{if(dragTab)e.preventDefault();};
+  bar.ondrop=e=>{
+    if(!dragTab||e.target!==bar)return;   // 개별 탭 위에서의 drop은 이미 위에서 처리됨
+    e.preventDefault();
+    moveTabToPane(dragTab.tab,dragTab.pane,i,null);
+  };
 }
 function renderAllPanes(){renderPane(0);renderPane(1);renderPaneTabs(0);renderPaneTabs(1);}
 function renderPane(i){
@@ -1948,6 +2075,7 @@ function showPasteBox(i,format){
   const box=$('pasteBox');
   format=format||(pasteState&&pasteState.format)||'plain';
   box.querySelectorAll('[data-pf]').forEach(b=>b.classList.toggle('on',b.dataset.pf===format));
+  $('pasteNoAsk').checked=false;
   // 커서 근처에 배치
   const sel=getSelection();let x=innerWidth/2,y=innerHeight/2;
   if(sel.rangeCount){
@@ -1980,6 +2108,25 @@ document.querySelectorAll('#pasteBox [data-pf]').forEach(b=>{
   });
 });
 addEventListener('mousedown',e=>{if(!e.target.closest('#pasteBox'))hidePasteBox();});
+// Esc로도 붙여넣기 위젯을 닫을 수 있게(2번). '다시 묻지 않음'을 체크하면 이후 붙여넣기부터는
+// 위젯 자체가 안 뜨도록(settings.pasteAsk=false, 기존에도 있던 설정을 재사용) 하고,
+// 나중에 마음이 바뀌면 환경설정에서 되돌릴 수 있다는 걸 토스트로 짧게 안내한다.
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&$('pasteBox').classList.contains('show')){hidePasteBox();}
+});
+$('pasteNoAsk').addEventListener('mousedown',e=>e.preventDefault());
+$('pasteNoAsk').addEventListener('change',e=>{
+  if(e.target.checked){
+    settings.pasteAsk=false;saveMeta();
+    if($('setPasteAsk'))$('setPasteAsk').checked=false;
+    toast('붙여넣기 옵션은 환경설정에서 언제든 변경할 수 있습니다.');
+    clearTimeout($('pasteBox')._tm);
+    setTimeout(hidePasteBox,900);
+  }else{
+    settings.pasteAsk=true;saveMeta();
+    if($('setPasteAsk'))$('setPasteAsk').checked=true;
+  }
+});
 function autoReplaceCE(){
   const sel=getSelection();if(!sel.rangeCount)return;
   const node=sel.anchorNode;if(!node||node.nodeType!==3)return;
@@ -2016,8 +2163,8 @@ function autoReplaceCE(){
   }
 }
 function updateTodayChip(){const s=dayStat();
-  $('todayChars').textContent='작성 '+fmt(s.w)+'자';
-  $('todayDel').textContent=s.d?'· 지우기 '+fmt(s.d)+'자':'';}
+  $('todayChars').textContent=settings.showWritten!==false?('작성 '+fmt(s.w)+'자'):'';
+  $('todayDel').textContent=(settings.showDeleted===true&&s.d)?'· 지우기 '+fmt(s.d)+'자':'';}
 
 /* ═══════════ 저장·스냅샷 ═══════════ */
 async function saveTab(t){
@@ -2163,6 +2310,8 @@ $('tbColorBtn').addEventListener('click',e=>{e.stopPropagation();
     renderColorPop();
   }});
 $('tbColor').addEventListener('input',e=>applyColor(e.target.value));
+$('cpDefaultBtn').addEventListener('mousedown',e=>e.preventDefault());
+$('cpDefaultBtn').addEventListener('click',()=>applyColor('#000000'));   // 8번: 글자 색 기본값(검정)으로 되돌리기
 $('colorPop').addEventListener('mousedown',e=>{if(e.target.id!=='tbColor')e.preventDefault();});
 addEventListener('click',e=>{if(!e.target.closest('.tb-colorwrap'))$('colorPop').classList.remove('open');});
 // customFonts는 문자열(구버전) 또는 {css,label}(신버전) 혼용 → {css,label}로 정규화
@@ -2722,6 +2871,8 @@ function applySettings(){
   $('setPasteAsk').checked=settings.pasteAsk!==false;
   $('setUiScale').value=String(settings.uiScale||100);
   $('setShowWork').checked=settings.showWork!==false;
+  $('setShowWritten').checked=settings.showWritten!==false;
+  $('setShowDeleted').checked=settings.showDeleted===true;
   applyUiScale();applyWorkVisibility();
   renderUserRepl();
   if(![...$('tbSize').options].some(o=>o.value===String(settings.size))){
@@ -2771,8 +2922,24 @@ function renderThemeGrid(){
     g.appendChild(d);
   });
 }
-$('darkBtn').onclick=()=>{settings.dark=!settings.dark;applySettings();saveMeta();};
+$('darkBtn').onclick=()=>{settings.dark=!settings.dark;applySettings();applyFocusOpts();saveMeta();};
 $('prefsClose').onclick=()=>$('prefsBg').classList.remove('open');
+// 6번: 모든 설정을 기본값으로. 유저가 작성한 내용, 폴더·문서 구성/위치/열림 상태, 열린 탭 등은
+// settings 객체가 아니라 orders/folderOpen/panes 등 완전히 별도의 상태라서 이 함수가 절대
+// 건드리지 않는다 — settings 하나만 새 기본값으로 통째로 교체한다.
+$('btnResetSettings').addEventListener('click',async()=>{
+  const ok=await confirmBox('레이아웃과 환경설정이 모두 기본값으로 돌아가요.\n(작성하신 내용은 그대로 유지돼요.) 진행하시겠습니까?','기본값으로 되돌리기');
+  if(!ok)return;
+  const keep={lastWork:settings.lastWork,lastExportFmt:settings.lastExportFmt};
+  settings=Object.assign(defaultSettings(),keep);
+  // defaultSettings()의 리터럴에는 없고 그때그때 켜켜이 추가돼 온 레이아웃 값들(집중 모드
+  // 글자 크기/밝기/문서·배경 색, 테마, 프리노트 높이·글자 크기 등)도 함께 지워서 기본 동작으로
+  // 되돌린다 — 이것들도 '작성한 내용'이 아니라 '설정'이기 때문.
+  ['focusSize','focusBright','focusW','focusPageBg','theme','freeH','freeSize'].forEach(k=>delete settings[k]);
+  applySettings();applyFocusOpts();updateTodayChip();renderAllPanes();
+  saveMeta();
+  toast('설정을 기본값으로 되돌렸어요');
+});
 document.querySelectorAll('.pn-item').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.pn-item').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.prefs-cat').forEach(c=>c.style.display=c.dataset.cat===b.dataset.cat?'':'none');
@@ -2783,6 +2950,8 @@ function applyUiScale(){document.body.style.zoom=(settings.uiScale||100)/100;}
 function applyWorkVisibility(){const el=$('workStat');if(el)el.style.display=(settings.showWork!==false)?'':'none';}
 $('setUiScale').onchange=e=>{settings.uiScale=+e.target.value||100;applyUiScale();saveMeta();};
 $('setShowWork').onchange=e=>{settings.showWork=e.target.checked;applyWorkVisibility();saveMeta();};
+$('setShowWritten').onchange=e=>{settings.showWritten=e.target.checked;updateTodayChip();saveMeta();};
+$('setShowDeleted').onchange=e=>{settings.showDeleted=e.target.checked;updateTodayChip();saveMeta();};
 $('setFontEd').onchange=e=>{settings.font=e.target.value?fontCss(e.target.value):BASE_FONTS[0][1];rebuildFontSelect();applyEditorStyle();saveMeta();};
 $('setFontSyn').onchange=e=>{settings.fontSyn=e.target.value;applyAreaFonts();saveMeta();};
 $('setFontNote').onchange=e=>{settings.fontNote=e.target.value;applyAreaFonts();saveMeta();};
@@ -3315,16 +3484,40 @@ $('replAll').onclick=async()=>{
   $('findInput').focus();
 };
 /* ═══════════ 집중 모드 옵션 ═══════════ */
+let _colorProbeEl=null;
+function resolveVarToHex(varName){
+  if(!_colorProbeEl){
+    _colorProbeEl=document.createElement('div');
+    _colorProbeEl.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;';
+    document.body.appendChild(_colorProbeEl);
+  }
+  _colorProbeEl.style.background='var('+varName+')';
+  const rgb=getComputedStyle(_colorProbeEl).backgroundColor;
+  const m=rgb.match(/\d+/g);
+  if(!m||m.length<3)return '#ffffff';
+  const toHex=n=>('0'+parseInt(n,10).toString(16)).slice(-2);
+  return '#'+toHex(m[0])+toHex(m[1])+toHex(m[2]);
+}
 function applyFocusOpts(){
   const w=parseInt(settings.focusW)||760;
   document.documentElement.style.setProperty('--focus-w',w+'px');
   document.documentElement.style.setProperty('--focus-x',String((settings.focusX==null?50:settings.focusX)/100));
-  document.documentElement.style.setProperty('--focus-bg',settings.focusBg||'transparent');
+  // 7번: 집중 모드 색상을 '문서(--focus-page-bg)'와 '배경(--focus-bg)' 두 개로 분리.
+  // 유저가 직접 고른 색이 없으면 문서 쪽은 지금 테마의 종이색(--paper)을 그대로 따라간다.
+  // ★ 반드시 body에 걸어야 한다: 테마/다크 모드의 --paper는 body:not(.dark)/body.dark에서
+  //   정의되므로, :root(documentElement)에 var(--paper)를 걸면 항상 라이트 기본값으로 굳어버린다.
+  document.documentElement.style.removeProperty('--focus-bg');
+  document.documentElement.style.removeProperty('--focus-page-bg');
+  document.body.style.setProperty('--focus-bg',settings.focusBg||'transparent');
+  document.body.style.setProperty('--focus-page-bg',settings.focusPageBg||'var(--paper)');
   if(settings.focusSize)document.documentElement.style.setProperty('--focus-size',settings.focusSize+'px');
   else document.documentElement.style.removeProperty('--focus-size');
   $('focusW').value=w;
   $('focusX').value=settings.focusX==null?50:settings.focusX;
   if(/^#/.test(settings.focusBg||''))$('focusBg').value=settings.focusBg;
+  else $('focusBg').value=resolveVarToHex('--sage-100');
+  if(/^#/.test(settings.focusPageBg||''))$('focusPageBg').value=settings.focusPageBg;
+  else $('focusPageBg').value=resolveVarToHex('--paper');
   $('twToggle').checked=!!settings.typewriter;
   document.documentElement.style.setProperty('--focus-bright',String((settings.focusBright||100)/100));
   $('focusBright').value=settings.focusBright||100;
@@ -3333,8 +3526,13 @@ function applyFocusOpts(){
 $('focusW').oninput=e=>{settings.focusW=+e.target.value;applyFocusOpts();saveMeta();};
 $('focusX').oninput=e=>{settings.focusX=+e.target.value;applyFocusOpts();saveMeta();};
 $('focusBg').oninput=e=>{settings.focusBg=e.target.value;applyFocusOpts();saveMeta();};
+$('focusPageBg').oninput=e=>{settings.focusPageBg=e.target.value;applyFocusOpts();saveMeta();};
+$('focusColorReset').onclick=()=>{
+  settings.focusBg='';settings.focusPageBg='';applyFocusOpts();saveMeta();
+  toast('문서·배경 색상을 기본값으로 되돌렸어요');
+};
 $('focusBright').oninput=e=>{settings.focusBright=+e.target.value;applyFocusOpts();saveMeta();};
-$('focusDarkBtn').onclick=()=>{settings.dark=!settings.dark;applySettings();saveMeta();};
+$('focusDarkBtn').onclick=()=>{settings.dark=!settings.dark;applySettings();applyFocusOpts();saveMeta();};
 $('focusSizeUp').onclick=()=>{settings.focusSize=(settings.focusSize||parseFloat(settings.size))+1;applyFocusOpts();saveMeta();};
 $('focusSizeDown').onclick=()=>{settings.focusSize=Math.max(11,(settings.focusSize||parseFloat(settings.size))-1);applyFocusOpts();saveMeta();};
 
@@ -3402,6 +3600,7 @@ $('mbReplace').addEventListener('click',()=>{
 });
 $('mbPrefs').addEventListener('click',e=>{e.stopPropagation();
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  applySettings();
   $('prefsBg').classList.add('open');});
 $('mbAutoSave').addEventListener('change',e=>{settings.autoSaveSec=+e.target.value;saveMeta();toast('자동 저장: '+e.target.value+'초');});
 $('mbSnapOn').addEventListener('change',e=>{settings.snapshotOn=e.target.checked;saveMeta();
@@ -3420,6 +3619,132 @@ $('mbOpenLib').addEventListener('click',async()=>{
   if(!ok)return;
   await saveAll();
   openLibrary('pick');
+});
+$('mbRenameWork').addEventListener('click',async()=>{
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  if(!curWork){toast('먼저 작품을 열어주세요.');return;}
+  const nm=await modal('작품 이름 바꾸기',curWork.disp||curWork.name);
+  if(!nm)return;
+  const trimmed=nm.trim();
+  if(!trimmed)return;
+  if(trimmed===(curWork.disp||curWork.name)){return;}
+  // 유저가 헷갈리지 않도록, 같은 이름의 작품이 동시에 2개 존재할 수 없게 막는다(4번).
+  // 폴더 이름(curWork.name)은 그대로 두고 표시용 이름(.이름 파일)만 바꾸는 방식이라,
+  // 정렬/세션/작품별 설정 키(orders, icons, folderOpen 등은 전부 curWork.name 기준이라
+  // 안전) 어디에도 영향을 주지 않는다.
+  const dup=works.some(w=>w.name!==curWork.name&&(w.disp||w.name)===trimmed);
+  if(dup){toast('⚠ 이미 같은 이름의 작품이 있어요');return;}
+  try{
+    await writeFile(curWork.path+'/.이름',trimmed);
+    curWork.disp=trimmed;
+    $('workName').textContent=trimmed;
+    await scanWorks();
+    toast('작품 이름을 바꿨어요: '+trimmed);
+  }catch(e){toast('⚠ 이름 변경 실패: '+e);}
+});
+/* ═══════════ 작품 숨기기 / 완전 삭제 ═══════════ */
+// 마지막 남은 작품(숨김 제외 목록 기준 1개)까지 숨기거나 지우면 열 작품이 하나도 없어지므로 막는다.
+function wipeWorkKeyedState(workName){
+  const prefix=workName+'|';
+  [orders,folderOpen,icons].forEach(store=>{
+    if(!store)return;
+    Object.keys(store).forEach(k=>{try{if(k.startsWith(prefix))delete store[k];}catch{}});
+  });
+  try{saveOrders();}catch{}
+  try{saveFolderOpen();}catch{}
+  try{saveIcons();}catch{}
+}
+async function switchAwayFrom(workName){
+  await scanWorks();
+  if(works.length){
+    const other=works.find(w=>w.name!==workName)||works[0];
+    await loadWork(other);
+  }else{
+    curWork=null;treeData=[];selectedFolder=null;
+    panes.forEach(pn=>{pn.tabs=[];pn.tab=null;});activePane=0;
+    workTreatment='';$('workName').textContent='작품 없음';$('tree').innerHTML='';
+    renderAllPanes();renderTreatment();renderMemo();renderWorkMenu();
+  }
+}
+$('mbHideWork').addEventListener('click',async()=>{
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  if(!curWork){toast('먼저 작품을 열어주세요.');return;}
+  if(works.length<=1){toast('마지막 남은 작품은 삭제/숨김 처리할 수 없어요');return;}
+  const ok=await confirmBox('"'+(curWork.disp||curWork.name)+'" 작품을 숨길까요?\n숨긴 작품은 [파일 › 숨긴 작품 관리]에서 언제든 복원할 수 있어요.','작품 숨기기');
+  if(!ok)return;
+  try{
+    await writeFile(curWork.path+'/.hidden','');
+    await switchAwayFrom(curWork.name);
+    toast('작품을 숨겼어요.');
+  }catch(e){toast('⚠ 숨기기 실패: '+e);}
+});
+async function renderHiddenWorks(){
+  const l=$('hiddenWorksList');l.innerHTML='';
+  const hidden=await scanHiddenWorks();
+  if(!hidden.length){l.innerHTML='<div style="color:var(--ink-faint);font-size:13px;padding:20px;text-align:center">숨긴 작품이 없어요.</div>';return;}
+  hidden.forEach(w=>{
+    const d=document.createElement('div');d.className='trash-row';
+    d.innerHTML='<span>📚</span><span class="tname">'+escHtml(w.disp||w.name)+'</span>';
+    const rb=document.createElement('button');rb.textContent='복원';
+    rb.onclick=async()=>{
+      try{await FS.remove(w.path+'/.hidden');}catch{}
+      await scanWorks();await renderHiddenWorks();
+      toast('작품을 복원했어요: '+(w.disp||w.name));
+    };
+    const db=document.createElement('button');db.textContent='완전 삭제';db.className='danger';
+    db.onclick=async()=>{
+      $('hiddenWorksBg').classList.remove('open');
+      await confirmDeleteWork(w,()=>{ $('hiddenWorksBg').classList.add('open'); renderHiddenWorks(); });
+    };
+    d.appendChild(rb);d.appendChild(db);l.appendChild(d);
+  });
+}
+$('mbHiddenWorks').addEventListener('click',async()=>{
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  await renderHiddenWorks();
+  $('hiddenWorksBg').classList.add('open');
+});
+$('hiddenWorksClose').onclick=()=>$('hiddenWorksBg').classList.remove('open');
+// 완전 삭제: '삭제합니다'를 정확히 입력해야만 확인 버튼이 동작한다. afterClose는
+// 숨긴 작품 목록에서 삭제했을 때 그 목록 모달로 돌아가기 위한 콜백(선택).
+function confirmDeleteWork(work,afterClose){return new Promise(res=>{
+  const disp=work.disp||work.name;
+  $('delWorkTitle').textContent=disp+' 작품이 완전히 삭제되며, 복구할 수 없습니다. 그래도 삭제하겠습니까?';
+  $('delWorkInput').value='';
+  $('delWorkBg').classList.add('open');
+  $('delWorkInput').focus();
+  const cleanup=()=>{
+    $('delWorkOk').onclick=null;$('delWorkCancel').onclick=null;$('delWorkInput').onkeydown=null;
+  };
+  const cancel=()=>{$('delWorkBg').classList.remove('open');cleanup();if(afterClose)afterClose();res(false);};
+  const confirm=async()=>{
+    if($('delWorkInput').value!=='삭제합니다'){toast('정확히 입력해주세요');return;}
+    $('delWorkBg').classList.remove('open');cleanup();
+    await doDeleteWork(work);
+    if(afterClose)afterClose();
+    res(true);
+  };
+  $('delWorkOk').onclick=confirm;
+  $('delWorkCancel').onclick=cancel;
+  $('delWorkInput').onkeydown=e=>{if(e.key==='Enter')confirm();if(e.key==='Escape')cancel();};
+});}
+async function doDeleteWork(work){
+  try{
+    await FS.remove(work.path,{recursive:true});
+  }catch(e){toast('⚠ 삭제 실패: '+e);return;}
+  wipeWorkKeyedState(work.name);
+  if(curWork&&curWork.name===work.name){
+    await switchAwayFrom(work.name);
+  }else{
+    await scanWorks();
+  }
+  toast('작품을 완전히 삭제했어요: '+(work.disp||work.name));
+}
+$('mbDeleteWork').addEventListener('click',async()=>{
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  if(!curWork){toast('먼저 작품을 열어주세요.');return;}
+  if(works.length<=1){toast('마지막 남은 작품은 삭제/숨김 처리할 수 없어요');return;}
+  await confirmDeleteWork(curWork);
 });
 $('mbSaveAs').addEventListener('click',async()=>{
   const t=panes[activePane].tab;if(!t){toast('먼저 문서를 열어주세요.');return;}
@@ -3535,10 +3860,26 @@ function printDoc(name,body){
   setTimeout(()=>{fr.contentWindow.focus();fr.contentWindow.print();},400);
   toast('인쇄 대화상자에서 "PDF로 저장"을 선택하세요');
 }
-// 내보내기 확장자를 저장 대화상자에 고정한다 — 유저는 파일명만 입력하면 되고,
-// OS가 자동으로 지정된 확장자를 붙여서 실수로 확장자가 지워지는 일이 없게 한다.
-const EXT_LABEL={txt:'텍스트 문서',docx:'Word 문서',hwpx:'한글 문서',epub:'전자책',rtf:'서식 있는 텍스트'};
-function expFilters(ext){return[{name:EXT_LABEL[ext]||ext.toUpperCase(),extensions:[ext]}];}
+// 내보내기 저장창 정책(결론):
+//  - filters로 '파일 형식'을 고른 포맷 하나로 잠근다. 저장창 목록에도 그 확장자만 뜨므로
+//    지금 무슨 형식으로 내보내는 중인지 헷갈리지 않고, 다른 확장자 파일을 잘못 클릭해
+//    "1화.txt.hwpx"처럼 확장자가 겹쳐 저장되던 사고도 구조적으로 막힌다.
+//  - defaultPath는 항상 확장자 없이 넘긴다. 다만 Windows 저장 대화상자는 필터가 걸려 있으면
+//    파일명 칸에 선택된 형식의 확장자를 스스로 덧붙여 보여준다(OS 동작이라 끌 수 없음).
+//    즉 '형식 고정'과 '입력칸에서 확장자 숨기기'는 Windows에서 동시에 성립하지 않는다.
+//    유저가 확장자를 직접 타이핑할 필요는 없으므로 형식 고정 쪽을 택했다.
+//  - forceExt()는 마지막 안전망. 유저가 입력칸에서 확장자를 지우거나 다른 걸로 고쳐도
+//    최종 저장 포맷은 항상 고른 형식 그대로 맞춰진다.
+const EXP_KNOWN_EXTS=['txt','docx','hwpx','epub','rtf','pdf'];
+const EXP_FMT_LABELS={txt:'텍스트 문서',docx:'Word 문서',hwpx:'한글 문서',epub:'전자책',rtf:'서식 있는 텍스트'};
+function expFilters(ext){
+  return[{name:EXP_FMT_LABELS[ext]||ext.toUpperCase(),extensions:[ext]}];
+}
+function forceExt(path,ext){
+  const m=path.match(/\.([A-Za-z0-9]+)$/);
+  if(m&&EXP_KNOWN_EXTS.includes(m[1].toLowerCase()))path=path.slice(0,-(m[1].length+1));
+  return path+'.'+ext;
+}
 async function getDocData(node){
   const open=findOpenTab(node.path);
   if(open){await saveTab(open);return{name:open.name,meta:open.meta,body:open.body};}
@@ -3554,8 +3895,9 @@ async function exportAs(node,fmtType){
     if(fmtType==='txt')payload=text;
     else if(fmtType==='rtf')payload=toRTF(text);
     else if(fmtType==='docx'){payload=makeDocx(buildExportItems(text,{}),{});binary=true;}
-    const dest=await DLG.save({defaultPath:d.name,filters:expFilters(ext)});
+    let dest=await DLG.save({defaultPath:d.name,filters:expFilters(ext)});
     if(!dest)return;
+    dest=forceExt(dest,ext);
     if(binary)await FS.writeFile(dest,payload);
     else await FS.writeTextFile(dest,payload);
     showExpPop(dest);
@@ -3888,7 +4230,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.7"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.0.8"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -3979,8 +4321,9 @@ $('expGo').addEventListener('click',async()=>{
     else if(fmt==='docx'){payload=makeDocx(items,o);binary=true;}
     else if(fmt==='hwpx'){payload=makeHwpx(items,name,o);binary=true;}
     else if(fmt==='epub'){payload=makeEpub(items,name,o.author,expCtx.cover,o);binary=true;}
-    const dest=await DLG.save({defaultPath:name,filters:expFilters(ext)});
+    let dest=await DLG.save({defaultPath:name,filters:expFilters(ext)});
     if(!dest)return;
+    dest=forceExt(dest,ext);
     if(binary)await FS.writeFile(dest,payload);
     else await FS.writeTextFile(dest,payload);
     $('expBg2').classList.remove('open');
@@ -4233,7 +4576,15 @@ $('treeSearchInput').addEventListener('keydown',async e=>{
   hits.forEach(hh=>{
     const d=document.createElement('div');d.className='search-hit';
     d.innerHTML='<span>'+(hh.node.icon||'📄')+'</span><span class="nm">'+escHtml(hh.node.disp||hh.node.name.replace(/\.md$/,''))+'</span><span class="cnt">'+hh.cnt+'</span>';
-    d.onclick=()=>openDoc(hh.node);
+    d.onclick=async()=>{
+      await openDoc(hh.node);
+      // 검색 결과에서 문서를 열면 그 안에서 검색어가 바로 하이라이트되게(3번) —
+      // 찾기 기능의 하이라이트 엔진(CSS Custom Highlight)을 그대로 재사용한다.
+      $('findInput').value=q;
+      findIdx=-1;
+      findCollectMatches(q);
+      if(findMatches.length){findHighlightAll();findGoTo(0);}
+    };
     r.appendChild(d);
   });
 });

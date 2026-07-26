@@ -54,7 +54,13 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "스토리시드 ${{ github.ref_name }}"
-          releaseBody: "각종 버그 수정 및 기능 개선."
+          releaseBody: |
+            - 내보내기 파일명 입력칸 개선
+            - 붙여넣기 위젯: ESC로 닫기, '다시 묻지 않음' 옵션 추가
+            - 작품 이름 바꾸기·숨기기·완전 삭제 기능 추가
+            - 문서 탭을 드래그해서 순서 변경 및 분할 화면 이동
+            - 환경설정에 '모든 설정 기본값으로' 버튼 추가
+            - 집중 모드 색상을 자유롭게 커스터마이징
           releaseDraft: false
           prerelease: false
           # 릴리스 파일명을 영문으로 고정 — 한글 파일명이 GitHub 업로드 과정에서
