@@ -55,6 +55,13 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "스토리시드 ${{ github.ref_name }}"
           releaseBody: |
+            - 형광펜 하이라이트 및 모아보기 기능 추가
+            - 휴지통 위치 및 UI 변경
+            - 문서 기본 정렬 변경 및 툴바 정렬 상태 표시.
+            - 모바일 화면 미리보기, 원고만 보기 버튼 추가
+            - 신규 테마 6종 추가(화이트·그레이·레트로·스페이스·러블리·키치퍼플)
+            - EPUB 내보내기 개선
+            - 앱 아이콘 변경
             - 여러 기능 추가 및 개선
             - 기타 각종 버그 수정
           releaseDraft: false
