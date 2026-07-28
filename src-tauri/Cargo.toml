@@ -1,6 +1,6 @@
 [package]
 name = "seojae"
-version = "2.1.3"
+version = "2.1.4"
 description = "StorySeed - 웹소설 작가를 위한 집필 프로그램"
 edition = "2021"
 
@@ -16,6 +16,16 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Windows에서 한글 조합 중 창 이동/리사이즈 시작(WM_ENTERSIZEMOVE)을 가로채
+# wry의 강제 재포커스를 막기 위한 의존성. 이미 tauri/wry가 내부적으로 쓰는
+# windows crate와 같은 버전(0.61)을 써서 HWND 등 타입이 서로 호환되게 맞췄다.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 [profile.release]
 strip = true

@@ -3096,7 +3096,7 @@ dependencies = [
 
 [[package]]
 name = "seojae"
-version = "2.1.2"
+version = "2.1.4"
 dependencies = [
  "serde",
  "serde_json",
@@ -3107,6 +3107,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "windows",
 ]
 
 [[package]]

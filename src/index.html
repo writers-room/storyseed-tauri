@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.1.3</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.1.4</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -135,9 +135,12 @@
   .tree-item.drag-over{background:var(--sage-300);outline:1.5px dashed var(--sage-500);}
   .tree-item.dragging{opacity:.4;}
   .tree-item .caret{font-size:21px;width:18px;text-align:center;color:var(--ink-soft);flex-shrink:0;margin:0;padding:0;}
-  .tree-item .ico{font-size:12px;flex-shrink:0;}
+  .tree-item .ico{font-size:12px;flex-shrink:0;width:17px;display:inline-flex;align-items:center;justify-content:center;}
+  .tree-item .ico svg{display:block;}
   .tree-item .nm{overflow:hidden;text-overflow:ellipsis;}
   .tree-item .nm.untitled{color:var(--ink-faint);font-style:italic;}
+  .tree-item .nm.empty{color:var(--ink-faint);}
+  .lock-ico{flex-shrink:0;margin-left:3px;opacity:.55;vertical-align:-1px;color:var(--ink-faint);}
   .tree-item .nm-edit{flex:1;min-width:0;border:1px solid var(--sage-400);border-radius:4px;
     background:var(--paper);color:var(--ink);font:inherit;padding:1px 4px;outline:none;}
   .status-dot{width:7px;height:7px;border-radius:50%;margin-left:auto;flex-shrink:0;}
@@ -229,7 +232,7 @@
   .ed{min-height:100%;outline:none;padding:16px 26px calc(60px + var(--ed-padb,0px));max-width:var(--ed-maxw,none);margin:0 auto;
     font-size:var(--ed-size,15.5px);line-height:var(--ed-line,2.0);color:var(--ink);
     font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif);word-break:keep-all;
-    text-align:var(--ed-align-default,justify);text-justify:inter-character;text-align-last:left;
+    text-align:var(--ed-align-default,justify);text-justify:inter-character;text-align-last:var(--ed-align-last-default,left);
     word-break:normal;line-break:auto;overflow-wrap:normal;}
   /* 붙여넣기 등으로 글꼴이 개별 지정된 텍스트가 섞여 있어도, 에디터에는 항상 선택한 글꼴 하나만 표시되게 강제 */
   .ed,.ed *{font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif) !important;}
@@ -239,10 +242,22 @@
     word-break:normal;line-break:auto;overflow-wrap:normal;}
   /* .ed 컨테이너 자체에도 적용해야 <div>로 감싸이지 않은 '첫 줄'까지 들여쓰기가 된다 */
   body.indent .ed,body.indent .ed div,body.indent .ed p{text-indent:1em;}
+  /* 문단의 첫 콘텐츠가 이미지(.img-wrap)면 들여쓰기를 걸지 않는다 — text-indent가 인라인블록 이미지
+     배치에 영향을 줘서 리사이즈 핸들/테두리가 실제 이미지 위치와 어긋나 보이는 문제 대응 */
+  body.indent .ed div:has(>.img-wrap:first-child),
+  body.indent .ed p:has(>.img-wrap:first-child){text-indent:0;}
   .ed:empty::before{content:attr(data-ph);color:var(--ink-faint);}
   .ed img{max-width:100%;height:auto;}
+  .ed-scroll.locked{background:rgba(0,0,0,.04);}
+  .lock-banner{display:inline-flex;align-items:center;gap:4px;color:var(--ink-faint);margin-right:2px;}
+  .lock-topbar{max-width:var(--ed-maxw,none);margin:0 auto;padding:16px 26px 0;
+    display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--ink-soft,#555);}
+  .lock-topbar svg{flex-shrink:0;}
   /* ── 에디터 이미지 편집(선택/리사이즈/크롭) ── */
-  .img-wrap{position:relative;display:inline-block;max-width:100%;line-height:0;}
+  /* font-size:0/vertical-align/text-align:left는 justify+inter-character가 걸린 문단 안에서
+     inline-block 앞뒤로 조판 엔진이 끼워 넣는 서브픽셀 여백을 없애 리사이즈 테두리 어긋남을
+     줄이기 위한 시도(2.1.4, 완전 해결 미확인 — 재현 스크린샷 필요시 추가 조사) */
+  .img-wrap{position:relative;display:inline-block;max-width:100%;line-height:0;font-size:0;vertical-align:top;text-align:left;text-justify:none;}
   .img-wrap.img-selected{outline:2px solid var(--sage-500);outline-offset:0;}
   .img-handle{position:absolute;width:9px;height:9px;background:var(--paper);
     border:1.5px solid var(--sage-500);border-radius:2px;display:none;z-index:20;}
@@ -435,7 +450,7 @@
   @keyframes hlFlash{0%{box-shadow:0 0 0 4px var(--sage-500);}70%{box-shadow:0 0 0 4px var(--sage-500);}100%{box-shadow:0 0 0 0 rgba(0,0,0,0);}}
   .hl-chip{width:18px;height:18px;border-radius:50%;cursor:pointer;flex-shrink:0;}
   .hl-chip.sel{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--sage-500);}
-  .hl-chip-all{background:conic-gradient(red,orange,yellow,green,blue,indigo,violet,red);}
+  .hl-chip-all{background:conic-gradient(#ffd6d6,#ffe8c2,#fff6b8,#d7f5d0,#c9e7fa,#d6d6f7,#f0d4f0,#ffd6d6);}
   .hl-chip[data-hl-color="c1"]{background:var(--hl-c1);}
   .hl-chip[data-hl-color="c2"]{background:var(--hl-c2);}
   .hl-chip[data-hl-color="c3"]{background:var(--hl-c3);}
@@ -892,6 +907,7 @@
   <div class="ctx-item" id="ctxExport">📤 내보내기…</div>
   <div class="ctx-item" id="ctxDup">⧉ 복제</div>
   <div class="ctx-item" id="ctxSep">─ 아래에 구분선 추가</div>
+  <div class="ctx-item" id="ctxLock">🔒 잠그기</div>
   <div class="ctx-item danger" id="ctxTrash">🗑 휴지통으로</div>
 </div>
 
@@ -1314,6 +1330,7 @@ const panes=[{tabs:[],tab:null,zoom:100},{tabs:[],tab:null,zoom:100}];
 let activePane=0,splitOn=false;
 let trMode='doc',workTreatment='',workTreatmentDirty=false;
 let dragNode=null,dragNodes=[],dragSep=null,dragSeps=[],ctxSepInfo=null,ctxNode=null,orders={},trashMeta=[],icons={},folderOpen={},dragTrashEntry=null;
+let lockedPaths={},unlockedOverrides={};   // 바인더 폴더/문서 잠금(3번)
 let verPane=0,verSel=null,verFiles=[];
 let freeNote="",freeNoteDirty=false,freeTimer=null;
 let multiSel=new Set(),multiSelSeps=new Set(),lastSelPath=null,visList=[];
@@ -1349,7 +1366,7 @@ function setupInlineEdit(itemEl,node){
 }
 let sessions={},sessionTimer=null,restoring=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.1.3";
+const APP_VERSION="beta 2.1.4";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1503,6 +1520,8 @@ async function openLibrary(mode){
     orders=await readJson(seojaePath+'/order.json',{});
     icons=await readJson(seojaePath+'/icons.json',{});
     folderOpen=await readJson(seojaePath+'/folders.json',{});
+    lockedPaths=await readJson(seojaePath+'/locks.json',{});
+    unlockedOverrides=await readJson(seojaePath+'/unlocks.json',{});
     memoTrash=await readJson(seojaePath+'/memo-trash.json',[]);
     sessions=await readJson(seojaePath+'/session.json',{});
     if(parseInt(settings.edW)>100)settings.edW='100';
@@ -1610,10 +1629,14 @@ async function scanDir(absDir,relPath){
         path:dpath,open:savedOpen===undefined?true:savedOpen,children:await scanDir(absDir+'/'+name,dpath)});
     }
     else if(name.endsWith('.md')&&name!=='treatment.md'){
-      let icon=null,disp=null;
-      try{const md=parseDoc(await readFile(absDir+'/'+name)).meta;icon=md.아이콘||null;disp=md.제목||null;}catch{}
+      let icon=null,disp=null,isEmpty=false;
+      try{
+        const parsed=parseDoc(await readFile(absDir+'/'+name));
+        icon=parsed.meta.아이콘||null;disp=parsed.meta.제목||null;
+        isEmpty=!plainTextOf(parsed.body||'').trim();
+      }catch{}
       nodes.push({type:'file',name,abs:absDir+'/'+name,parentAbs:absDir,parentPath:relPath,
-        path:relPath+name,icon,disp:disp||name.replace(/\.md$/,'')});
+        path:relPath+name,icon,disp:disp||name.replace(/\.md$/,''),empty:isEmpty});
     }
   }
   sortNodes(nodes,relPath);
@@ -1645,8 +1668,36 @@ let folderOpenTimer=null;
 function saveFolderOpen(){clearTimeout(folderOpenTimer);folderOpenTimer=setTimeout(()=>{
   writeFile(seojaePath+'/folders.json',JSON.stringify(folderOpen)).catch(()=>{});},400);}
 function saveTrashMeta(){writeFile(trashPath+'/trash.json',JSON.stringify(trashMeta)).catch(()=>{});}
+let locksTimer=null;
+function saveLocks(){clearTimeout(locksTimer);locksTimer=setTimeout(()=>{
+  writeFile(seojaePath+'/locks.json',JSON.stringify(lockedPaths)).catch(()=>{});},400);}
+let unlocksTimer=null;
+function saveUnlocks(){clearTimeout(unlocksTimer);unlocksTimer=setTimeout(()=>{
+  writeFile(seojaePath+'/unlocks.json',JSON.stringify(unlockedOverrides)).catch(()=>{});},400);}
+/* 경로 문자열 기반 잠금 판정. 폴더 경로는 끝에 '/'가 붙고(scanDir 참고), 조상 폴더가 잠겨 있으면 상속된다. */
+function isLocked(path){
+  if(!curWork||!path)return false;
+  const wk=curWork.name;
+  if(unlockedOverrides[wk+'|'+path])return false;
+  if(lockedPaths[wk+'|'+path])return true;
+  const parts=path.split('/').filter(Boolean);
+  let p='';
+  for(let i=0;i<parts.length-1;i++){   // 마지막 조각(자기 자신)은 제외, 상위 폴더 경로들만 검사
+    p+=parts[i]+'/';
+    if(lockedPaths[wk+'|'+p])return true;
+  }
+  return false;
+}
+function isOwnLock(path){   // 이 노드 자신이 명시적으로 잠금 설정되어 있는지
+  return !!(curWork&&lockedPaths[curWork.name+'|'+path]);
+}
 
 /* ═══════════ 트리 렌더 + 드래그&드롭 ═══════════ */
+function docIcoSvg(isEmpty){
+  return isEmpty
+    ?'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.4"><path d="M4 1.5h5.5L13 5v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z"/></svg>'
+    :'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.5h5.5L13 5v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z"/><path d="M9.5 1.5V5H13"/></svg>';
+}
 function renderTree(){
   const t=$('tree');t.innerHTML='';
   visList=[];
@@ -1700,15 +1751,20 @@ function renderTree(){
     visList.push({kind:'node',path:n.path,node:n});
     // 화살표(캐럿) 자리는 폴더/문서 상관없이 항상 동일한 폭으로 비워둔다 — 같은 깊이의 폴더·문서
     // 아이콘이 같은 열에 세로로 나란히 오도록. 자식은 한 단계(depth)만큼만 오른쪽으로.
-    const d=document.createElement('div');d.className='tree-item';d.style.paddingLeft=(6+depth*15)+'px';
+    const d=document.createElement('div');d.className='tree-item';d.style.paddingLeft=(6+depth*15)+'px';d.dataset.path=n.path;
     if(multiSel.has(n.path))d.classList.add('msel');
     d.draggable=true;
     const dispName=n.disp||(n.type==='file'?n.name.replace(/\.md$/,''):n.name);
     const untitledCls=UNTITLED_RE.test(dispName)?' untitled':'';
     const editing=(renamingPath===n.path);
+    const lockIco=isLocked(n.path)?'<svg class="lock-ico" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>':'';
     if(n.type==='dir'){
-      d.innerHTML='<span class="caret">'+(n.open?'▾':'▸')+'</span><span class="ico">'+(icons[curWork.name+"|"+n.path]||'📁')+'</span>'+
-        (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+'">'+escHtml(dispName)+'</span>');
+      const customIco=icons[curWork.name+"|"+n.path];
+      const folderIco=customIco||(n.open
+        ?'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>'
+        :'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>');
+      d.innerHTML='<span class="caret">'+(n.open?'▾':'▸')+'</span><span class="ico">'+folderIco+'</span>'+
+        (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+'">'+escHtml(dispName)+'</span>'+lockIco);
       if(editing){setupInlineEdit(d,n);}
       if(selectedFolder&&selectedFolder.path===n.path)d.classList.add('selected');
       d.onclick=e=>{
@@ -1723,8 +1779,9 @@ function renderTree(){
         }
         selectedFolder=n;renderTree();};
     }else{
-      d.innerHTML='<span class="caret"></span><span class="ico">'+(n.icon||'📄')+'</span>'+
-        (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+'">'+escHtml(dispName)+'</span>');
+      const docIco=n.icon||docIcoSvg(!!n.empty);
+      d.innerHTML='<span class="caret"></span><span class="ico">'+docIco+'</span>'+
+        (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+(n.empty?' empty':'')+'">'+escHtml(dispName)+'</span>'+lockIco);
       if(editing){setupInlineEdit(d,n);}
       if(cur&&cur.path===n.path)d.classList.add('selected');
       d.onclick=e=>{
@@ -1796,6 +1853,7 @@ function renderTree(){
       // 항목 표시/숨김을 먼저 반영해야 메뉴의 실제 높이가 정확해진다(파일용/폴더용 항목 개수가 달라서).
       m.querySelectorAll('.ctx-file').forEach(x=>x.style.display=n.type==='file'?'':'none');
       m.querySelectorAll('.ctx-dir').forEach(x=>x.style.display=n.type==='dir'?'':'none');
+      updateCtxLockLabel(n);
       positionCtxMenu(m,e.clientX,e.clientY);
     });
     t.appendChild(d);
@@ -2251,14 +2309,35 @@ function renderPane(i){
   const p=panes[i],ed=$('ed'+i);
   if(!p.tab){
     ed.innerHTML='';ed.contentEditable='false';p._lastPath=null;
+    ed.classList.remove('locked');
+    const scroller0=ed.closest('.ed-scroll');
+    const banner0=scroller0&&scroller0.querySelector('.lock-topbar');
+    if(banner0)banner0.remove();
+    scroller0&&scroller0.classList.remove('locked');
     $('title'+i).textContent=i===1?'이 화면에 띄울 문서를 바인더에서 선택하세요':'문서를 선택하세요';
     $('chars'+i).textContent='';$('save'+i).textContent='';
     $('goal'+i).style.width='0';$('goalPct'+i).textContent='';
   }else{
     const t=p.tab;
-    ed.contentEditable='true';
+    // 잠긴 문서는 열람은 되지만 편집은 막는다(3번: 바인더 잠금 기능)
+    const locked=isLocked(t.path);
+    ed.contentEditable=locked?'false':'true';
+    ed.classList.toggle('locked',locked);
     if(ed.innerHTML!==t.body)ed.innerHTML=t.body;
     $('title'+i).textContent=curWork.name+' › '+t.path.replace(/\//g,' › ').replace(/\.md$/,'');
+    const scroller=ed.closest('.ed-scroll');
+    scroller.classList.toggle('locked',locked);
+    let banner=scroller.querySelector('.lock-topbar');
+    if(locked){
+      if(!banner){
+        banner=document.createElement('div');
+        banner.className='lock-topbar';
+        banner.innerHTML='<svg viewBox="0 0 16 16" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span>잠긴 문서입니다</span>';
+        scroller.insertBefore(banner,ed);
+      }
+    }else if(banner){
+      banner.remove();
+    }
     $('save'+i).textContent=t.dirty?'수정됨':'저장됨';
     updateCounts(i);
     // 탭이 바뀌었을 때만 저장된 스크롤 위치 복원(타이핑 중 리렌더에는 건드리지 않음)
@@ -2269,7 +2348,7 @@ function renderPane(i){
       // 편집 기록이 지금 문서에 잘못 적용될 수 있다(5번 버그). contentEditable을
       // 껐다 켜면 해당 요소의 네이티브 undo/redo 히스토리가 초기화되어, 탭이 바뀔
       // 때마다 실행취소가 항상 "지금 보고 있는 문서"만 대상으로 삼게 된다.
-      ed.contentEditable='false';ed.contentEditable='true';
+      ed.contentEditable='false';ed.contentEditable=isLocked(t.path)?'false':'true';
       const sc=ed.closest('.ed-scroll'),y=scrollMem[t.path]||0;
       requestAnimationFrame(()=>{sc.scrollTop=y;});
     }
@@ -2305,6 +2384,18 @@ function syncFromDOM(i){
   }else if(diff<0)s.d+=-diff;
   updateTodayChip();
   t.dirty=true;$('save'+i).textContent='수정됨';
+  if(t.node){
+    const isEmpty=!plainTextOf(t.body).trim();
+    if(t.node.empty!==isEmpty){
+      t.node.empty=isEmpty;
+      const itemEl=document.querySelector('.tree-item[data-path="'+CSS.escape(t.node.path)+'"]');
+      if(itemEl){
+        const nmEl=itemEl.querySelector('.nm');if(nmEl)nmEl.classList.toggle('empty',isEmpty);
+        const icoEl=itemEl.querySelector('.ico');
+        if(icoEl&&!t.node.icon)icoEl.innerHTML=docIcoSvg(isEmpty);
+      }
+    }
+  }
   updateCounts(i);renderPaneTabs(0);renderPaneTabs(1);
   const o=1-i;
   if(panes[o].tab===t&&$('ed'+o).innerHTML!==t.body){$('ed'+o).innerHTML=t.body;updateCounts(o);}
@@ -2316,9 +2407,19 @@ function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEdit
   const ed=$('ed'+i);
   ed.addEventListener('focus',()=>setActivePane(i));
   ed.addEventListener('compositionstart',()=>{imeComposing=true;});
-  ed.addEventListener('compositionend',()=>{imeComposing=false;});
-  ed.addEventListener('input',()=>{
+  ed.addEventListener('compositionend',()=>{
+    imeComposing=false;
+    // 한글 조합이 끝난 시점에 한 번은 반드시 동기화해준다 — 조합 중에는 input 핸들러가
+    // 아무 것도 안 하므로, 혹시 뒤따르는 input 이벤트가 안 오는 웹뷰 환경 대비 안전망.
+    const t=panes[i].tab;if(t)syncNow(i);
+  });
+  ed.addEventListener('input',e=>{
     const t=panes[i].tab;if(!t)return;
+    // 한글 조합(IME) 도중에는 DOM을 건드리지 않는다 — 자동 치환(autoReplaceCE)이 텍스트
+    // 노드를 직접 수정하면 조합 중인 IME 세션이 깨지면서, 특히 창을 옮기거나 크기를 바꿔
+    // 이벤트 처리가 밀리는 상황에서 입력이 심하게 밀리거나 씹히는 현상(윈도우 '문자열
+    // 마무리'와 얽힌 지연)이 발생한다. 조합이 끝난 뒤(입력이 확정된 뒤)에만 처리한다.
+    if(e.isComposing||imeComposing)return;
     autoReplaceCE();
     hidePasteBox();
     // 짧은 문서는 즉시, 긴 문서는 디바운스 동기화 (프리징 방지)
@@ -2671,12 +2772,42 @@ document.querySelectorAll('.tb-btn').forEach(b=>{
   b.addEventListener('click',()=>{
     if(!b.dataset.cmd)return;   // 색상 버튼 등 명령 없는 버튼 제외
     document.execCommand(b.dataset.cmd,false,null);
+    // justifyLeft/Center/Right/Full은 execCommand의 "이미 그 상태다" 판단 휴리스틱이
+    // .ed의 justify 기본 CSS와 꼬여서 인라인 text-align을 제대로 안 남기는 경우가 있어,
+    // 명시적으로 DOM에 강제 지정해 결정론적으로 만든다(2.1.4).
+    const alignMap={justifyLeft:'left',justifyCenter:'center',justifyRight:'right',justifyFull:'justify'};
+    if(alignMap[b.dataset.cmd])applyExplicitAlign(alignMap[b.dataset.cmd]);
     const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
       clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());
       renderPaneTabs(0);renderPaneTabs(1);}
     updateAlignButtons();
   });
 });
+/* 정렬 명령을 실제 DOM에 결정론적으로 반영한다(execCommand 부수효과에 의존하지 않음) */
+function applyExplicitAlign(align){
+  const ed=$('ed'+activePane);
+  const sel=getSelection();
+  if(!sel||!sel.rangeCount||!ed.contains(sel.anchorNode))return;
+  const range=sel.getRangeAt(0);
+  const setAlign=el=>{
+    el.style.textAlign=align;
+    if(align==='justify'){el.style.textJustify='inter-character';el.style.textAlignLast='left';}
+    else{
+      // .ed 기본 CSS가 text-align-last:left / text-justify:inter-character를 무조건 상속시키므로,
+      // 여기서 빈 문자열로 지우면 그 상속값이 그대로 노출돼 한 줄짜리(=마지막 줄) 문단이 항상
+      // 왼쪽으로 보이는 버그가 난다. 반드시 현재 정렬값으로 명시적으로 덮어써야 한다.
+      el.style.textJustify='auto';el.style.textAlignLast=align;
+    }
+  };
+  const blockKids=Array.from(ed.children).filter(c=>c.nodeType===1);
+  let matched=false;
+  blockKids.forEach(child=>{
+    if(range.intersectsNode(child)){setAlign(child);matched=true;}
+  });
+  // <div>로 감싸이지 않은 루즈 텍스트(문서를 아직 한 번도 Enter로 나누지 않은 '첫 줄' 등)까지
+  // 걸쳐 있으면 컨테이너(.ed) 자체에도 적용해야 반영된다.
+  if(!matched&&range.intersectsNode(ed))setAlign(ed);
+}
 /* 커서 위치의 정렬 상태를 툴바 아이콘에 반영 */
 function updateAlignButtons(){
   const tbAlignBtns=document.querySelectorAll('.tb-align');
@@ -3029,6 +3160,9 @@ function applyEditorStyle(){
   document.documentElement.style.setProperty('--ed-line',settings.line);
   document.documentElement.style.setProperty('--ed-para',settings.para);
   document.documentElement.style.setProperty('--ed-align-default',settings.alignDefault||'justify');
+  // text-align-last는 한 줄짜리(=마지막 줄) 문단의 실제 렌더링을 좌우하므로, 문서 기본 정렬이
+  // justify가 아닐 때는 text-align과 같은 값으로 맞춰야 짧은 문단이 항상 왼쪽으로 보이는 걸 막는다.
+  document.documentElement.style.setProperty('--ed-align-last-default',(settings.alignDefault&&settings.alignDefault!=='justify')?settings.alignDefault:'left');
   document.body.classList.toggle('indent',!!settings.indent);
   const w=parseInt(settings.edW)||100;
   document.documentElement.style.setProperty('--ed-maxw',w>=100?'none':w+'%');
@@ -3059,6 +3193,9 @@ $('manuscriptOnlyBtn').onclick=()=>{
   document.body.classList.toggle('manuscript-only');
   $('manuscriptOnlyBtn').classList.toggle('on',document.body.classList.contains('manuscript-only'));
   if(typeof fitPanels==='function')fitPanels();
+  // manuscript-only 토글은 document.body의 바깥 크기를 바꾸지 않아 ResizeObserver/resize가
+  // 발동하지 않으므로, 상태바 psfit* 재계산을 직접 호출해줘야 한다.
+  if(typeof fitPaneStatus==='function')fitPaneStatus();
 };
 let mpFontSize=16,mpIndent=true,mpPaged=false;
 $('mobilePreviewBtn').onclick=()=>{
@@ -3695,7 +3832,7 @@ function applyUiScale(){
     b.style.height=(window.innerHeight/s)+'px';
   }
 }
-addEventListener('resize',()=>{if((settings.uiScale||100)!==100)applyUiScale();});
+addEventListener('resize',()=>{if(imeComposing)return;if((settings.uiScale||100)!==100)applyUiScale();});
 function fitTopbar(){
   if(imeComposing)return;
   const tb=document.querySelector('.topbar');if(!tb)return;
@@ -4027,6 +4164,36 @@ addEventListener('click',()=>$('ctxMenu').classList.remove('open'));
 $('ctxNewSub').onclick=()=>{if(ctxNode&&ctxNode.type==='dir'){ctxNode.open=true;folderOpen[curWork.name+'|'+ctxNode.path]=true;saveFolderOpen();selectedFolder=ctxNode;createNewFolder();}};
 $('ctxNewSubDoc').onclick=()=>{if(ctxNode&&ctxNode.type==='dir'){ctxNode.open=true;folderOpen[curWork.name+'|'+ctxNode.path]=true;saveFolderOpen();selectedFolder=ctxNode;createNewDoc();}};
 $('ctxRename').onclick=()=>{if(ctxNode)renameNode(ctxNode);};
+/* 잠금 메뉴 라벨을 노드 상태에 맞게 갱신 */
+function updateCtxLockLabel(n){
+  const el=$('ctxLock');if(!el||!n)return;
+  if(n.type==='dir'){
+    el.textContent=isOwnLock(n.path)?'🔓 폴더 잠금 해제':'🔒 폴더 잠그기';
+  }else{
+    if(isOwnLock(n.path))el.textContent='🔓 잠금 해제';
+    else if(isLocked(n.path))el.textContent='🔓 이 문서만 잠금 해제';
+    else el.textContent='🔒 이 문서 잠그기';
+  }
+}
+$('ctxLock').onclick=()=>{
+  if(!ctxNode)return;
+  const key=curWork.name+'|'+ctxNode.path;
+  if(ctxNode.type==='dir'){
+    if(lockedPaths[key])delete lockedPaths[key];else lockedPaths[key]=true;
+    saveLocks();
+  }else{
+    if(isOwnLock(ctxNode.path)){
+      delete lockedPaths[key];saveLocks();
+    }else if(isLocked(ctxNode.path)){
+      if(unlockedOverrides[key])delete unlockedOverrides[key];else unlockedOverrides[key]=true;
+      saveUnlocks();
+    }else{
+      lockedPaths[key]=true;saveLocks();
+    }
+  }
+  renderTree();
+  if(panes.some(p=>p.tab&&p.tab.path===ctxNode.path))renderAllPanes();
+};
 $('ctxTrash').onclick=()=>{
   if(!ctxNode)return;
   // 우클릭한 항목이 지금 다중 선택에 포함돼 있으면(2번), 선택된 항목 전체를 한꺼번에
@@ -4074,6 +4241,7 @@ async function doRename(node,nm){
   }catch(e){toast('⚠ 실패: '+e);}
 }
 async function trashNode(node){
+  if(isLocked(node.path)){toast('🔒 잠긴 항목은 휴지통으로 보낼 수 없어요');return;}
   if(node.type==='dir'){
     const hasChild=node.children&&node.children.length>0;
     if(hasChild){
@@ -4099,9 +4267,12 @@ async function trashNode(node){
   }catch(e){toast('⚠ 실패: '+e);}
 }
 async function trashMany(nodes){
+  const lockedCount=nodes.filter(n=>isLocked(n.path)).length;
+  nodes=nodes.filter(n=>!isLocked(n.path));
+  if(!nodes.length){toast('🔒 잠긴 항목은 휴지통으로 보낼 수 없어요');return;}
   const paths=new Set(nodes.map(n=>n.path));
   const tops=nodes.filter(n=>![...paths].some(p=>p!==n.path&&p.endsWith('/')&&n.path.startsWith(p)));
-  const ok=await confirmBox(tops.length+'개 항목을 휴지통으로 보낼까요?','휴지통으로');
+  const ok=await confirmBox(tops.length+'개 항목을 휴지통으로 보낼까요?'+(lockedCount?'\n('+lockedCount+'개는 잠겨 있어 제외했어요)':''),'휴지통으로');
   if(!ok)return;
   await saveAll();
   for(const node of tops){
@@ -4118,7 +4289,7 @@ async function trashMany(nodes){
   saveTrashMeta();clearMultiSel();
   await rescanTree();renderAllPanes();renderMemo();
   if(trMode==='doc')renderTreatment();
-  toast(tops.length+'개를 휴지통으로 보냈어요');
+  toast(tops.length+'개를 휴지통으로 보냈어요'+(lockedCount?' ('+lockedCount+'개는 잠겨 있어 제외)':''));
 }
 /* ═══════════ 휴지통 모달 ═══════════ */
 $('trashClose').onclick=()=>$('trashBg').classList.remove('open');
@@ -5222,8 +5393,9 @@ function updateExpPreview(){
   const useFmt=o.keepFmt&&supportsFmt&&expCtx.lines&&expCtx.lines.length;
   const centerScene=o.centerScene&&supportsFmt;
   // 서식/장면 정렬을 미리보기에 반영해야 하면 HTML로, 아니면 텍스트로
+  // (실제 내보내기와 반드시 동일한 결과여야 하므로 expItemsFor()로 items를 만든다 — 미리보기 전용 분기 없음)
   if(useFmt||centerScene){
-    const items=buildExportItems(useFmt?expCtx.lines:(expCtx.raw||''),o);
+    const items=expItemsFor(o,fmt);
     let html='';
     for(let i=0;i<items.length;i++){
       const it=items[i];
@@ -5241,7 +5413,10 @@ function updateExpPreview(){
       }else if(useFmt&&it.html){
         const al=it.align?(' style="text-align:'+it.align+'"'):'';
         html+='<div'+al+'>'+(runsToInline(runsFromHtml(it.html))||'<br>')+'</div>';
-      }else html+='<div>'+(escHtml(it.text)||'<br>')+'</div>';
+      }else{
+        const al=useFmt&&it.align?(' style="text-align:'+it.align+'"'):'';
+        html+='<div'+al+'>'+(escHtml(it.text)||'<br>')+'</div>';
+      }
       if(html.length>6000){html+='<div style="opacity:.5">… (이하 생략)</div>';break;}
     }
     pv.innerHTML=html||'(빈 문서)';
@@ -5327,7 +5502,8 @@ function textToHtml(items,o){
       html+='<div'+al+'>'+(inner||'<br>')+'</div>';
     }else{
       const txt=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
-      html+='<div'+(center?' style="text-align:center"':'')+'>'+(escHtml(txt)||'<br>')+'</div>';
+      const al=center?' style="text-align:center"':'';
+      html+='<div'+al+'>'+(escHtml(txt)||'<br>')+'</div>';
     }
   });
   return html;
@@ -5379,11 +5555,11 @@ function makeHwpx(items,title,o){
     }else{
       const center=(it.kind==='scene'&&o.centerScene);
       const txt=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
-      paras+=para(txt,center?1:(o.keepFmt?alignPr(it.align):0),first);
+      paras+=para(txt,center?1:0,first);
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.1.3"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.1.4"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -5483,11 +5659,17 @@ function makeEpub(items,title,author,cover,o){
   epubImages.forEach(e=>files.push({name:'OEBPS/'+e.href,data:e.data}));
   return zipStore(files);
 }
+// 미리보기와 실제 내보내기가 반드시 같은 결과를 내야 하므로, items 생성은 이 함수 하나만 쓴다.
+// "서식 유지" 체크를 껐으면 서식(정렬 포함)을 전혀 반영하지 않고, 켰을 때만 원문 그대로 반영한다.
+function expItemsFor(o,fmt){
+  const supportsFmt=['docx','hwpx','epub','pdf'].includes(fmt);
+  const useLines=o.keepFmt&&supportsFmt&&expCtx.lines&&expCtx.lines.length;
+  return buildExportItems(useLines?expCtx.lines:(expCtx.raw||''),o);
+}
 $('expGo').addEventListener('click',async()=>{
   if(!expCtx)return;
   const o=readExpOpts();saveMeta();
-  const useFmt=o.keepFmt&&expCtx.lines&&expCtx.lines.length;
-  const items=buildExportItems(useFmt?expCtx.lines:(expCtx.raw||''),o);
+  const items=expItemsFor(o,$('expFmt').value);
   const text=transformExport(expCtx.raw||'',o);
   const name=expCtx.title;
   if(expCtx.mode==='clip'){
