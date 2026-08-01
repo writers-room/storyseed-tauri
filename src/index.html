@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.1.4</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.0</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -46,6 +46,7 @@
   .wm-item:hover{background:var(--sage-100);}
   .wm-item.on{background:var(--sage-150);color:var(--ink);font-weight:600;}
   .wm-new{border-top:1px solid var(--sage-150);margin-top:4px;padding-top:8px;color:var(--sage-600);}
+  .wm-list{max-height:280px;overflow-y:auto;margin:4px 0;}
   .topbar .spacer{flex:1;min-width:0;}
   .topbar>*{flex-shrink:0;white-space:nowrap;}
   /* 1단계: 작업량 글자수부터 접는다(없어도 글쓰기에 지장이 없는 정보). */
@@ -83,6 +84,14 @@
   .icon-btn.on{background:var(--sage-300);color:var(--ink);}
   body.manuscript-only .binder,body.manuscript-only .treatment,body.manuscript-only .memo,
   body.manuscript-only .rh-binder,body.manuscript-only .rh-treatment,body.manuscript-only .rh-memo{display:none !important;}
+  /* 원고만 보기: 메뉴바/서식 툴바는 완전히 숨기고, 상단 바(로고·작품명·토글 아이콘들)는
+     화면 위쪽에 마우스를 올렸을 때만 슬라이드로 나타나게 한다(4번). */
+  body.manuscript-only .menubar,body.manuscript-only .toolbar{display:none !important;}
+  #topbarTrigger{display:none;}
+  body.manuscript-only #topbarTrigger{display:block;position:fixed;top:0;left:0;right:0;height:10px;z-index:59;}
+  body.manuscript-only .topbar{position:fixed;top:0;left:0;right:0;z-index:60;
+    transform:translateY(-100%);transition:transform .15s ease;box-shadow:0 4px 16px rgba(0,0,0,.12);}
+  body.manuscript-only #topbarTrigger:hover~.topbar,body.manuscript-only .topbar:hover{transform:translateY(0);}
   body.auto-hide-binder .binder,body.auto-hide-binder .rh-binder{display:none !important;}
   body.auto-hide-treatment .treatment,body.auto-hide-treatment .rh-treatment{display:none !important;}
   body.auto-hide-memo .memo,body.auto-hide-memo .rh-memo{display:none !important;}
@@ -299,10 +308,36 @@
   .pane-status.psfit3 .copy-btn{display:none!important;}
   /* 4단계: 저장됨-시간 표시(#save0/#save1)를 접는다. 실제 작성 글자수(#chars0/#chars1)는 끝까지 남긴다. */
   .pane-status.psfit4 span[id^="save"]{display:none!important;}
+  .ref-pane{display:flex;flex-direction:column;flex-shrink:0;height:200px;min-height:80px;max-height:60%;
+    overflow:hidden;border-top:1px solid var(--sage-200);}
+  /* 리사이즈는 아래(2.2.1)에서 이 바를 위아래로 드래그하는 방식으로 처리한다 —
+     브라우저 기본 resize 핸들(우측 하단 모서리)은 위치가 직관적이지 않다는 피드백 반영 */
+  .ref-pane-bar{flex-shrink:0;height:26px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 10px;font-size:11px;color:var(--ink-faint);background:var(--sage-50);border-bottom:1px solid var(--sage-150);
+    cursor:ns-resize;user-select:none;}
+  .ref-pane-title{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;opacity:.75;}
+  .ref-pane-close{cursor:pointer;width:20px;height:20px;border:none;background:transparent;color:var(--ink-faint);
+    border-radius:5px;font-size:11px;flex-shrink:0;}
+  .ref-pane-close:hover{background:var(--sage-150);color:var(--ink);}
+  .ref-pane-body{flex:1;overflow:auto;outline:none;padding:12px 16px;
+    font-size:var(--ed-size,15.5px);line-height:var(--ed-line,2.0);
+    color:var(--ink);background:var(--paper);
+    /* .ed와 동일한 줄바꿈 방식: 양쪽 정렬일 때 어절 단위가 아니라 글자 단위로 줄이 바뀌어야
+       한글 균등 배분(justify)이 자연스럽다. word-break:keep-all은 정반대(어절 단위)로 강제하므로
+       쓰면 안 된다 — .ed 쪽도 실제로는 word-break:normal이 최종 적용값이다. */
+    text-align:var(--ed-align-default,justify);text-justify:inter-character;
+    text-align-last:var(--ed-align-last-default,left);
+    word-break:normal;line-break:auto;overflow-wrap:normal;}
+  .ref-pane-body,.ref-pane-body *{font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif) !important;}
+  .ref-pane.locked .ref-pane-body{background:rgba(0,0,0,.04);}
+  .ref-lock-banner{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:600;
+    color:var(--ink-soft,#555);border-bottom:1px solid var(--sage-150);flex-shrink:0;}
+  .ref-lock-banner svg{flex-shrink:0;}
   /* ── 집중 모드 (스크리브너식) ── */
   body.focus .menubar,body.focus .topbar,body.focus .binder,body.focus .treatment,body.focus .memo,
   body.focus .resize-handle,body.focus .toolbar,body.focus .pane-tabbar,
-  body.focus .pane-title,body.focus .pane-status,body.focus .split-handle{display:none !important;}
+  body.focus .pane-title,body.focus .pane-status,body.focus .split-handle,
+  body.focus .ref-pane{display:none !important;}
   body.focus .editor-pane:not(.pane-active){display:none !important;}
   body.focus .main,body.focus .editor-area{background:var(--sage-100);}
   body.focus .split-wrap{padding:0;background:var(--focus-bg,transparent);}
@@ -357,7 +392,7 @@
   body.focus.ghost-memo .memo .collapse-btn{display:none;}
   /* ── 웰컴/모달/토스트/설정 ── */
   .overlay{position:fixed;inset:0;background:var(--sage-100);z-index:200;display:flex;align-items:center;justify-content:center;}
-  .welcome{text-align:center;max-width:420px;}
+  .welcome{text-align:center;max-width:480px;}
   .welcome h1{font-size:28px;color:var(--sage-700);letter-spacing:3px;margin-bottom:8px;}
   .welcome h1 span{color:var(--accent);}
   .welcome p{color:var(--ink-faint);font-size:13px;line-height:1.8;margin-bottom:24px;}
@@ -365,7 +400,29 @@
     border:1px solid var(--sage-200);background:var(--paper);color:var(--ink);font-size:14px;cursor:pointer;}
   .welcome .big-btn:hover{background:var(--sage-50);border-color:var(--sage-400);}
   .welcome .big-btn b{color:var(--sage-600);}
+  .welcome .big-btn small{display:block;margin-top:4px;font-size:11px;color:var(--ink-faint);font-weight:normal;}
   .welcome .hint{font-size:11px;color:var(--ink-faint);margin-top:14px;}
+  .recent-works{margin-top:18px;max-height:220px;overflow-y:auto;text-align:left;}
+  .recent-works .rw-empty, .work-menu .wm-list .rw-empty{font-size:12px;color:var(--ink-faint);text-align:center;padding:8px;}
+  .recent-works .rw-item, .work-menu .wm-list .rw-item{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:10px 12px;border-radius:10px;border:1px solid var(--sage-200);background:var(--paper);
+    margin-bottom:6px;cursor:pointer;}
+  .recent-works .rw-item:hover, .work-menu .wm-list .rw-item:hover{background:var(--sage-50);border-color:var(--sage-400);}
+  .recent-works .rw-info, .work-menu .wm-list .rw-info{overflow:hidden;}
+  .recent-works .rw-name, .work-menu .wm-list .rw-name{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .recent-works .rw-date, .work-menu .wm-list .rw-date{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .recent-works .rw-remove, .work-menu .wm-list .rw-remove{flex-shrink:0;border:none;background:transparent;color:var(--ink-faint);
+    font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;}
+  .recent-works .rw-remove:hover, .work-menu .wm-list .rw-remove:hover{background:var(--sage-100);color:var(--ink);}
+  .recent-works .rw-group-label, .work-menu .wm-list .rw-group-label{font-size:11px;color:var(--ink-faint);padding:6px 4px 2px;font-weight:600;}
+  .recent-works .rw-pin, .work-menu .wm-list .rw-pin{flex-shrink:0;border:none;background:transparent;color:var(--ink-faint);
+    font-size:14px;cursor:pointer;padding:4px 6px;border-radius:6px;}
+  .recent-works .rw-pin:hover, .work-menu .wm-list .rw-pin:hover{background:var(--sage-100);color:var(--ink);}
+  .recent-works .rw-pin-hover, .work-menu .wm-list .rw-pin-hover{opacity:0;}
+  .recent-works .rw-item:hover .rw-pin-hover, .work-menu .wm-list .rw-item:hover .rw-pin-hover{opacity:1;}
+  .recent-works .rw-current, .work-menu .wm-list .rw-current{cursor:default;background:var(--sage-150);border-color:var(--sage-400);}
+  .recent-works .rw-current:hover, .work-menu .wm-list .rw-current:hover{background:var(--sage-150);}
+  .recent-works .rw-current .rw-name, .work-menu .wm-list .rw-current .rw-name{color:var(--sage-700,var(--ink));font-weight:600;}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:300;display:none;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
   .modal{background:var(--paper);border-radius:14px;padding:22px;min-width:min(320px,92vw);
@@ -652,11 +709,17 @@
 <div class="overlay" id="welcome">
   <div class="welcome">
     <h1>스토리시드<span>.</span></h1>
-    <p>원고는 언제나 내 컴퓨터의 폴더와 파일로 저장됩니다.<br>작품들을 보관할 프로젝트 폴더를 선택해 주세요.</p>
-    <button class="big-btn" id="btnRecentLib" style="display:none"></button>
-    <button class="big-btn" id="btnOpenLib"><b>프로젝트 열기</b> — 폴더 선택</button>
-    <button class="big-btn" id="btnNewLib">새 프로젝트 만들기 — 빈 폴더에 시작</button>
+    <p>원고는 언제나 내 컴퓨터의 폴더와 파일로 저장됩니다.<br>작품 폴더 하나하나가 독립적으로 관리돼요.</p>
+    <button class="big-btn" id="btnNewLib" title="작품 제목을 먼저 정하고 저장할 위치를 고를 수 있어요"><b>새 작품 만들기</b><small>작품 제목을 먼저 정하고 저장할 위치를 고를 수 있어요</small></button>
+    <button class="big-btn" id="btnOpenLib" title="이미 있는 작품 폴더를 골라서 열어요"><b>기존 작품 폴더 열기</b><small>이미 있는 작품 폴더를 골라서 열어요 · 예전 버전 폴더는 어디를 고르셔도 자동으로 알아봐요</small></button>
+    <div class="recent-works" id="recentWorksList"></div>
     <div class="hint">원고는 선택한 폴더 안에 파일로 저장되며, 다음부터는 자동으로 기억돼요.</div>
+  </div>
+</div>
+<div class="overlay" id="workLoading" style="display:none">
+  <div class="welcome">
+    <h1>스토리시드<span>.</span></h1>
+    <p style="font-size:15px;margin-top:18px">NOW LOADING . . .<br><span style="font-size:13px;color:var(--ink-faint)">작품을 불러오는 중이에요. 잠시만 기다려 주세요.</span></p>
   </div>
 </div>
 
@@ -664,14 +727,12 @@
   <div class="mb-item" id="mbFile">파일
     <div class="mb-drop">
       <div class="mb-op" id="mbSave">저장 <span class="kbd">Ctrl+S</span></div>
-      <div class="mb-op" id="mbSaveAs">새 이름으로 저장…</div>
-      <div class="mb-op" id="mbNewWork">새 프로젝트 만들기…</div>
-      <div class="mb-op" id="mbOpenLib">다른 프로젝트 불러오기…</div>
-      <div class="mb-op" id="mbRenameWork">작품 이름 바꾸기…</div>
+      <div class="mb-op" id="mbNewWork">새 작품 만들기…</div>
+      <div class="mb-op" id="mbOpenLib">다른 작품 열기…</div>
       <div class="mb-sep"></div>
+      <div class="mb-op" id="mbRenameWork">작품 이름 바꾸기…</div>
       <div class="mb-op" id="mbHideWork">작품 숨기기</div>
-      <div class="mb-op" id="mbHiddenWorks">숨긴 작품 관리…</div>
-      <div class="mb-op" id="mbDeleteWork">작품 완전 삭제…</div>
+      <div class="mb-op" id="mbDeleteWork">작품 지우기…</div>
       <div class="mb-sep"></div>
       <div class="mb-op" id="mbExport">내보내기… (현재 문서)</div>
     </div>
@@ -679,7 +740,7 @@
   <div class="mb-item" id="mbEdit">편집
     <div class="mb-drop">
       <div class="mb-op" id="mbUndo">실행 취소 <span class="kbd">Ctrl+Z</span></div>
-      <div class="mb-op" id="mbRedo">다시 실행 <span class="kbd">Ctrl+Y</span></div>
+      <div class="mb-op" id="mbRedo">다시 실행 <span class="kbd">Ctrl+Shift+Z</span></div>
       <div class="mb-sep"></div>
       <div class="mb-op" id="mbCut">잘라내기 <span class="kbd">Ctrl+X</span></div>
       <div class="mb-op" id="mbCopy">복사 <span class="kbd">Ctrl+C</span></div>
@@ -708,10 +769,11 @@
     </div>
   </div>
 </div>
+<div id="topbarTrigger"></div>
 <div class="topbar">
   <div class="logo">스토리시드<span>.</span> <span style="font-size:10px;color:var(--accent);font-weight:600;border:1px solid var(--sage-200);border-radius:8px;padding:1px 6px">beta</span></div>
   <div class="top-divider"></div>
-  <div class="work-switcher" id="workSwitcher">📚 <b id="workName">작품 없음</b> <span class="work-arrow">▾</span>
+  <div class="work-switcher" id="workSwitcher"><span id="workIcon">📚</span> <b id="workName">작품 없음</b> <span class="work-arrow">▾</span>
     <div class="work-menu" id="workMenu"></div>
   </div>
   <div class="spacer"></div>
@@ -747,7 +809,7 @@
   <button class="fbtn" id="focusDarkBtn" title="다크 모드">☾</button>
 </div>
 <div class="focus-xbar">◧ <input type="range" id="focusX" min="0" max="100"> ◨
-  <button class="fbtn" id="focusXCenter">가운데로</button></div>
+  <button class="fbtn" id="focusXCenter" title="가운데로"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 9l-3 3 3 3"/><path d="M19 9l3 3-3 3"/></svg></button></div>
 
 <div class="main">
   <aside class="panel binder" id="binder">
@@ -806,7 +868,7 @@
       <button class="tb-btn" id="ttsBtn" title="소리내어 읽기 — 블록 선택 부분 또는 커서 위치부터 (다시 누르면 정지)">🔊</button>
       <div class="tb-sep"></div>
       <button class="tb-btn" data-cmd="undo" title="실행 취소 (Ctrl+Z)">↺</button>
-      <button class="tb-btn" data-cmd="redo" title="다시 실행 (Ctrl+Y)">↻</button>
+      <button class="tb-btn" data-cmd="redo" title="다시 실행 (Ctrl+Shift+Z)">↻</button>
       <div class="tb-sep"></div>
       <button class="tb-btn" data-cmd="bold" title="굵게 (Ctrl+B)"><b>가</b></button>
       <button class="tb-btn" data-cmd="italic" title="기울임 (Ctrl+I)"><i>가</i></button>
@@ -842,6 +904,13 @@
           <div class="zoom-ctrl"><button id="zoomOut0">−</button><span class="zv" id="zoomVal0" title="클릭하여 100%로">100%</span><button id="zoomIn0">＋</button></div>
           <span class="goal"><div class="goal-bar"><i id="goal0"></i></div><span id="goalPct0"></span></span>
         </div>
+        <div class="ref-pane" id="refPane0" style="display:none">
+          <div class="ref-pane-bar" id="refPaneBar0" title="드래그해서 높이 조절">
+            <span class="ref-pane-title" id="refPaneTitle0"></span>
+            <button class="ref-pane-close" id="refPaneClose0" title="참고창 닫기">✕</button>
+          </div>
+          <div class="ref-pane-body" id="refPaneBody0" contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></div>
+        </div>
       </div>
       <div class="split-handle" id="splitHandle"></div>
       <div class="editor-pane" id="paneEl1" data-pane="1" style="display:none">
@@ -855,6 +924,13 @@
           <button class="copy-btn" id="exp1" title="내보내기">⇪</button>
           <div class="zoom-ctrl"><button id="zoomOut1">−</button><span class="zv" id="zoomVal1" title="클릭하여 100%로">100%</span><button id="zoomIn1">＋</button></div>
           <span class="goal"><div class="goal-bar"><i id="goal1"></i></div><span id="goalPct1"></span></span>
+        </div>
+        <div class="ref-pane" id="refPane1" style="display:none">
+          <div class="ref-pane-bar" id="refPaneBar1" title="드래그해서 높이 조절">
+            <span class="ref-pane-title" id="refPaneTitle1"></span>
+            <button class="ref-pane-close" id="refPaneClose1" title="참고창 닫기">✕</button>
+          </div>
+          <div class="ref-pane-body" id="refPaneBody1" contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></div>
         </div>
       </div>
     </div>
@@ -906,6 +982,7 @@
   <div class="ctx-item ctx-file" id="ctxGoal">🎯 목표 글자수…</div>
   <div class="ctx-item" id="ctxExport">📤 내보내기…</div>
   <div class="ctx-item" id="ctxDup">⧉ 복제</div>
+  <div class="ctx-item ctx-file" id="ctxRefOpen">📑 참고창으로 열기</div>
   <div class="ctx-item" id="ctxSep">─ 아래에 구분선 추가</div>
   <div class="ctx-item" id="ctxLock">🔒 잠그기</div>
   <div class="ctx-item danger" id="ctxTrash">🗑 휴지통으로</div>
@@ -1083,6 +1160,8 @@
           <div class="set-row">모든 설정 <button class="ur-add" id="btnResetSettings">기본값으로</button></div>
           <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.6;margin-top:2px">
             레이아웃과 환경설정만 초기화돼요. 작성하신 글, 폴더·문서 구성과 위치는 그대로 남아요.</div>
+          <div class="set-row">문제 해결 <button class="ur-add" id="btnOpenCsLog">진단 폴더 열기</button></div>
+          <div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px">작품 경로 기록, 오류 기록이 담긴 폴더예요. 문제가 있을 때 개발자에게 이 폴더를 보내주시면 도움이 돼요.</div>
         </div>
       </div>
     </div>
@@ -1179,6 +1258,14 @@
 <div class="ctx-menu" id="trashItemCtxMenu">
   <div class="ctx-item" id="trashItemRestore">↩ 복원</div>
   <div class="ctx-item danger" id="trashItemDelete">✕ 영구 삭제</div>
+</div>
+<div class="ctx-menu" id="recentItemCtxMenu">
+  <div class="ctx-item" id="recentItemUnpin">📌 고정 해제하기</div>
+  <div class="ctx-item danger" id="recentItemRemove">🗑 목록에서 지우기</div>
+</div>
+<div class="ctx-menu" id="workRowCtxMenu">
+  <div class="ctx-item" id="workRowRename">✏ 이름 바꾸기</div>
+  <div class="ctx-item" id="workRowHide">🙈 작품 숨기기</div>
 </div>
 
 <!-- 에디터 이미지 우클릭 메뉴 -->
@@ -1299,6 +1386,102 @@
 /* ═══════════ Tauri 바인딩 ═══════════ */
 const T=window.__TAURI__;
 const FS=T?T.fs:null, DLG=T?T.dialog:null;
+let MY_WINDOW_LABEL='main';
+try{ if(T&&T.window&&T.window.getCurrentWindow) MY_WINDOW_LABEL=T.window.getCurrentWindow().label||'main'; }catch{}
+function normPath(path){return (path||'').replace(/\\/g,'/').toLowerCase();}
+/* OS 창 제목(작업표시줄/Alt+Tab)에 작품 이름을 반영한다 — 모든 창이 "스토리시드"로만
+   똑같이 보이면, 같은 이름의 작품을 서로 다른 위치에 각각 열어뒀을 때 어느 창이
+   어느 작품인지 구분할 방법이 없어지기 때문. */
+async function setAppWindowTitle(name){
+  try{
+    if(T&&T.window&&T.window.getCurrentWindow){
+      await T.window.getCurrentWindow().setTitle(name?(name+' — 스토리시드'):'스토리시드');
+    }
+  }catch{}
+}
+// 창 위치·크기·최대화 상태는 "작품별로" 따로 기억한다(예전에는 창 하나 통틀어 값
+// 하나만 저장해서, 아무 작품이나 닫힐 때마다 그 값이 덮어써지고 — 그 결과 첫 화면조차
+// 마지막에 닫힌 작품 창 크기에 영향을 받는 버그가 있었다). path가 없으면(첫 화면) 항상
+// 기본 크기로 화면 정가운데에 고정한다.
+const DEFAULT_WIN_SIZE={width:1320,height:840};
+function getWorkWinGeom(path){
+  try{
+    const map=JSON.parse(localStorage.getItem('workWinGeom')||'{}');
+    return map[normPath(path)]||null;
+  }catch{return null;}
+}
+function setWorkWinGeom(path,g){
+  try{
+    const map=JSON.parse(localStorage.getItem('workWinGeom')||'{}');
+    map[normPath(path)]=g;
+    localStorage.setItem('workWinGeom',JSON.stringify(map));
+  }catch{}
+}
+async function applyWindowGeomFor(path){
+  if(!T||!T.window||!T.window.getCurrentWindow)return;
+  let appWin;try{appWin=T.window.getCurrentWindow();}catch{return;}
+  if(!appWin)return;
+  const g=path?getWorkWinGeom(path):null;
+  if(g){
+    try{
+      if(g.w>200&&g.h>200){
+        if(T.window.PhysicalSize)await appWin.setSize(new T.window.PhysicalSize(Math.round(g.w),Math.round(g.h)));
+        else await appWin.setSize({width:Math.round(g.w),height:Math.round(g.h)});
+      }
+      if(typeof g.x==='number'&&typeof g.y==='number'){
+        if(T.window.PhysicalPosition)await appWin.setPosition(new T.window.PhysicalPosition(Math.round(g.x),Math.round(g.y)));
+        else await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});
+      }
+      if(g.max)await appWin.maximize();
+      return;
+    }catch{}
+  }
+  // 기억된 값이 없는(처음 여는) 작품이거나, path가 아예 없는 첫 화면 상태 — 기본 크기로
+  // 화면 정가운데에 놓는다.
+  try{
+    const wasMax=await appWin.isMaximized().catch(()=>false);
+    if(wasMax)await appWin.unmaximize().catch(()=>{});
+    await appWin.setSize(DEFAULT_WIN_SIZE);
+    await appWin.center();
+  }catch{}
+}
+// 지금 이 창의 위치/크기/최대화 상태를 curWork 몫으로 저장한다. 실제 OS 창 닫기
+// (onCloseRequested)뿐 아니라, 창은 그대로 두고 앱 안에서만 작품을 닫는 경우
+// (closeCurrentWork)에도 그 시점의 창 상태를 놓치지 않고 기억해두기 위해 공용으로 뺐다.
+async function saveCurrentWinGeom(){
+  if(!curWork)return;
+  if(!T||!T.window||!T.window.getCurrentWindow)return;
+  let appWin;try{appWin=T.window.getCurrentWindow();}catch{return;}
+  if(!appWin)return;
+  try{
+    const isMax=await appWin.isMaximized().catch(()=>false);
+    const g={max:isMax};
+    if(!isMax){
+      const pos=await appWin.outerPosition().catch(()=>null);
+      const size=await appWin.outerSize().catch(()=>null);
+      if(pos)Object.assign(g,{x:pos.x,y:pos.y});
+      if(size&&size.width>0&&size.height>0)Object.assign(g,{w:size.width,h:size.height});
+    }
+    setWorkWinGeom(curWork.path,g);
+  }catch{}
+}
+function setWindowWorkRegistry(path){
+  try{
+    const reg=JSON.parse(localStorage.getItem('openWindowWorks')||'{}');
+    if(path)reg[MY_WINDOW_LABEL]=normPath(path);else delete reg[MY_WINDOW_LABEL];
+    localStorage.setItem('openWindowWorks',JSON.stringify(reg));
+  }catch{}
+}
+function findWindowWithWork(path){
+  try{
+    const reg=JSON.parse(localStorage.getItem('openWindowWorks')||'{}');
+    const target=normPath(path);
+    for(const label in reg){
+      if(label!==MY_WINDOW_LABEL&&reg[label]===target)return label;
+    }
+  }catch{}
+  return null;
+}
 /* ═══════════ 상태 ═══════════ */
 const STATUSES=['구상','집필중','퇴고','탈고','발행'];
 const BASE_FONTS=[
@@ -1314,7 +1497,7 @@ let rootPath=null,seojaePath=null,snapsPath=null,trashPath=null;
 function defaultSettings(){
   return {dark:false,resetHour:4,replaceEllipsis:true,replaceQuotes:true,indent:false,
     toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
-    autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',
+    autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',refPaneH:200,
     replaceDash:true,quotePair:false,pasteAsk:true,
     uiScale:100,showWritten:true,showDeleted:false,edPadBottom:0,alignDefault:'justify',
     pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
@@ -1325,9 +1508,11 @@ function defaultSettings(){
 }
 let settings=defaultSettings();
 let stats={};
-let works=[],curWork=null,treeData=[],trashTreeData=[],selectedFolder=null;
-const panes=[{tabs:[],tab:null,zoom:100},{tabs:[],tab:null,zoom:100}];
+let curWork=null,treeData=[],trashTreeData=[],selectedFolder=null;
+const panes=[{tabs:[],tab:null,zoom:100,ref:null,refZoom:100},{tabs:[],tab:null,zoom:100,ref:null,refZoom:100}];
 let activePane=0,splitOn=false;
+let editTarget={pane:0,kind:'tab'}; // kind: 'tab'(메인 에디터) | 'ref'(참고창)
+function edSurfaceEl(){ return editTarget.kind==='ref' ? $('refPaneBody'+editTarget.pane) : $('ed'+editTarget.pane); }
 let trMode='doc',workTreatment='',workTreatmentDirty=false;
 let dragNode=null,dragNodes=[],dragSep=null,dragSeps=[],ctxSepInfo=null,ctxNode=null,orders={},trashMeta=[],icons={},folderOpen={},dragTrashEntry=null;
 let lockedPaths={},unlockedOverrides={};   // 바인더 폴더/문서 잠금(3번)
@@ -1365,21 +1550,35 @@ function setupInlineEdit(itemEl,node){
   requestAnimationFrame(()=>{inp.focus();inp.select();});
 }
 let sessions={},sessionTimer=null,restoring=false;
+let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
-const APP_VERSION="beta 2.1.4";
+const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
+const APP_VERSION="beta 2.2.0";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('show'),2200);}
-function confirmBox(title,okLabel='확인'){return new Promise(res=>{
+let confirmResolve=null;   // 열려 있는 confirmBox의 resolve — Enter/Esc로 전역에서 응답하기 위해 보관
+function confirmBox(title,okLabel='확인',hideCancel=false,noLabel='취소'){return new Promise(res=>{
   $('confirmTitle').textContent=title;$('confirmYes').textContent=okLabel;
+  $('confirmNo').textContent=noLabel;
+  $('confirmNo').style.display=hideCancel?'none':'';
   $('confirmBg').classList.add('open');
   const done=v=>{$('confirmBg').classList.remove('open');
-    $('confirmYes').onclick=null;$('confirmNo').onclick=null;res(v);};
+    $('confirmYes').onclick=null;$('confirmNo').onclick=null;confirmResolve=null;res(v);};
+  confirmResolve=done;
   $('confirmYes').onclick=()=>done(true);
   $('confirmNo').onclick=()=>done(false);
 });}
+async function showNotice220(){
+  while(true){
+    await confirmBox('이번 버전부터 작품을 여는 방식이 조금 바뀌었어요.\n번거로우시더라도 예전에 쓰시던 "프로젝트 폴더"를 [파일 › 다른 작품 열기]로 한 번은 직접 열어 확인해 주세요.\n이미 자동으로 옮겨졌더라도, 혹시 모를 예외 상황을 막기 위한 절차예요.','확인했습니다',true);
+    const ok=await confirmBox('내용을 확인하셨습니까?','확인');
+    if(ok)break;
+  }
+  localStorage.setItem('storyseedNotice220Seen','1');
+}
 function modal(title,defVal=''){return new Promise(res=>{
   $('modalTitle').textContent=title;$('modalInput').value=defVal;$('modalBg').classList.add('open');
   $('modalInput').focus();
@@ -1393,6 +1592,47 @@ function modal(title,defVal=''){return new Promise(res=>{
 async function readFile(p){return await FS.readTextFile(p);}
 async function writeFile(p,text){await FS.writeTextFile(p,text);}
 async function readJson(p,fallback){try{return JSON.parse(await FS.readTextFile(p));}catch{return fallback;}}
+/* CS(고객지원) 대비 진단 로그: 앱 데이터 폴더 안에 최근 작품 목록/이력/오류를 남겨
+   "예전 작품이 어디 있는지 모름" 같은 CS 상황에 대비한다. */
+async function csLogDir(){
+  const base=await T.path.appDataDir();
+  return base.replace(/[\\/]+$/,'')+'/cs-log';
+}
+async function csLog(kind,data){
+  try{
+    const dir=await csLogDir();
+    await FS.mkdir(dir,{recursive:true});
+    const line=JSON.stringify(Object.assign({t:new Date().toISOString(),kind},data))+'\n';
+    const file=dir+'/'+(kind==='error'?'errors.log':'history.log');
+    let prev='';try{prev=await readFile(file);}catch{}
+    await writeFile(file,prev+line);
+  }catch(e){console.warn('csLog 실패',e);}
+}
+async function csSyncWorksIndex(){
+  try{
+    const dir=await csLogDir();
+    await FS.mkdir(dir,{recursive:true});
+    const list=getRecentWorks().map(w=>({name:w.disp||w.name,path:w.path,pinned:!!w.pinned,lastOpened:w.lastOpened||null}));
+    await writeFile(dir+'/works-index.json',JSON.stringify(list,null,2));
+  }catch(e){console.warn('csSyncWorksIndex 실패',e);}
+}
+async function csEnsureReadme(){
+  try{
+    const dir=await csLogDir();
+    await FS.mkdir(dir,{recursive:true});
+    const p=dir+'/README.txt';
+    if(await FS.exists(p))return;
+    await writeFile(p,
+      '이 폴더는 스토리시드가 문제 해결(CS)을 위해 자동으로 남기는 진단 기록입니다.\n\n'+
+      '- works-index.json : 지금까지 스토리시드에 등록된 작품들의 이름과 실제 폴더 경로 목록입니다.\n'+
+      '  "내가 만든 작품이 어디 있는지 모르겠어요" 같은 경우 여기서 경로를 확인할 수 있어요.\n'+
+      '- history.log : 작품을 열거나/만들거나/이름을 바꾸거나/목록에서 지운 기록이 한 줄씩 쌓입니다.\n'+
+      '- errors.log : 프로그램 사용 중 발생한 오류 기록입니다.\n\n'+
+      '중요: 이 폴더에는 원고 내용이 저장되지 않습니다. 실제 작품 파일은 각 작품 폴더(위 works-index.json의 path)에\n'+
+      '그대로 남아 있으며, 스토리시드는 어떤 경우에도 사용자의 원고 파일을 자동으로 삭제하지 않습니다.\n\n'+
+      '문제가 있을 때 이 폴더 전체를 개발자에게 보내주시면 진단에 도움이 됩니다.\n');
+  }catch(e){console.warn('csEnsureReadme 실패',e);}
+}
 function dayKey(){const d=new Date(Date.now()-settings.resetHour*3600*1000);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function dayStat(){const k=dayKey();if(!stats[k]||typeof stats[k]==='number')stats[k]={w:+stats[k]||0,d:0};return stats[k];}
@@ -1422,6 +1662,120 @@ async function uniqueFileName(dirAbs,base,ext,selfName){
   return name;
 }
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+let recentCtxItem=null;
+/* curWork가 이미 열려있으면(=다른 작품 화면에서 접근) 새 창으로, 아니면 현재 창에서 연다.
+   welcome 화면(curWork===null)과 작품 메뉴 드롭다운(curWork 있음) 양쪽의 항목 클릭에서 공용으로 쓴다. */
+async function openWorkFromList(path,name){
+  if(curWork){
+    try{await T.core.invoke('open_work_window',{label:await resolveOpenWindowLabel(path),path,disp:name||null});}
+    catch(e){toast('⚠ 새 창을 여는 중 오류: '+(e&&e.message?e.message:e));}
+    return;
+  }
+  await openWorkAt(path,name);
+}
+/* 최근/고정 작품 목록의 항목 하나(.rw-item)를 만들어 반환한다(append는 호출자 몫).
+   opts.currentPath가 이 항목의 경로와 같으면 "지금 보는 중"으로 표시하고, 열기/고정/제거
+   동작은 비활성화한다(그 작품은 이미 이 창에 열려 있고, 고정 토글은 드롭다운 위쪽의
+   "이 작품 고정하기"로 하므로 — 이 목록에는 상태만 동기화되어 그대로 비쳐 보이면 된다). */
+function createWorkListItem(item,opts={}){
+  const isCurrent=opts.currentPath&&normPath(item.path)===normPath(opts.currentPath);
+  const el=document.createElement('div');
+  el.className='rw-item'+(isCurrent?' rw-current':'');
+  el.title=item.path; // 같은 이름의 작품이 여러 위치에 있어도 마우스를 올리면 실제 경로로 구분 가능
+  const info=document.createElement('div');
+  info.className='rw-info';
+  const nameEl=document.createElement('div');
+  nameEl.className='rw-name';
+  nameEl.innerHTML=(isCurrent?'✓ ':(item.pinned?'📌 ':'📖 '))+escHtml(item.name||item.path);
+  const dateEl=document.createElement('div');
+  dateEl.className='rw-date';
+  // 같은 이름의 작품이 다른 위치에 또 있으면(opts.dupName) 날짜 옆에 상위 폴더명을 덧붙여
+  // 어느 쪽인지 헷갈리지 않게 한다.
+  let dateTxt=isCurrent?'지금 보는 중':new Date(item.lastOpened).toLocaleDateString();
+  if(opts.dupName&&!isCurrent){
+    const segs=(item.path||'').replace(/[\\/]+$/,'').split(/[\\/]/);
+    const parent=segs.length>1?segs[segs.length-2]:'';
+    if(parent)dateTxt+=' · '+parent;
+  }
+  dateEl.textContent=dateTxt;
+  info.appendChild(nameEl);info.appendChild(dateEl);
+  el.appendChild(info);
+  if(isCurrent)return el; // 지금 열려있는 작품 자신은 핀/제거 버튼과 클릭 동작을 붙이지 않는다
+  const pinBtn=document.createElement('button');
+  pinBtn.className=item.pinned?'rw-pin rw-pin-on':'rw-pin rw-pin-hover';
+  pinBtn.textContent=item.pinned?'📌':'📍';
+  pinBtn.title=item.pinned?'고정 해제':'고정하기';
+  pinBtn.addEventListener('click',async e=>{
+    e.stopPropagation();
+    if(item.pinned)return; // 고정된 항목은 우클릭 메뉴로 해제
+    const ok=await confirmBox('『'+(item.name||item.path)+'』을(를) 고정하시겠어요?','고정하기');
+    if(!ok)return;
+    togglePinWork(item.path);
+    renderRecentWorks();renderWorkMenu();
+  });
+  const rmBtn=document.createElement('button');
+  rmBtn.className='rw-remove';
+  rmBtn.textContent='×';
+  rmBtn.title='목록에서만 지워요 (폴더는 그대로 남아요)';
+  rmBtn.addEventListener('click',e=>{
+    e.stopPropagation();
+    removeRecentWork(item.path);
+    renderRecentWorks();renderWorkMenu();
+  });
+  el.appendChild(pinBtn);el.appendChild(rmBtn);
+  el.addEventListener('click',()=>openWorkFromList(item.path,item.name));
+  el.addEventListener('contextmenu',e=>{
+    e.preventDefault();e.stopPropagation();
+    recentCtxItem=item;
+    $('recentItemUnpin').style.display=item.pinned?'':'none';
+    positionCtxMenu($('recentItemCtxMenu'),e.clientX,e.clientY);
+  });
+  return el;
+}
+/* 최근/고정 작품 목록(고정 그룹 + 최근 그룹, 최근은 최대 10개)을 container에 그린다.
+   opts.currentPath가 있으면 그 항목은 빼지 않고 "지금 보는 중"으로 표시해(작품메뉴 드롭다운에서
+   고정 토글이 이 목록과 항상 시각적으로 동기화되어 보이도록). opts.emptyText가 있으면
+   결과가 0개일 때 안내문을 넣는다. */
+function renderWorkListInto(container,opts={}){
+  let list=getRecentWorks();
+  if(!list.length){
+    if(opts.emptyText){
+      const empty=document.createElement('div');empty.className='rw-empty';empty.textContent=opts.emptyText;
+      container.appendChild(empty);
+    }
+    return;
+  }
+  // 서로 다른 위치에 같은 이름의 작품이 있으면(폴더 경로는 달라도 표시 이름이 겹치면)
+  // 목록에서 구분이 안 되니, 그런 항목에는 상위 폴더명을 덧붙여 보여준다.
+  const nameCounts={};
+  list.forEach(w=>{const n=(w.name||'').trim();if(n)nameCounts[n]=(nameCounts[n]||0)+1;});
+  const withDup=item=>createWorkListItem(item,{...opts,dupName:nameCounts[(item.name||'').trim()]>1});
+  const pinned=list.filter(w=>w.pinned),others=list.filter(w=>!w.pinned);
+  if(pinned.length){
+    const label1=document.createElement('div');label1.className='rw-group-label';label1.textContent='📌 고정된 작품';
+    container.appendChild(label1);
+    pinned.forEach(item=>container.appendChild(withDup(item)));
+    if(others.length){
+      const label2=document.createElement('div');label2.className='rw-group-label';label2.textContent='최근에 연 작품';
+      container.appendChild(label2);
+    }
+    others.slice(0,10).forEach(item=>container.appendChild(withDup(item)));
+  }else{
+    others.slice(0,10).forEach(item=>container.appendChild(withDup(item)));
+  }
+}
+function renderRecentWorks(){
+  const box=$('recentWorksList');if(!box)return;
+  box.innerHTML='';
+  if(!getRecentWorks().length){
+    const empty=document.createElement('div');
+    empty.className='rw-empty';
+    empty.textContent='아직 연 작품이 없어요';
+    box.appendChild(empty);
+    return;
+  }
+  renderWorkListInto(box);
+}
 
 /* ═══════════ front-matter ═══════════ */
 function parseDoc(text){
@@ -1463,59 +1817,339 @@ function serializeDoc(t){
   return h+'---\n'+t.body;
 }
 
-/* ═══════════ 서재 열기 ═══════════ */
+/* ═══════════ 작품 열기 ═══════════ */
 function welcomeError(msg){
   const hint=document.querySelector('.welcome .hint');
   if(hint){hint.textContent=msg;hint.style.color='#b4553f';}
   $('welcome').style.display='flex';
 }
-let autoDetectedProject=null;
-async function openLibrary(mode){
-  let p=null;autoDetectedProject=null;
-  if(mode==='last')p=localStorage.getItem('lastLib');
-  else if(mode==='new'){
-    // 새 프로젝트: 위치를 고르면 그 안에 새 폴더를 만들어 프로젝트로 시작한다(빈 폴더를 직접 찾지 않아도 됨)
-    let parent;
-    try{parent=await DLG.open({directory:true,title:'새 프로젝트를 만들 위치를 선택하세요'});}
-    catch(e){welcomeError('폴더 선택 중 오류: '+e);return;}
-    if(!parent)return;
-    const nm=await modal('새 프로젝트 폴더 이름을 지어주세요','새 프로젝트 만들기');
-    if(!nm)return;
-    const newPath=parent.replace(/[\\/]+$/,'')+'/'+safeFileBase(nm);
-    try{
-      if(await FS.exists(newPath)){welcomeError('『'+nm+'』 폴더가 이미 있어요. 다른 이름으로 다시 시도해 주세요.');return;}
-      await FS.mkdir(newPath,{recursive:true});
-    }catch(e){welcomeError('폴더를 만드는 중 오류가 발생했어요: '+(e&&e.message?e.message:e));return;}
-    p=newPath;
+/* 최근 작품 목록: localStorage에 [{path,name,lastOpened}, ...]로 저장(최신이 맨 앞).
+   목록을 화면에 그리는 UI는 다음 단계 몫이고, 여기서는 데이터만 관리한다. */
+function getRecentWorks(){
+  try{return JSON.parse(localStorage.getItem('recentWorks')||'[]');}catch{return [];}
+}
+function addRecentWork(path,name,pinnedOverride){
+  const all=getRecentWorks();
+  const existing=all.find(w=>normPath(w.path)===normPath(path));
+  let list=all.filter(w=>normPath(w.path)!==normPath(path));
+  const pinnedVal=pinnedOverride!==undefined?pinnedOverride:existing?.pinned;
+  list.unshift({path,name,lastOpened:Date.now(),pinned:pinnedVal});
+  const pinned=list.filter(w=>w.pinned);
+  const keepOthers=new Set(list.filter(w=>!w.pinned).slice(0,Math.max(0,20-pinned.length)));
+  list=list.filter(w=>w.pinned||keepOthers.has(w));
+  localStorage.setItem('recentWorks',JSON.stringify(list));
+  csSyncWorksIndex();
+  return list;
+}
+function togglePinWork(path){
+  const list=getRecentWorks();
+  const item=list.find(w=>normPath(w.path)===normPath(path));
+  let pinned;
+  if(item){
+    item.pinned=!item.pinned;
+    pinned=item.pinned;
+  }else{
+    list.unshift({path,name:path.split(/[\\/]/).pop(),lastOpened:Date.now(),pinned:true});
+    pinned=true;
   }
-  else{try{p=await DLG.open({directory:true,title:'프로젝트 폴더를 선택하세요'});}
-    catch(e){welcomeError('폴더 선택 중 오류: '+e);return;}}
-  if(!p)return;
-  // 하위 폴더를 골랐다면 상위 프로젝트를 찾아 안내(새로 만든 폴더는 검사할 필요 없음)
-  if(mode!=='last'&&mode!=='new'){
+  localStorage.setItem('recentWorks',JSON.stringify(list));
+  return pinned;
+}
+function removeRecentWork(path){
+  const list=getRecentWorks().filter(w=>normPath(w.path)!==normPath(path));
+  localStorage.setItem('recentWorks',JSON.stringify(list));
+  csSyncWorksIndex();
+  return list;
+}
+function updateWorkIcon(){
+  const el=$('workIcon');if(!el)return;
+  const pinned=curWork&&getRecentWorks().find(w=>w.path===curWork.path)?.pinned;
+  el.textContent=pinned?'📌':'📚';
+}
+
+/* 옛 방식(프로젝트 폴더 하나 밑에 여러 작품 서브폴더)을 감지해 새 방식(작품 폴더 하나 =
+   독립 단위)으로 자동 이관한다. 이미 이관된 적이 있으면(.서재-이관백업-* 존재) 건너뛴다.
+   실패해도 앱이 아예 안 열리는 일은 없어야 하므로 작품별로 독립적으로 try/catch한다.
+   반환값: 이관에 성공한 작품 [{name,disp,path}] 배열. 프로젝트를 읽지 못했거나 이미
+   이관된 경우 null. */
+async function migrateOldProject(oldRootPath){
+  let entries;
+  try{entries=await FS.readDir(oldRootPath);}
+  catch(e){console.warn('마이그레이션: 프로젝트 폴더를 읽을 수 없음',e);return null;}
+  // 이관 완료 여부는 .서재-이관백업-* 폴더뿐 아니라, 지우기 쉬운 백업 폴더가 혹시
+  // 사라지더라도(유저가 실수로 삭제하는 등) 안전하도록 별도의 완료 표시 파일
+  // (.스토리시드-이관완료)도 함께 확인한다 — 둘 중 하나만 있어도 이미 이관된 것으로 본다.
+  const alreadyMigrated=entries.some(en=>en.isDirectory&&en.name.startsWith('.서재-이관백업-'))
+    ||entries.some(en=>!en.isDirectory&&en.name==='.스토리시드-이관완료');
+  if(alreadyMigrated){
+    // 이미 이관된 프로젝트 폴더다. .스토리시드-프로젝트 마커는 재이관 방지를 위해 일부러
+    // 지우지 않았는데, 그 때문에 이 프로젝트 루트를 나중에 다시 열면(예: 옛 즐겨찾기, 다시
+    // 같은 폴더를 고름) 재이관은 건너뛰면서도 프로젝트 루트 자체를 마치 하나의 작품인 것처럼
+    // 그대로 열어버려서, 이미 독립된 작품A/B/C가 그 밑의 "하위 폴더"처럼 보이는 버그가
+    // 있었다. 그래서 여기서 null을 반환하는 대신, 이미 이관되어 각자 .서재/를 가진
+    // 하위 작품들을 다시 찾아서(재이관 없이) 그대로 반환한다 — 호출부(openWorkAt)가
+    // 정상적인 이관 결과와 똑같이 처리해 그중 하나를 열어준다.
+    const already=[];
+    for(const en of entries){
+      if(!en.isDirectory||en.name.startsWith('.'))continue;
+      if(!(await FS.exists(oldRootPath+'/'+en.name+'/.서재')))continue;
+      let disp=en.name;
+      try{disp=(await readFile(oldRootPath+'/'+en.name+'/.이름')).trim()||en.name;}catch{}
+      already.push({name:en.name,disp,path:oldRootPath+'/'+en.name});
+    }
+    // 정상 이관 경로와 마찬가지로 전부 "최근 작품"에 고정 등록한다 — 이걸 빠뜨리면
+    // openWorkAt이 첫 번째 작품만 열고 나머지는 최근 목록에 아예 안 뜨는 버그가 된다.
+    already.forEach(w=>addRecentWork(w.path,w.disp||w.name,true));
+    // 프로젝트 루트에 남아있는 .서재-이관백업-*/.스토리시드-이관완료/.스토리시드-프로젝트도
+    // 이 시점에 다시 한번 숨김 처리해둔다(윈도우 숨김 속성이 이번에 처음 생긴 기능이라,
+    // 이미 예전에 이관됐던 프로젝트 루트는 아직 숨김 처리가 안 돼 있을 수 있어서).
+    hideInternalFiles(oldRootPath);
+    return already; // 못 찾으면 빈 배열 — openWorkAt이 "이관할 작품이 없다"로 안내한다
+  }
+
+  const oldSeojae=oldRootPath+'/.서재';
+  const oldWorks=[];
+  for(const en of entries){
+    if(!en.isDirectory||en.name.startsWith('.'))continue;
+    if(await FS.exists(oldRootPath+'/'+en.name+'/.hidden'))continue;
+    let disp=en.name;
+    try{disp=(await readFile(oldRootPath+'/'+en.name+'/.이름')).trim()||en.name;}catch{}
+    oldWorks.push({name:en.name,disp,path:oldRootPath+'/'+en.name});
+  }
+
+  const oldOrders=await readJson(oldSeojae+'/order.json',{});
+  const oldIcons=await readJson(oldSeojae+'/icons.json',{});
+  const oldFolders=await readJson(oldSeojae+'/folders.json',{});
+  const oldLocks=await readJson(oldSeojae+'/locks.json',{});
+  const oldUnlocks=await readJson(oldSeojae+'/unlocks.json',{});
+  const oldSessions=await readJson(oldSeojae+'/session.json',{});
+  const oldMemoTrash=await readJson(oldSeojae+'/memo-trash.json',[]);
+  // memo-trash 항목에 작품 이름(work)이 붙어 있으면 작품별로 나누고, 아니면(근거 없으면) 그냥 복사
+  const memoTrashIsPerWork=Array.isArray(oldMemoTrash)&&oldMemoTrash.length>0&&oldMemoTrash.every(m=>m&&typeof m.work==='string');
+
+  function splitPrefixed(store,workName){
+    const prefix=workName+'|',out={};
+    Object.keys(store||{}).forEach(k=>{if(k.startsWith(prefix))out[k.slice(prefix.length)]=store[k];});
+    return out;
+  }
+
+  const migrated=[];
+  for(const w of oldWorks){
     try{
-      const norm=p.replace(/[\\/]+$/,'');
-      const parts=norm.split(/[\\/]/);
-      let found=null;
-      for(let up=1;up<=8&&parts.length-up>=1;up++){
-        const anc=parts.slice(0,parts.length-up).join('/');
-        if(!anc)break;
-        if(await FS.exists(anc+'/.스토리시드-프로젝트')){found=anc;break;}
-      }
-      if(found){p=found;autoDetectedProject=found;}   // 묻지 않고 자동으로 상위 프로젝트를 연다
+      const newSeojae=w.path+'/.서재';
+      await FS.mkdir(newSeojae,{recursive:true});
+      try{await writeFile(newSeojae+'/settings.json',await readFile(oldSeojae+'/settings.json'));}catch{}
+      await writeFile(newSeojae+'/order.json',JSON.stringify(splitPrefixed(oldOrders,w.name)));
+      await writeFile(newSeojae+'/icons.json',JSON.stringify(splitPrefixed(oldIcons,w.name)));
+      await writeFile(newSeojae+'/folders.json',JSON.stringify(splitPrefixed(oldFolders,w.name)));
+      await writeFile(newSeojae+'/locks.json',JSON.stringify(splitPrefixed(oldLocks,w.name)));
+      await writeFile(newSeojae+'/unlocks.json',JSON.stringify(splitPrefixed(oldUnlocks,w.name)));
+      await writeFile(newSeojae+'/session.json',JSON.stringify(oldSessions[w.name]||{}));
+      await writeFile(newSeojae+'/memo-trash.json',
+        JSON.stringify(memoTrashIsPerWork?oldMemoTrash.filter(m=>m.work===w.name):oldMemoTrash));
+      await writeFile(newSeojae+'/stats.json',JSON.stringify({}));   // stats는 이관하지 않음: 항상 빈 상태로 시작
+      // 스냅샷: 파일명이 '작품이름__상대경로__타임스탬프[~라벨].md' 형태(snapSafe 참고)이므로
+      // '작품이름__'로 시작하는 것만 그 작품 것으로 판별해 복사(원본은 그대로 둠).
+      try{
+        const snapEntries=await FS.readDir(oldSeojae+'/snapshots');
+        const newSnaps=newSeojae+'/snapshots';
+        await FS.mkdir(newSnaps,{recursive:true});
+        const prefix=w.name+'__';
+        for(const se of snapEntries){
+          if(se.isDirectory||!se.name.startsWith(prefix))continue;
+          try{await writeFile(newSnaps+'/'+se.name,await readFile(oldSeojae+'/snapshots/'+se.name));}catch{}
+        }
+      }catch{}
+      migrated.push(w);
+    }catch(e){console.warn('마이그레이션 실패(작품 건너뜀):',w.name,e);}
+  }
+
+  try{
+    const ts=new Date();
+    const stamp=ts.getFullYear()+String(ts.getMonth()+1).padStart(2,'0')+String(ts.getDate()).padStart(2,'0')
+      +String(ts.getHours()).padStart(2,'0')+String(ts.getMinutes()).padStart(2,'0')+String(ts.getSeconds()).padStart(2,'0');
+    if(await FS.exists(oldSeojae))await FS.rename(oldSeojae,oldRootPath+'/.서재-이관백업-'+stamp);
+  }catch(e){console.warn('마이그레이션: 백업 폴더 이름 변경 실패',e);}
+  // 이관이 끝났다는 표시를 파일로도 남겨둔다 — 위 백업 폴더는 이름만 보면 그냥 지워도 되는
+  // 백업처럼 보여서 유저가 실수로 지울 수 있는데, 그러면 다시 열었을 때 이 폴더를 작품으로
+  // 착각하는 버그가 재발한다. 이 파일이 그 안전판 역할을 한다(isWorkRoot 참고).
+  try{
+    await writeFile(oldRootPath+'/.스토리시드-이관완료',
+      '이 폴더는 예전 버전(2.1.4 이하)에서 여러 작품을 한데 모아 쓰던 프로젝트 폴더였고,\n'+
+      '이미 각 작품을 독립된 폴더로 나누는 이관을 마쳤습니다.\n\n'+
+      '이 파일은 스토리시드가 "이미 이관된 폴더"임을 알아보는 데 쓰는 표시예요.\n'+
+      '지우셔도 당장 작품이 사라지진 않지만, 지우면 다음에 이 폴더를 여실 때 다시 이관을\n'+
+      '시도하면서 문제가 생길 수 있으니 그대로 두시는 걸 권장해요.\n'+
+      '실제 작품들은 이 폴더 바로 아래의 하위 폴더들입니다.');
+  }catch(e){console.warn('마이그레이션: 완료 표시 파일 생성 실패',e);}
+  // 방금 만든 .서재-이관백업-*/.스토리시드-이관완료와, 예전부터 있던 .스토리시드-프로젝트를
+  // 전부 숨김 처리한다. hideInternalFiles는 각 작품(하위 폴더) 자체는 loadWork에서 이미
+  // 처리하므로, 여기서는 프로젝트 루트(oldRootPath) 몫만 맡는다.
+  hideInternalFiles(oldRootPath);
+
+  migrated.forEach(w=>addRecentWork(w.path,w.disp||w.name,true));
+  return migrated;
+}
+
+async function bootstrapLegacyLastLib(){
+  if(getRecentWorks().length)return; // 이미 최근 작품이 있으면 필요 없음
+  let legacy=null;
+  try{legacy=localStorage.getItem('lastLib');}catch{}
+  if(!legacy)return;
+  try{
+    if(!(await FS.exists(legacy))){return;} // 폴더가 없어졌으면 조용히 포기
+    const migrated=await migrateOldProject(legacy);
+    if(migrated&&migrated.length){
+      toast('📦 예전 버전에서 쓰시던 작품 '+migrated.length+'개를 자동으로 불러와 고정했어요');
+    }
+  }catch(e){console.warn('레거시 lastLib 이관 실패',e);}
+  finally{try{localStorage.removeItem('lastLib');}catch{}}
+}
+
+/* 폴더 하나 = 독립된 작품 하나. path를 그 작품 자체로 열어, 그 안의 .서재/에
+   설정·통계·순서·아이콘·폴더열림·잠금·메모휴지통·세션·스냅샷을 모두 둔다. */
+async function openWorkAt(path,dispHint){
+  if(openingWorkAt){toast('이미 작품을 여는 중이에요. 잠시만 기다려 주세요.');return;}
+  openingWorkAt=true;
+  const loadingTimer=setTimeout(()=>{$('workLoading').style.display='flex';},400);
+  try{
+  // 최근/고정 작품 목록에 등록된 경로라도, 유저가 컴퓨터에서 그 폴더를 직접 지웠거나
+  // 옮겼을 수 있다. 이 확인을 안 하면 아래 로직이 없는 폴더에 .서재를 새로 만들어버려서,
+  // 지운 작품이 빈 새 작품으로 부활하는 것처럼 보이는 심각한 문제가 생긴다. 그래서 실제
+  // 로드 로직을 타기 전에 폴더 존재 여부부터 확인하고, 없으면 여기서 바로 멈춘다.
+  const rawNorm=path.replace(/[\\/]+$/,'');
+  let existsOnDisk=true;
+  try{existsOnDisk=await FS.exists(rawNorm);}catch{}
+  if(!existsOnDisk){
+    csLog('error',{msg:'작품 폴더를 찾을 수 없음(삭제/이동 추정)',path:rawNorm});
+    removeRecentWork(rawNorm);
+    renderRecentWorks();renderWorkMenu();
+    await confirmBox('폴더를 찾을 수 없어요.\n삭제했거나 다른 위치로 옮기신 것 같아요.\n최근/고정 작품 목록에서도 지웠어요.','확인',true);
+    return;
+  }
+  // 프로젝트 루트든, 작품 폴더든, 그 아래 더 깊은 하위 폴더든 — 무엇을 열려고 하든
+  // 실제 작품(.서재) 또는 옛 프로젝트(.스토리시드-프로젝트) 루트를 자동으로 찾아
+  // 그 폴더를 연다. openWork()의 폴더 선택 화면뿐 아니라 최근 작품 목록 클릭,
+  // 새 창(?open=), 레거시 lastLib 이관 등 이 함수로 들어오는 모든 경로에 똑같이
+  // 적용되도록 여기 진입점 자체에서 처리한다(기존 유저가 예전 프로젝트의 어느
+  // 폴더를 열든 안전하게 이관되게 하는 것이 최우선 과제).
+  try{
+    const resolved=await findWorkRoot(path);
+    if(resolved&&resolved!==path.replace(/[\\/]+$/,'')){
+      path=resolved;dispHint=null;
+      toast('🔎 작품 폴더가 아니라 그 안의 하위 폴더를 여신 것 같아, 작품 폴더를 자동으로 찾아 열었어요');
+    }
+  }catch{}
+  const otherLabel=findWindowWithWork(path);
+  if(otherLabel){
+    // 레지스트리에 남아있는 라벨이 실제로 지금 떠 있는 창인지 먼저 확인한다. 창 닫기 시
+    // 레지스트리를 정리하도록 고쳤지만(비정상 종료 등으로) 흔적이 남아있을 가능성은 여전히
+    // 있는데, 그 상태에서 그대로 리다이렉트하면 없는 창을 향해 open_work_window를 호출하게
+    // 되어 엉뚱한 새 창만 하나 더 뜨고, 지금 이 창(예: 첫 화면)은 아무 것도 못 하고 그대로
+    // 남는 버그가 난다. 살아있는 창이 맞을 때만 리다이렉트하고, 아니면 죽은 흔적을 지우고
+    // 이 창에서 정상적으로 이어서 연다.
+    let stillOpen=true;
+    try{
+      const wins=await T.window.getAllWindows();
+      stillOpen=wins.some(w=>w.label===otherLabel);
+    }catch{}
+    if(stillOpen){
+      try{await T.core.invoke('open_work_window',{label:otherLabel,path,disp:dispHint||null});}
+      catch(e){toast('⚠ 이미 열려있는 창으로 이동하는 중 오류: '+(e&&e.message?e.message:e));}
+      return;
+    }
+    try{
+      const reg=JSON.parse(localStorage.getItem('openWindowWorks')||'{}');
+      delete reg[otherLabel];
+      localStorage.setItem('openWindowWorks',JSON.stringify(reg));
     }catch{}
   }
-  // 다른 프로젝트를 열기 전에, 이전 프로젝트의 디바운스 중이던 설정·세션 저장을 먼저 끝낸다
   if(seojaePath){try{await saveAll();}catch{}try{await flushMetaAndSessionNow();}catch{}}
   try{
-    rootPath=p;
-    curWork=null;works=[];treeData=[];selectedFolder=null;
-    panes.forEach(pn=>{pn.tabs=[];pn.tab=null;});activePane=0;
-    workTreatment='';$('workName').textContent='작품 없음';fitTopbar();$('tree').innerHTML='';
-    seojaePath=rootPath+'/.서재';snapsPath=seojaePath+'/snapshots';
+    // 옛 방식 프로젝트 폴더라면 먼저 이관한 뒤, 이관된 첫 작품을 대신 연다
+    if(await FS.exists(path+'/.스토리시드-프로젝트')){
+      // 애매한 경우: 이 폴더가 이미 그 자체로 최신 방식 작품(자기 .서재를 갖고 있음)으로
+      // 등록돼 있으면서, 동시에 옛 프로젝트 마커까지 남아있는 경우가 있다(예전 버전에서
+      // 폴더 구조가 꼬였거나, 마커 파일이 정리 안 되고 우연히 남은 경우). 정상이라면 한
+      // 폴더가 "예전 방식 프로젝트"이면서 동시에 "최신 방식 단일 작품"일 수는 없으므로,
+      // 이럴 때 그냥 자동으로 이관을 돌리면 이 작품의 진짜 하위 폴더(회차/폴더)들을
+      // "별개의 작품"으로 착각해서 각각에 .서재를 만들어버리는 심각한 사고로 이어질 수
+      // 있다. 그래서 이 애매한 경우에만 예외적으로 먼저 사용자에게 직접 확인받는다 —
+      // 이미 등록된 게 아닌, 처음 보는 프로젝트 폴더를 여는 흔한 경우에는 지금처럼 계속
+      // 조용히(토스트만) 자동 이관한다.
+      const selfAlreadyWork=await FS.exists(path+'/.서재');
+      let proceedMigrate=true;
+      if(selfAlreadyWork){
+        const folderDisp=path.replace(/[\\/]+$/,'').split(/[\\/]/).pop();
+        const candidates=[];
+        try{
+          const entries=await FS.readDir(path);
+          for(const en of entries){
+            if(!en.isDirectory||en.name.startsWith('.'))continue;
+            if(await FS.exists(path+'/'+en.name+'/.hidden'))continue;
+            let disp=en.name;
+            try{const d=(await readFile(path+'/'+en.name+'/.이름')).trim();if(d)disp=d;}catch{}
+            candidates.push(disp);
+          }
+        }catch{}
+        const list=candidates.length
+          ?candidates.slice(0,10).map(n=>'· '+n).join('\n')+(candidates.length>10?'\n· 외 '+(candidates.length-10)+'개':'')
+          :'(하위 폴더 없음)';
+        const listInline=candidates.length
+          ?candidates.slice(0,10).map(n=>'『'+n+'』').join('')+(candidates.length>10?' 외 '+(candidates.length-10)+'개':'')
+          :'(하위 폴더 없음)';
+        // 판단이 항상 맞는 건 아니다 — 폴더 구조가 꼬여서(예: 이 작품의 진짜 하위 폴더가
+        // 우연히 "원고"/"트리트먼트"처럼 독립된 작품처럼 보이는 이름인 경우) 실제로는 그냥
+        // 이 작품 하나의 바인더 속 폴더들일 수도 있다. 그래서 "예(나눠서 불러오기)" 말고도
+        // "아니오(그냥 이 작품의 폴더가 맞음)"를 명시적으로 고를 수 있게 한다.
+        const choice=await confirmBox(
+          '『'+folderDisp+'』 폴더는 예전 버전(2.1.4 이하)에서 여러 작품을 한 폴더 안에 모아 쓰던 방식으로 보여요.\n'+
+          '새 버전에서 정상적으로 쓰시려면, 아래 하위 폴더들을 각각 별개의 작품으로 나눠 불러와야 해요:\n'+list+
+          '\n예를 누르면 지금 바로 나눠서 불러올게요.',
+          '예, 하위 폴더들을 작품으로 불러오기',false,
+          '아니오, 이건 작품 이름이 아니라 폴더명이에요'
+        );
+        if(choice){
+          proceedMigrate=true;
+        }else{
+          // "아니오"를 선택했다 — 정말 그런 게 맞는지 한 번 더 명확한 문장으로 재확인한다.
+          const confirmAsFolder=await confirmBox(
+            listInline+'을(를) 작품이 아닌, 『'+folderDisp+'』 작품의 바인더 속 폴더로 불러옵니다.\n계속하시겠습니까?',
+            '예, 폴더로 불러오기'
+          );
+          proceedMigrate=false;
+          if(confirmAsFolder){
+            // 이 폴더가 진짜 단일 작품이 맞다고 확정됐으니, 착오로 남아있던 옛 프로젝트
+            // 마커를 지운다 — 그래야 다음에 이 폴더를 열 때 이 확인창이 다시 뜨지 않는다.
+            try{await FS.remove(path+'/.스토리시드-프로젝트');}catch{}
+          }
+          // else: 재확인에서도 확답하지 않았다 — 이번엔 일단 단일 작품으로 그대로 열되,
+          // 마커는 지우지 않는다. 폴더링이 실제로 정리되기 전까지는 다음에 열 때도
+          // 이 확인창이 계속 뜬다.
+        }
+      }
+      if(proceedMigrate){
+        const migrated=await migrateOldProject(path);
+        if(migrated&&migrated.length){
+          toast('📦 이 프로젝트 폴더의 작품 '+migrated.length+'개를 새 방식으로 불러왔어요');
+          path=migrated[0].path;dispHint=migrated[0].disp||migrated[0].name;
+        }else if(migrated&&migrated.length===0){
+          welcomeError('이관할 작품이 없는 프로젝트 폴더예요.');return;
+        }
+        // migrated===null이면 프로젝트 폴더 자체를 읽지 못한 경우뿐이다(이미 이관된 경우는
+        // 위 migrateOldProject가 이제 빈 배열이 아니라 기존 작품 목록을 다시 찾아 반환한다) —
+        // 이 경우에만 이 폴더를 그대로 작품으로 열어본다.
+      }
+      // else: 애매한 경우에서 사용자가 "아니오"를 선택했다 — 이관을 건너뛰고 이 폴더를
+      // 그대로 하나의 작품으로 계속 연다(아래 일반 로드 로직으로 자연스럽게 이어짐).
+    }
+    const name=path.replace(/[\\/]+$/,'').split(/[\\/]/).pop();
+    let disp=dispHint||name;
+    if(!dispHint){try{disp=(await readFile(path+'/.이름')).trim()||name;}catch{}}
+    rootPath=path;
+    seojaePath=path+'/.서재';snapsPath=seojaePath+'/snapshots';
     await FS.mkdir(snapsPath,{recursive:true});
-    try{if(!await FS.exists(rootPath+'/.스토리시드-프로젝트'))await writeFile(rootPath+'/.스토리시드-프로젝트','StorySeed Project');}catch{}
-    settings=Object.assign(settings,await readJson(seojaePath+'/settings.json',{}));
+    settings=Object.assign(defaultSettings(),await readJson(seojaePath+'/settings.json',{}));
     stats=await readJson(seojaePath+'/stats.json',{});
     orders=await readJson(seojaePath+'/order.json',{});
     icons=await readJson(seojaePath+'/icons.json',{});
@@ -1527,67 +2161,292 @@ async function openLibrary(mode){
     if(parseInt(settings.edW)>100)settings.edW='100';
     docCache.clear();folderSyn.clear();
     applySettings();
-    await scanWorks();
-    if(mode==='new'&&works.length===0){const nm=await modal('첫 작품의 제목을 지어주세요','새 작품');
-      if(nm){const fn=await uniqueFileName(rootPath,nm,'');
-        await FS.mkdir(rootPath+'/'+fn,{recursive:true});
-        if(fn!==nm.trim())await writeFile(rootPath+'/'+fn+'/.이름',nm.trim());
-        await scanWorks();}}
-    if(works.length){
-      // 항상 첫 번째(가나다순) 작품이 아니라, 마지막으로 작업하던 작품을 연다
-      const lastW=works.find(w=>w.name===settings.lastWork);
-      await loadWork(lastW||works[0]);
-    }
-    else{renderAllPanes();renderTreatment();renderMemo();}
-    localStorage.setItem('lastLib',p);   // 성공했을 때만 최근 폴더로 기억
+    await loadWork({name,disp,path});
+    addRecentWork(path,disp);
+    csLog('open',{path,name:disp});
+    setWindowWorkRegistry(path);
     $('welcome').style.display='none';updateTodayChip();
-    if(autoDetectedProject){
-      const nm=autoDetectedProject.replace(/[\\/]+$/,'').split(/[\\/]/).pop();
-      toast('🔎 하위 폴더를 선택하셨네요 — 상위 프로젝트 폴더 『'+nm+'』을(를) 자동으로 열었어요');
+    applyWindowGeomFor(path);   // 이 작품이 마지막으로 기억해둔 창 위치/크기로 맞춘다
+    // 예전부터 표시 이름과 실제 폴더 이름이 어긋나 있던 작품이면 폴더 이름도 맞추도록
+    // 계속 유도한다. "다음에"를 눌러도 완전히 끄는 게 아니라, 다음에 이 작품을 열 때
+    // 다시 물어본다 — 실제로 맞춰지기 전까지는(또는 정말 맞출 수 없는 상황이 아니면)
+    // 매번 열 때마다 확인한다.
+    if(curWork&&curWork.disp){
+      const curBase=curWork.path.replace(/[\\/]+$/,'').split(/[\\/]/).pop();
+      // safeFileBase로 비교해야 한다 — 원래 이미 폴더명으로 못 쓰는 문자 때문에 100%
+      // 일치가 불가능한 경우(예: 특수문자가 든 제목)까지 매번 물어보면 안 되므로.
+      if(safeFileBase(curWork.disp)!==curBase){
+        const ok=await confirmBox(
+          '작품 이름은 『'+curWork.disp+'』인데, 실제 폴더 이름은 아직 『'+curBase+'』예요.\n'+
+          '지금 폴더 이름도 표시 이름에 맞출까요?\n(다른 폴더와 이름이 겹치는 등 문제가 있으면 자동으로 그대로 둬요.)',
+          '지금 맞추기',false,'다음에'
+        );
+        if(ok)await renameWorkFolderToMatch(curWork.disp);
+      }
     }
   }catch(e){
+    csLog('error',{msg:'폴더를 여는 중 오류: '+(e&&e.message?e.message:String(e)),path});
     welcomeError('폴더를 여는 중 오류가 발생했어요: '+(e&&e.message?e.message:e));
   }
+  }finally{
+    openingWorkAt=false;
+    clearTimeout(loadingTimer);
+    $('workLoading').style.display='none';
+  }
 }
-async function scanWorks(){
-  works=[];
-  const entries=await FS.readDir(rootPath);
-  for(const en of entries)
-    if(en.isDirectory&&!en.name.startsWith('.')){
-      // 숨긴 작품(.hidden 마커 존재)은 평소 작품 목록에서 제외한다.
-      if(await FS.exists(rootPath+'/'+en.name+'/.hidden'))continue;
-      let disp=en.name;try{disp=(await readFile(rootPath+'/'+en.name+'/.이름')).trim()||en.name;}catch{}
-      works.push({name:en.name,disp,path:rootPath+'/'+en.name});
+// 폴더가 지금 "그 자체로 하나의 작품(또는 아직 이관 전인 옛 프로젝트)"인지 판별한다.
+// .스토리시드-프로젝트 마커는 이관을 마친 뒤에도 재이관 방지용으로 영구히 남겨두기
+// 때문에(migrateOldProject 참고), 마커 유무만으로 판단하면 이미 이관이 끝나서 지금은
+// 그냥 하위 작품들을 담고 있을 뿐인 옛 프로젝트 폴더까지 "작품 폴더"로 오인해버린다
+// (예: 그 폴더 안에 새 작품을 만들려는 걸 막아버리는 버그로 이어졌음). .서재-이관백업-*
+// 폴더가 있으면 이미 이관이 끝난 것이므로, 그때는 마커가 있어도 작품으로 치지 않는다.
+async function isWorkRoot(p){
+  if(await FS.exists(p+'/.서재'))return true;
+  if(!(await FS.exists(p+'/.스토리시드-프로젝트')))return false;
+  // 이관 완료 표시는 파일(.스토리시드-이관완료) 또는 백업 폴더(.서재-이관백업-*) 둘 중
+  // 하나만 있어도 인정한다 — 둘 중 하나를 유저가 실수로 지우더라도 나머지 하나가
+  // 안전판 역할을 하도록.
+  if(await FS.exists(p+'/.스토리시드-이관완료')){
+    hideInternalFiles(p);   // 프로젝트 루트 항목이 아직 안 숨겨져 있을 수도 있으니 매번 재확인
+    return false;
+  }
+  try{
+    const entries=await FS.readDir(p);
+    if(entries.some(en=>en.isDirectory&&en.name.startsWith('.서재-이관백업-'))){
+      // 백업 폴더만 있고 완료 표시 파일이 아직 없는 경우(이 안전판을 추가하기 전에 이미
+      // 이관됐던 폴더) — 다음부터는 파일 쪽도 같이 있도록 지금 만들어둔다(굳이 기다릴
+      // 필요 없어 await하지 않는다).
+      writeFile(p+'/.스토리시드-이관완료',
+        '이 폴더는 예전 버전에서 여러 작품을 한데 모아 쓰던 프로젝트 폴더였고, 이미 이관을 마쳤습니다.\n'+
+        '이 파일은 스토리시드가 "이미 이관된 폴더"임을 알아보는 데 쓰는 표시라 지우지 않는 걸 권장해요.').catch(()=>{});
+      hideInternalFiles(p);
+      return false;
     }
-  works.sort((a,b)=>(a.disp||a.name).localeCompare(b.disp||b.name,'ko'));renderWorkMenu();
+  }catch{}
+  return true;
 }
-// 숨긴 작품 목록: .hidden 마커가 있는 폴더만 골라낸다.
-async function scanHiddenWorks(){
-  const hidden=[];
-  const entries=await FS.readDir(rootPath);
-  for(const en of entries)
-    if(en.isDirectory&&!en.name.startsWith('.')){
-      if(!(await FS.exists(rootPath+'/'+en.name+'/.hidden')))continue;
-      let disp=en.name;try{disp=(await readFile(rootPath+'/'+en.name+'/.이름')).trim()||en.name;}catch{}
-      hidden.push({name:en.name,disp,path:rootPath+'/'+en.name});
+/* 고른 폴더 자체가 작품 폴더(위 isWorkRoot 기준)면 그대로 반환하고, 아니면 위쪽 조상
+   폴더들(최대 8단계)을 훑어서 작품 폴더를 찾아 반환한다(예: 휴지통 하위 폴더를 골랐을
+   때 그 작품 자체를 열도록). 못 찾으면 원래 경로를 그대로 반환한다. */
+async function findWorkRoot(path){
+  const norm=path.replace(/[\\/]+$/,'');
+  try{
+    if(await isWorkRoot(norm))return norm;
+    const parts=norm.split(/[\\/]/);
+    for(let up=1;up<=14&&parts.length-up>=1;up++){
+      const anc=parts.slice(0,parts.length-up).join('/');
+      if(!anc)break;
+      if(await isWorkRoot(anc))return anc;
     }
-  hidden.sort((a,b)=>(a.disp||a.name).localeCompare(b.disp||b.name,'ko'));
-  return hidden;
+  }catch{}
+  return norm;
+}
+async function openWork(mode){
+  let p=null,titleForNew=null;
+  if(mode==='last'){
+    const recent=getRecentWorks();
+    if(!recent.length){welcomeError('최근에 연 작품이 없어요.');return;}
+    p=recent[0].path;
+  }
+  else if(mode==='new'){
+    // 새 작품: 제목을 먼저 받고, 그 제목으로 저장 위치를 고르면 그 자리에 제목 그대로
+    // 폴더를 만들어 바로 그 폴더가 작품이 된다(위치→이름 2단계였던 예전 흐름을 1단계로 합침).
+    titleForNew=await modal('작품의 제목을 지어주세요','새 작품 만들기');
+    if(!titleForNew)return;
+    const trimmedTitle=titleForNew.trim();
+    // 다른 위치에 이미 같은 이름의 작품이 있으면(폴더 경로는 다르니 실제로는 문제 없지만,
+    // 최근 작품 목록 등에서 서로 헷갈릴 수 있어) 계속할지 미리 물어본다.
+    const dupByDisp=getRecentWorks().find(w=>(w.name||'').trim()===trimmedTitle);
+    if(dupByDisp){
+      const okDup=await confirmBox('이미 『'+trimmedTitle+'』이라는 이름의 작품이 다른 위치에 있어요.\n계속 만들면 이름이 같은 작품 두 개가 각각 다른 폴더로 관리돼요. 계속할까요?','계속하기');
+      if(!okDup)return;
+    }else{
+      // 표시 이름은 안 겹치더라도, 실제 폴더 이름은 지금 지으려는 제목과 우연히 같을 수
+      // 있다(예: 예전에 '오빠 친구'라는 작품을 만들었다가 나중에 '남사친'으로 이름만
+      // 바꾼 경우 — 폴더 이름은 처음 만들 때 이후로 절대 안 바뀌므로 여전히 '오빠 친구'다).
+      // 이 경우 위 표시-이름 비교로는 못 잡아내니 폴더 이름끼리도 따로 비교해서 미리 알려준다.
+      const wantedFolderName=safeFileBase(trimmedTitle);
+      const folderCollision=getRecentWorks().find(w=>{
+        const base=(w.path||'').replace(/[\\/]+$/,'').split(/[\\/]/).pop();
+        return base===wantedFolderName;
+      });
+      if(folderCollision){
+        const okDup=await confirmBox(
+          '지금 『'+(folderCollision.name||folderCollision.path)+'』(으)로 표시되는 작품의 실제 폴더 이름이 마침 『'+wantedFolderName+'』이에요(예전에 이름을 바꾼 작품일 수 있어요).\n'+
+          '새 작품을 같은 이름으로 만들면 나중에 탐색기에서 폴더만 보고 헷갈릴 수 있어요. 계속할까요?','계속하기');
+        if(!okDup)return;
+      }
+    }
+    let parent;
+    try{parent=await DLG.open({directory:true,title:'『'+titleForNew+'』 작품을 저장할 위치를 선택하세요'});}
+    catch(e){welcomeError('폴더 선택 중 오류: '+e);return;}
+    if(!parent)return;
+    // 고른 위치가 이미 다른 작품 폴더 자신이거나 그 안(하위 경로)이면, 여기에 새 작품을
+    // 만드는 순간 "작품 폴더 하나 = 독립된 작품 하나"라는 전제가 깨진다 — 나중에 이 새
+    // 폴더를 열려고 하면, 상위 폴더의 .서재를 자동으로 찾아 여는 기존 기능(findWorkRoot)
+    // 때문에 새 작품이 아니라 그 상위의 기존 작품이 대신 열려버리고, 방금 만든 폴더는
+    // 사실상 그 작품의 하위 폴더로 편입돼 버린다. 그래서 폴더를 만들기 전에 원천적으로
+    // 막는다.
+    const parentNorm=parent.replace(/[\\/]+$/,'');
+    let enclosingRoot=parentNorm;
+    try{enclosingRoot=await findWorkRoot(parentNorm);}catch{}
+    const parentSelfIsWork=await isWorkRoot(parentNorm);
+    if(parentSelfIsWork||enclosingRoot!==parentNorm){
+      const rootPath2=parentSelfIsWork?parentNorm:enclosingRoot;
+      let enclosingDisp=rootPath2.split(/[\\/]/).pop();
+      try{const d=(await readFile(rootPath2+'/.이름')).trim();if(d)enclosingDisp=d;}catch{}
+      await confirmBox('여기는 이미 『'+enclosingDisp+'』 작품 폴더 안이에요.\n이 자리에 새 작품을 만들면 그 작품의 하위 폴더로 들어가 버려요.\n다른 작품 폴더 밖의, 독립된 위치를 골라주세요.','확인',true);
+      return;
+    }
+    const newPath=parent.replace(/[\\/]+$/,'')+'/'+safeFileBase(titleForNew);
+    try{
+      if(await FS.exists(newPath)){
+        // 같은 자리에 이미 폴더가 있을 때, 그게 혹시 이름만 바뀐 다른 작품인지 확인해서
+        // 최대한 실제 상황을 알 수 있게 안내한다(그냥 "이미 있어요"만 하면, 표시 이름이
+        // 달라 보여서 사용자가 왜 겹치는지 이해 못 할 수 있다).
+        let whatIsThere='';
+        try{
+          const existingDisp=(await readFile(newPath+'/.이름')).trim();
+          if(existingDisp)whatIsThere='\n(이 폴더는 지금 『'+existingDisp+'』(으)로 저장돼 있어요 — 예전에 이름을 바꾼 작품일 수 있어요.)';
+        }catch{}
+        await confirmBox('『'+titleForNew+'』 폴더가 이 위치에 이미 있어요.'+whatIsThere+'\n다른 이름이나 다른 위치로 다시 시도해 주세요.','확인',true);
+        return;
+      }
+      await FS.mkdir(newPath,{recursive:true});
+      if(safeFileBase(titleForNew)!==titleForNew.trim())await writeFile(newPath+'/.이름',titleForNew.trim());
+      csLog('create',{path:newPath,name:titleForNew.trim()});
+    }catch(e){welcomeError('폴더를 만드는 중 오류가 발생했어요: '+(e&&e.message?e.message:e));return;}
+    p=newPath;
+  }
+  else{
+    // 하위 폴더를 골랐을 때 작품 루트를 자동으로 찾는 처리는 openWorkAt()
+    // 진입점에서 공통으로 처리한다(피커뿐 아니라 다른 경로로 열 때도 동일하게
+    // 적용되도록 하기 위함) — 여기서는 그냥 고른 경로를 그대로 넘긴다.
+    try{p=await DLG.open({directory:true,title:'작품 폴더를 선택하세요'});}
+    catch(e){welcomeError('폴더 선택 중 오류: '+e);return;}
+    if(!p)return;
+    // 고른 폴더 자체가 작품이 아니면, openWorkAt에 넘기기 전에 상위 폴더(조상)와 하위
+    // 폴더(자식) 양쪽 모두에 작품이 있는지 먼저 확인한다. 이걸 안 하고 그냥 넘기면
+    // openWorkAt이 "작품이 아닌 빈 폴더"를 통째로 새 빈 작품처럼 만들어버릴 수 있어서
+    // (예: Documents 같은 엉뚱한 폴더를 실수로 고른 경우), 아무 데도 작품이 없을 때는
+    // 여기서 먼저 걸러 안내 팝업을 띄운다. 반대로 상위/하위 어딘가에 실제 작품이 있으면
+    // openWorkAt이 알아서 자동으로 찾아 열어주므로(기존 기능) 그대로 통과시킨다.
+    const normP=p.replace(/[\\/]+$/,'');
+    const selfIsWork=await isWorkRoot(normP);
+    let foundAncestor=false;
+    if(!selfIsWork){
+      let resolved=normP;
+      try{resolved=await findWorkRoot(normP);}catch{}
+      foundAncestor=resolved!==normP;
+    }
+    if(!selfIsWork&&!foundAncestor){
+      // 이미 이관을 마친 옛 프로젝트 폴더(.스토리시드-프로젝트 마커가 남아있음)를 고른
+      // 경우는 여기서 막지 않고 그대로 openWorkAt에 넘긴다 — migrateOldProject의
+      // "이미 이관됨" 경로가 알아서 그 안의 작품들 중 하나를 찾아 연다. 이걸 안 해주면,
+      // 하위 폴더부터 실수로 열어서 이관이 먼저 끝나버린 다음에는 정작 진짜 프로젝트
+      // 루트 폴더 자체는 영원히 다시 못 여는 버그가 생긴다(발견된 버그).
+      // 마커가 없는 경우(예: Documents처럼 우연히 작품 폴더들을 담고 있을 뿐인 무관한
+      // 폴더)에는 예전처럼 안내만 하고 막는다 — 그런 폴더를 그대로 넘기면 "작품이 아닌
+      // 폴더"를 새 빈 작품처럼 열어버릴 위험이 있기 때문.
+      const isLegacyProjectRoot=await FS.exists(normP+'/.스토리시드-프로젝트');
+      if(!isLegacyProjectRoot){
+        // 그냥 "하위에 작품이 있다"고만 알려주면, 여러 개일 때 어느 걸 골라야 하는지
+        // 사용자가 다시 하나하나 열어봐야 한다 — 찾은 작품들의 실제 표시 이름을 여기서
+        // 미리 읽어서 팝업에 나열해준다(폴더 이름이 아니라 .이름 파일 기준 표시 이름으로,
+        // 이름을 바꾼 작품이어도 사용자가 알아볼 수 있게).
+        const foundWorks=[];
+        try{
+          const entries=await FS.readDir(normP);
+          for(const en of entries){
+            if(!en.isDirectory||en.name.startsWith('.'))continue;
+            const sub=normP+'/'+en.name;
+            if(await isWorkRoot(sub)){
+              let disp=en.name;
+              try{const d=(await readFile(sub+'/.이름')).trim();if(d)disp=d;}catch{}
+              foundWorks.push(disp);
+            }
+          }
+        }catch{}
+        if(foundWorks.length){
+          const shown=foundWorks.slice(0,8).map(n=>'『'+n+'』').join(', ');
+          const more=foundWorks.length>8?' 외 '+(foundWorks.length-8)+'개':'';
+          await confirmBox('이 폴더에는 작품이 없고, 하위 폴더에 작품이 있는 것 같아요: '+shown+more+'\n원하시는 작품이 들어있는 폴더를 직접 선택해 주세요.','확인',true);
+        }else{
+          await confirmBox('여기에는 작품이 없습니다.\n먼저 새 작품을 만들어주세요.','확인',true);
+        }
+        return;
+      }
+    }
+  }
+  if(!p)return;
+  const dispForOpen=titleForNew?titleForNew.trim():null;
+  if(curWork){
+    // 다른 작품을 새 창으로 열기 전에, 지금 창에서 작업 중이던 내용을 조용히(팝업 없이)
+    // 먼저 저장해둔다 — 예전에는 [파일 › 다른 작품 열기]에서만 별도 확인 팝업으로
+    // "저장하고 불러올까요?"를 물었는데, 드롭다운의 "다른 작품 열기"는 그런 확인 없이
+    // 바로 열려서 두 경로의 동작이 서로 달랐다. 이제 둘 다 여기 공통 경로 한 곳에서
+    // 조용히 저장 후 새 창을 열도록 통일한다.
+    try{await saveAll();}catch{}
+    try{
+      await T.core.invoke('open_work_window',{label:await resolveOpenWindowLabel(p),path:p,disp:dispForOpen});
+    }catch(e){toast('⚠ 새 창을 여는 중 오류: '+(e&&e.message?e.message:e));}
+    return;
+  }
+  await openWorkAt(p,dispForOpen);
+}
+function workLabel(path){
+  const norm=path.replace(/\\/g,'/').toLowerCase();
+  let h=0;for(let i=0;i<norm.length;i++){h=(h*31+norm.charCodeAt(i))>>>0;}
+  return 'work-'+h.toString(36);
+}
+// 어떤 작품을 새 창으로 열 때 쓸 라벨을 정한다. workLabel(path)로 그냥 결정적으로 계산해
+// 버리면, 그 작품이 이미 "main" 같은 다른 라벨의 창에 열려 있는 경우(예: 맨 처음 켠 창에서
+// 연 작품)에는 그 창을 못 찾고 엉뚱한 새 창을 하나 더 만들어버리는 버그로 이어진다(드롭다운
+// "다른 작품 열기"에서 이미 다른 창에 열려 있는 작품을 고를 때 재현됨). openWorkAt의
+// 리다이렉트 로직과 동일하게, openWindowWorks 레지스트리에서 실제로 살아있는 창을 먼저
+// 찾아서 그 라벨을 쓰고, 없을 때만 workLabel(path)로 새로 계산한다.
+async function resolveOpenWindowLabel(path){
+  const otherLabel=findWindowWithWork(path);
+  if(otherLabel){
+    try{
+      const wins=await T.window.getAllWindows();
+      if(wins.some(w=>w.label===otherLabel))return otherLabel;
+    }catch{}
+    // 죽은 창의 흔적이면 레지스트리에서 지워, 다음에도 계속 이 경로를 타지 않게 한다.
+    try{
+      const reg=JSON.parse(localStorage.getItem('openWindowWorks')||'{}');
+      delete reg[otherLabel];
+      localStorage.setItem('openWindowWorks',JSON.stringify(reg));
+    }catch{}
+  }
+  return workLabel(path);
 }
 function renderWorkMenu(){
   const m=$('workMenu');m.innerHTML='';
-  works.forEach(w=>{const d=document.createElement('div');
-    d.className='wm-item'+(curWork&&curWork.name===w.name?' on':'');d.textContent='📚 '+(w.disp||w.name);
-    d.onclick=async e=>{e.stopPropagation();m.classList.remove('open');await loadWork(w);};m.appendChild(d);});
+  // 지금 열려있는 작품의 이름은 위쪽 workSwitcher 버튼에 이미 보이고 있으니 여기서
+  // 또 보여주지 않는다(이름이 연달아 나와 헷갈린다는 피드백) — 이름 바꾸기/숨기기는
+  // workSwitcher 자체를 우클릭하면 뜨도록 옮겨졌다. 고정/고정 해제 액션만 남긴다.
+  if(curWork){
+    const isPinned=getRecentWorks().find(w=>normPath(w.path)===normPath(curWork.path))?.pinned;
+    const pin=document.createElement('div');pin.className='wm-item';pin.textContent=isPinned?'📌 고정 해제하기':'📌 이 작품 고정하기';
+    pin.onclick=e=>{
+      e.stopPropagation();
+      if(!curWork)return;
+      const nowPinned=togglePinWork(curWork.path);
+      updateWorkIcon();
+      renderWorkMenu();
+      toast(nowPinned?'📌 『'+(curWork.disp||curWork.name)+'』을(를) 고정했어요':'『'+(curWork.disp||curWork.name)+'』 고정을 해제했어요');
+    };
+    m.appendChild(pin);
+  }
+  const listBox=document.createElement('div');listBox.className='wm-list';listBox.id='workMenuList';
+  renderWorkListInto(listBox,{currentPath:curWork?curWork.path:null});
+  listBox.addEventListener('click',e=>{e.stopPropagation();m.classList.remove('open');}); // 항목 클릭(새 창 열기) 시 드롭다운도 닫는다(핀/제거 버튼은 stopPropagation으로 여기까지 안 올라옴, workSwitcher의 toggle과도 충돌 안 하게 stopPropagation)
+  if(listBox.children.length)m.appendChild(listBox);
+  const ow=document.createElement('div');ow.className='wm-item';ow.textContent='📂 다른 작품 열기';
+  ow.onclick=async e=>{e.stopPropagation();m.classList.remove('open');await openWork('pick');};m.appendChild(ow);
   const nw=document.createElement('div');nw.className='wm-item wm-new';nw.textContent='＋ 새 작품 만들기';
-  nw.onclick=async e=>{e.stopPropagation();m.classList.remove('open');
-    const nm=await modal('새 작품 제목');if(!nm)return;
-    const fn=await uniqueFileName(rootPath,nm,'');
-    await FS.mkdir(rootPath+'/'+fn,{recursive:true});
-    // 원래 쓰신 제목을 그대로 화면에 띄우기 위해 표시 이름을 따로 남긴다.
-    if(fn!==nm.trim())await writeFile(rootPath+'/'+fn+'/.이름',nm.trim());
-    await scanWorks();
-    await loadWork(works.find(w=>w.name===nm));};
+  nw.onclick=async e=>{e.stopPropagation();m.classList.remove('open');await openWork('new');};
   m.appendChild(nw);
 }
 async function loadWork(w){
@@ -1596,16 +2455,65 @@ async function loadWork(w){
   trashPath=w.path+'/.서재-휴지통';
   await FS.mkdir(trashPath,{recursive:true});
   trashMeta=await readJson(trashPath+'/trash.json',[]);
-  $('workName').textContent=w.disp||w.name;fitTopbar();selectedFolder=null;
+  $('workName').textContent=w.disp||w.name;fitTopbar();selectedFolder=null;updateWorkIcon();
+  setAppWindowTitle(w.disp||w.name);
   settings.lastWork=w.name;saveMeta();   // 다음에 켤 때도 마지막 작품이 열리도록 기억
-  panes.forEach(p=>{p.tabs=[];p.tab=null;});activePane=0;
+  panes.forEach(p=>{p.tabs=[];p.tab=null;p.ref=null;});activePane=0;
   try{workTreatment=await readFile(w.path+'/treatment.md');}catch{workTreatment='';}
   try{freeNote=await readFile(w.path+'/.프리노트.md');}catch{freeNote='';}
   $('freeTa').value=freeNote;freeNoteDirty=false;
   workTreatmentDirty=false;
   docCache.clear();folderSyn.clear();
   await rescanTree();renderWorkMenu();renderAllPanes();renderTreatment();renderMemo();
+  hideInternalFiles(w.path); // fire-and-forget: Windows 숨김 속성 부여, 실패해도 무시
   await restoreSession(w);
+  // restoreSession이 저장돼 있던 바인더/시놉시스/메모 폭(binderW/trW/memoW)을 그대로
+  // 복원하는데, 그 폭이 지금 창 너비 기준으로는 너무 넓을 수 있다. 여기서 다시 한번
+  // 좁은 화면 자동 숨김을 재평가해주지 않으면, 넓은 창에서 저장된 폭이 좁은 창에 그대로
+  // 남아 바인더/시놉시스는 (이전 상태 그대로) 자동 숨김이 걸려도 메모만 안 걸리는 것처럼
+  // 보이는 반응형 버그로 이어진다.
+  if(typeof fitPanels==='function')fitPanels();
+}
+/* Windows에서 실제 FILE_ATTRIBUTE_HIDDEN 속성을 걸어준다. 점(.) 접두사만으로는
+   탐색기가 자동으로 숨겨주지 않기 때문에 별도로 필요하다. */
+async function hidePath(p){
+  try{await T.core.invoke('set_hidden_attribute',{path:p});}catch{}
+}
+/* 작품 폴더 안의 내부 관리용 파일/폴더에 Windows 숨김 속성을 건다.
+   scanDir은 트리 렌더링용이라 점(.) 접두 항목을 건너뛰므로 여기서는 쓸 수 없어
+   FS.readDir로 직접 재귀 순회한다. loadWork에서 await 없이 fire-and-forget으로
+   호출되므로 시간이 걸려도 무방하고, 실패는 전부 조용히 무시한다. */
+async function hideInternalFiles(rootPath){
+  try{
+    // 1) 루트 바로 아래 알려진 항목들
+    const rootNames=['.서재','.서재-휴지통','.스토리시드-이관완료','.스토리시드-프로젝트','.이름','.hidden','.프리노트.md'];
+    for(const name of rootNames){
+      const p=rootPath+'/'+name;
+      if(await FS.exists(p))await hidePath(p);
+    }
+    // 이름이 매번 달라지는(타임스탬프 접미사) 이관 백업 폴더도 찾아서 숨긴다
+    let rootEntries=[];try{rootEntries=await FS.readDir(rootPath);}catch{}
+    for(const en of rootEntries){
+      if(en.name.startsWith('.서재-이관백업-')){
+        const p=rootPath+'/'+en.name;
+        if(await FS.exists(p))await hidePath(p);
+      }
+    }
+    // 2) 모든 하위 폴더를 재귀적으로 순회하며 폴더별 내부 관리 파일을 숨긴다
+    const walkDir=async(absDir)=>{
+      let entries=[];try{entries=await FS.readDir(absDir);}catch{return;}
+      for(const en of entries){
+        if(en.isDirectory){
+          for(const name of ['.이름','.hidden','.시놉시스.md']){
+            const p=absDir+'/'+en.name+'/'+name;
+            if(await FS.exists(p))await hidePath(p);
+          }
+          await walkDir(absDir+'/'+en.name);
+        }
+      }
+    };
+    await walkDir(rootPath);
+  }catch{}
 }
 async function rescanTree(){
   treeData=await scanDir(curWork.path,'');
@@ -1622,9 +2530,9 @@ async function scanDir(absDir,relPath){
       let disp=name;
       try{disp=(await readFile(absDir+'/'+name+'/.이름')).trim()||name;}catch{}
       const dpath=relPath+name+'/';
-      // 폴더 열림/닫힘 상태는 작품(curWork.name)별로 기억해둔 값을 그대로 쓴다 — 기록이
+      // 폴더 열림/닫힘 상태는 경로(dpath)별로 기억해둔 값을 그대로 쓴다 — 기록이
       // 없는(처음 만든) 폴더만 기본으로 펼쳐진 채 시작한다(2번: 재실행해도 유지되도록).
-      const savedOpen=folderOpen[curWork.name+'|'+dpath];
+      const savedOpen=folderOpen[dpath];
       nodes.push({type:'dir',name,disp,abs:absDir+'/'+name,parentAbs:absDir,parentPath:relPath,
         path:dpath,open:savedOpen===undefined?true:savedOpen,children:await scanDir(absDir+'/'+name,dpath)});
     }
@@ -1649,7 +2557,7 @@ function findNodeByPath(path,nodes=treeData){
   }return null;
 }
 /* 사용자 지정 정렬 */
-function orderKey(folderPath){return curWork.name+'|'+folderPath;}
+function orderKey(folderPath){return folderPath;}
 function sortNodes(nodes,folderPath){
   const ord=orders[orderKey(folderPath)]||[];
   nodes.sort((a,b)=>{
@@ -1677,19 +2585,18 @@ function saveUnlocks(){clearTimeout(unlocksTimer);unlocksTimer=setTimeout(()=>{
 /* 경로 문자열 기반 잠금 판정. 폴더 경로는 끝에 '/'가 붙고(scanDir 참고), 조상 폴더가 잠겨 있으면 상속된다. */
 function isLocked(path){
   if(!curWork||!path)return false;
-  const wk=curWork.name;
-  if(unlockedOverrides[wk+'|'+path])return false;
-  if(lockedPaths[wk+'|'+path])return true;
+  if(unlockedOverrides[path])return false;
+  if(lockedPaths[path])return true;
   const parts=path.split('/').filter(Boolean);
   let p='';
   for(let i=0;i<parts.length-1;i++){   // 마지막 조각(자기 자신)은 제외, 상위 폴더 경로들만 검사
     p+=parts[i]+'/';
-    if(lockedPaths[wk+'|'+p])return true;
+    if(lockedPaths[p])return true;
   }
   return false;
 }
 function isOwnLock(path){   // 이 노드 자신이 명시적으로 잠금 설정되어 있는지
-  return !!(curWork&&lockedPaths[curWork.name+'|'+path]);
+  return !!(curWork&&lockedPaths[path]);
 }
 
 /* ═══════════ 트리 렌더 + 드래그&드롭 ═══════════ */
@@ -1759,7 +2666,7 @@ function renderTree(){
     const editing=(renamingPath===n.path);
     const lockIco=isLocked(n.path)?'<svg class="lock-ico" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>':'';
     if(n.type==='dir'){
-      const customIco=icons[curWork.name+"|"+n.path];
+      const customIco=icons[n.path];
       const folderIco=customIco||(n.open
         ?'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>'
         :'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>');
@@ -1775,7 +2682,7 @@ function renderTree(){
         clearMultiSel(false);lastSelPath=n.path;
         if(selectedFolder&&selectedFolder.path===n.path){
           n.open=!n.open;
-          folderOpen[curWork.name+'|'+n.path]=n.open;saveFolderOpen();   // 2번: 재실행해도 열림/닫힘 상태 유지
+          folderOpen[n.path]=n.open;saveFolderOpen();   // 2번: 재실행해도 열림/닫힘 상태 유지
         }
         selectedFolder=n;renderTree();};
     }else{
@@ -2195,8 +3102,14 @@ function findOpenTab(path){
   for(const p of panes){const t=p.tabs.find(t=>t.path===path);if(t)return t;}
   return null;
 }
+function findOpenRefByPath(path){
+  for(const p of panes)if(p.ref&&p.ref.path===path)return p.ref;
+  return null;
+}
 async function openDoc(node){
   let tab=findOpenTab(node.path);
+  if(!tab)tab=findOpenRefByPath(node.path);
+  if(tab&&tab.lastSnap===undefined)tab.lastSnap=0;
   if(!tab){
     let text='';try{text=await readFile(node.abs);}catch{}
     const{meta,body}=parseDoc(text);
@@ -2207,6 +3120,73 @@ async function openDoc(node){
   if(!p.tabs.includes(tab))p.tabs.push(tab);
   p.tab=tab;
   refreshUI();
+}
+async function openRefPane(paneIdx,node){
+  const p=panes[paneIdx];
+  if(p.ref&&p.ref.path===node.path){renderRefPane(paneIdx);return;}
+  if(p.ref&&p.ref.dirty)await saveRefPane(paneIdx);
+  let ref=findOpenTab(node.path);
+  if(!ref){
+    for(const pp of panes){if(pp!==p&&pp.ref&&pp.ref.path===node.path){ref=pp.ref;break;}}
+  }
+  if(!ref){
+    let text='';try{text=await readFile(node.abs);}catch{}
+    const{meta,body}=parseDoc(text);
+    ref={path:node.path,name:node.disp||node.name.replace(/\.md$/,''),abs:node.abs,meta,body,dirty:false,node};
+  }
+  p.ref=ref;
+  renderRefPane(paneIdx);
+}
+function closeRefPane(paneIdx){
+  const p=panes[paneIdx];
+  if(p.ref&&p.ref.dirty)saveRefPane(paneIdx);
+  p.ref=null;
+  renderRefPane(paneIdx);
+}
+function renderRefPane(paneIdx){
+  const p=panes[paneIdx],wrap=$('refPane'+paneIdx),body=$('refPaneBody'+paneIdx),title=$('refPaneTitle'+paneIdx);
+  if(!p.ref){
+    wrap.style.display='none';body.innerHTML='';
+    wrap.classList.remove('locked');
+    p._lastRefPath=null;
+    const b0=wrap.querySelector('.ref-lock-banner');if(b0)b0.remove();
+    return;
+  }
+  const wasClosed=wrap.style.display==='none'||!wrap.style.display;
+  wrap.style.display='flex';
+  if(wasClosed)wrap.style.height=(settings.refPaneH||200)+'px';
+  if(p._lastRefPath!==p.ref.path){
+    p._lastRefPath=p.ref.path;
+    const y=refScrollMem[p.ref.path]||0;
+    requestAnimationFrame(()=>{body.scrollTop=y;});
+  }
+  const locked=isLocked(p.ref.path);
+  body.contentEditable=locked?'false':'true';
+  wrap.classList.toggle('locked',locked);
+  let banner=wrap.querySelector('.ref-lock-banner');
+  if(locked){
+    if(!banner){
+      banner=document.createElement('div');
+      banner.className='ref-lock-banner';
+      banner.innerHTML='<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span>잠긴 문서입니다</span>';
+      wrap.insertBefore(banner,body);
+    }
+  }else if(banner){banner.remove();}
+  if(body.innerHTML!==p.ref.body)body.innerHTML=p.ref.body;
+  title.textContent=(locked?'🔒 ':'')+'📑 '+p.ref.name;
+  body.style.zoom=(p.refZoom||100)/100;
+}
+let refSaveTimers={};
+function markRefDirty(paneIdx){
+  const p=panes[paneIdx];if(!p.ref)return;
+  p.ref.dirty=true;
+  clearTimeout(refSaveTimers[paneIdx]);
+  refSaveTimers[paneIdx]=setTimeout(()=>saveRefPane(paneIdx),AS());
+}
+async function saveRefPane(paneIdx){
+  const p=panes[paneIdx];if(!p.ref||!p.ref.dirty)return;
+  if(isLocked(p.ref.path))return;
+  try{await writeFile(p.ref.abs,serializeDoc(p.ref));p.ref.dirty=false;}catch{}
 }
 function setActivePane(i){
   if(i===1&&!splitOn)i=0;
@@ -2304,7 +3284,7 @@ function renderPaneTabs(i){
     moveTabToPane(dragTab.tab,dragTab.pane,i,null);
   };
 }
-function renderAllPanes(){renderPane(0);renderPane(1);renderPaneTabs(0);renderPaneTabs(1);}
+function renderAllPanes(){renderPane(0);renderPane(1);renderPaneTabs(0);renderPaneTabs(1);renderRefPane(0);renderRefPane(1);}
 function renderPane(i){
   const p=panes[i],ed=$('ed'+i);
   if(!p.tab){
@@ -2399,13 +3379,14 @@ function syncFromDOM(i){
   updateCounts(i);renderPaneTabs(0);renderPaneTabs(1);
   const o=1-i;
   if(panes[o].tab===t&&$('ed'+o).innerHTML!==t.body){$('ed'+o).innerHTML=t.body;updateCounts(o);}
+  [0,1].forEach(j=>{if(panes[j].ref===t)renderRefPane(j);});
   clearTimeout(saveTimers[i]);saveTimers[i]=setTimeout(()=>saveTab(t),AS());
 }
 function syncNow(i){clearTimeout(syncTimers[i]);syncFromDOM(i);}
 function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEditable)syncNow(i);});}
 [0,1].forEach(i=>{
   const ed=$('ed'+i);
-  ed.addEventListener('focus',()=>setActivePane(i));
+  ed.addEventListener('focus',()=>{setActivePane(i);editTarget={pane:i,kind:'tab'};});
   ed.addEventListener('compositionstart',()=>{imeComposing=true;});
   ed.addEventListener('compositionend',()=>{
     imeComposing=false;
@@ -2471,6 +3452,49 @@ function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEdit
       return;
     }
     doPaste(i,raw,rawHtml);
+  });
+});
+[0,1].forEach(i=>{
+  $('refPaneBody'+i).addEventListener('input',e=>{
+    const p=panes[i];if(!p.ref)return;
+    p.ref.body=e.target.innerHTML;
+    markRefDirty(i);
+    [0,1].forEach(j=>{if(panes[j].tab===p.ref)renderPane(j);});
+    const o=1-i;
+    if(panes[o].ref===p.ref&&$('refPaneBody'+o).innerHTML!==p.ref.body){$('refPaneBody'+o).innerHTML=p.ref.body;}
+  });
+  $('refPaneBody'+i).addEventListener('focus',()=>{setActivePane(i);editTarget={pane:i,kind:'ref'};});
+  $('refPaneBody'+i).addEventListener('scroll',()=>{
+    const r=panes[i].ref;if(r)refScrollMem[r.path]=$('refPaneBody'+i).scrollTop;
+  });
+});
+[0,1].forEach(i=>{
+  const el=$('refPane'+i);
+  new ResizeObserver(()=>{
+    if(el.style.display==='none')return;
+    const h=Math.round(el.getBoundingClientRect().height);
+    if(h>0&&h!==settings.refPaneH){settings.refPaneH=h;saveMeta();}
+  }).observe(el);
+});
+/* 참고창 높이 조절: 우측 하단 모서리 대신, 이 상단 바를 위아래로 드래그해서 조절한다
+   (모서리 리사이즈 핸들은 위치가 직관적이지 않다는 피드백 반영). 바를 위로 끌면 참고창이
+   커지고, 아래로 끌면 작아진다. 실제 저장은 위 ResizeObserver가 높이 변화를 감지해서 처리한다. */
+[0,1].forEach(i=>{
+  const bar=$('refPaneBar'+i),wrap=$('refPane'+i);
+  bar.addEventListener('mousedown',e=>{
+    if(e.target.closest('.ref-pane-close'))return;
+    e.preventDefault();
+    const startY=e.clientY,startH=wrap.getBoundingClientRect().height;
+    const parentH=wrap.parentElement.getBoundingClientRect().height;
+    const maxH=Math.max(80,Math.round(parentH*0.6));
+    document.body.style.cursor='ns-resize';
+    const move=ev=>{
+      const h=Math.max(80,Math.min(maxH,Math.round(startH-(ev.clientY-startY))));
+      wrap.style.height=h+'px';
+    };
+    const up=()=>{document.body.style.cursor='';
+      removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
+    addEventListener('mousemove',move);addEventListener('mouseup',up);
   });
 });
 /* ═══ 붙여넣기: 대용량 고속 삽입 + 줄바꿈/서식 선택 상자 ═══ */
@@ -2664,13 +3688,25 @@ async function saveAll(){
     try{await writeFile(curWork.path+'/treatment.md',workTreatment);workTreatmentDirty=false;}catch{}
   }
   await saveFree();
+  await saveRefPane(0);await saveRefPane(1);
 }
 let metaTimer=null;
 function saveMeta(){clearTimeout(metaTimer);metaTimer=setTimeout(async()=>{
   try{await writeFile(seojaePath+'/stats.json',JSON.stringify(stats));
     await writeFile(seojaePath+'/settings.json',JSON.stringify(settings));}catch{}
 },1500);}
-function snapSafe(t){return (curWork.name+'__'+t.path).replace(/[\/\\:]/g,'∕');}
+// 스냅샷 파일명은 작품 폴더 이름과 무관하게 문서의 상대경로만으로 정한다(작품 이름을
+// 바꾸면 이제 폴더 이름도 함께 바뀌는데, 여기에 작품 이름이 들어가 있으면 이름을 바꿀
+// 때마다 예전 스냅샷들이 목록에서 안 보이게 되는 문제가 있었다). 스냅샷 폴더 자체가
+// 이미 이 작품 전용(seojaePath/snapshots)이라 작품 이름을 섞을 필요가 애초에 없었다.
+function snapPathSafe(path){return path.replace(/[\/\\:]/g,'∕');}
+function snapSafe(t){return snapPathSafe(t.path);}
+// 예전(작품이름__상대경로__타임스탬프) 형식으로 이미 저장된 스냅샷도 계속 목록에 보이도록
+// 접두어(작품이름__)가 있든 없든 상대경로 부분만 맞으면 같은 문서의 스냅샷으로 인정한다.
+function snapMatchesTab(entryName,t){
+  const p=snapPathSafe(t.path);
+  return entryName.startsWith(p+'__')||entryName.includes('__'+p+'__');
+}
 async function snapshotIfDue(t,force){
   const now=Date.now();
   if(!settings.snapshotOn)return;
@@ -2681,7 +3717,7 @@ async function snapshotIfDue(t,force){
     const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     await writeFile(snapsPath+'/'+safe+'__'+ts+'.md',serializeDoc(t));
     const entries=await FS.readDir(snapsPath);
-    const mine=entries.map(e=>e.name).filter(n=>n.startsWith(safe+'__')&&!n.includes('~'));
+    const mine=entries.map(e=>e.name).filter(n=>snapMatchesTab(n,t)&&!n.includes('~'));
     mine.sort();
     while(mine.length>20)await FS.remove(snapsPath+'/'+mine.shift());
   }catch{}
@@ -2712,44 +3748,20 @@ if(T&&T.window&&T.window.getCurrentWindow){
   let appWin;
   try{appWin=T.window.getCurrentWindow();}catch{appWin=null;}
   if(appWin){
-    (async()=>{
-      try{
-        const g=JSON.parse(localStorage.getItem('winGeom')||'null');
-        if(!g)return;
-        if(g.w>200&&g.h>200){
-          try{
-            if(T.window.PhysicalSize)await appWin.setSize(new T.window.PhysicalSize(Math.round(g.w),Math.round(g.h)));
-            else await appWin.setSize({width:Math.round(g.w),height:Math.round(g.h)});
-          }catch{
-            try{await appWin.setSize({width:Math.round(g.w),height:Math.round(g.h)});}catch{}
-          }
-        }
-        if(typeof g.x==='number'&&typeof g.y==='number'){
-          try{
-            if(T.window.PhysicalPosition)await appWin.setPosition(new T.window.PhysicalPosition(Math.round(g.x),Math.round(g.y)));
-            else await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});
-          }catch{
-            try{await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});}catch{}
-          }
-        }
-        if(g.max){try{await appWin.maximize();}catch{}}
-      }catch{}
-    })();
+    // 이 창이 곧바로 특정 작품을 열 예정이면(다른 창에서 "다른 작품 열기"로 새로 뜬 창)
+    // 그 작품이 마지막으로 기억해둔 위치/크기를 바로 적용한다. 아니면(첫 화면으로 뜨는
+    // 메인 창) 항상 기본 크기로 화면 정가운데에 놓는다 — 마지막에 닫힌 다른 작품 창의
+    // 크기에 영향받지 않도록. 특정 작품을 여는 창은 openWorkAt이 로드가 끝난 뒤 다시 한번
+    // applyWindowGeomFor를 불러주므로 여기서는 첫 화면 경우만 처리한다.
+    if(!window.__STORYSEED_OPEN_PATH__){
+      applyWindowGeomFor(null);
+    }
     appWin.onCloseRequested(async(ev)=>{
       if(appClosing)return;   // 저장 완료 후 스스로 닫을 때는 그대로 진행
       try{ev.preventDefault();}catch{}
-      try{
-        const isMax=await appWin.isMaximized().catch(()=>false);
-        let g={};try{g=JSON.parse(localStorage.getItem('winGeom')||'{}')||{};}catch{}
-        g.max=isMax;
-        if(!isMax){
-          const pos=await appWin.outerPosition().catch(()=>null);
-          const size=await appWin.outerSize().catch(()=>null);
-          if(pos)Object.assign(g,{x:pos.x,y:pos.y});
-          if(size&&size.width>0&&size.height>0)Object.assign(g,{w:size.width,h:size.height});
-        }
-        localStorage.setItem('winGeom',JSON.stringify(g));
-      }catch{}
+      // 지금 이 창이 작품을 열고 있을 때만(curWork) 그 작품 몫으로 위치/크기를 기억한다.
+      // 첫 화면 상태로 닫히는 창은 저장할 것이 없다 — 첫 화면은 항상 기본 위치로 고정이다.
+      await saveCurrentWinGeom();
       try{
         await Promise.race([
           (async()=>{try{await saveAll();}catch{} try{await flushMetaAndSessionNow();}catch{}})(),
@@ -2757,6 +3769,11 @@ if(T&&T.window&&T.window.getCurrentWindow){
         ]);
       }catch{}
       appClosing=true;
+      // 이 창이 "작품 X를 열고 있다"고 기록해 둔 레지스트리를 지운다. 안 지우면 창을 닫은
+      // 뒤에도 흔적이 남아서, 나중에 같은 작품을 다시 열려고 할 때 이미 죽은 창으로
+      // 리다이렉트를 시도하게 되고(그 창은 없으니 새 빈 창만 또 뜨고), 정작 그 시도를 한
+      // 원래 창(예: 첫 화면)은 자기 할 일을 못 하고 그대로 남아버리는 버그로 이어진다.
+      setWindowWorkRegistry(null);
       try{await appWin.destroy();}
       catch{try{await appWin.close();}
         catch{try{if(T.process&&T.process.exit)await T.process.exit(0);}catch{}}}
@@ -2777,15 +3794,25 @@ document.querySelectorAll('.tb-btn').forEach(b=>{
     // 명시적으로 DOM에 강제 지정해 결정론적으로 만든다(2.1.4).
     const alignMap={justifyLeft:'left',justifyCenter:'center',justifyRight:'right',justifyFull:'justify'};
     if(alignMap[b.dataset.cmd])applyExplicitAlign(alignMap[b.dataset.cmd]);
-    const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
-      clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());
-      renderPaneTabs(0);renderPaneTabs(1);}
+    if(editTarget.kind==='ref'){
+      const p=panes[editTarget.pane];
+      if(p.ref){
+        p.ref.body=$('refPaneBody'+editTarget.pane).innerHTML;
+        markRefDirty(editTarget.pane);
+        [0,1].forEach(j=>{if(panes[j].tab===p.ref)renderPane(j);});
+      }
+    }else{
+      const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
+        clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());
+        renderPaneTabs(0);renderPaneTabs(1);
+        [0,1].forEach(j=>{if(panes[j].ref===t)renderRefPane(j);});}
+    }
     updateAlignButtons();
   });
 });
 /* 정렬 명령을 실제 DOM에 결정론적으로 반영한다(execCommand 부수효과에 의존하지 않음) */
 function applyExplicitAlign(align){
-  const ed=$('ed'+activePane);
+  const ed=edSurfaceEl();
   const sel=getSelection();
   if(!sel||!sel.rangeCount||!ed.contains(sel.anchorNode))return;
   const range=sel.getRangeAt(0);
@@ -2811,7 +3838,7 @@ function applyExplicitAlign(align){
 /* 커서 위치의 정렬 상태를 툴바 아이콘에 반영 */
 function updateAlignButtons(){
   const tbAlignBtns=document.querySelectorAll('.tb-align');
-  const ed=$('ed'+activePane);
+  const ed=edSurfaceEl();
   const sel=getSelection();
   const node=sel&&sel.rangeCount?sel.anchorNode:null;
   if(!ed||!node||!ed.contains(node)){tbAlignBtns.forEach(b=>b.classList.remove('active'));return;}
@@ -2827,13 +3854,23 @@ function updateAlignButtons(){
 document.addEventListener('selectionchange',updateAlignButtons);
 /* ═══════════ 글자 색: 최근 20 + 즐겨찾기 10 ═══════════ */
 let lastSelRange=null;
-function rememberSel(){const s=getSelection();if(s&&s.rangeCount&&$('ed'+activePane).contains(s.anchorNode))lastSelRange=s.getRangeAt(0).cloneRange();}
+function rememberSel(){const s=getSelection();if(s&&s.rangeCount&&edSurfaceEl().contains(s.anchorNode))lastSelRange=s.getRangeAt(0).cloneRange();}
 function restoreSel(){if(lastSelRange){const s=getSelection();s.removeAllRanges();s.addRange(lastSelRange);}}
 function applyColor(hex){
-  $('ed'+activePane).focus();restoreSel();
+  edSurfaceEl().focus();restoreSel();
   document.execCommand('foreColor',false,hex);
-  const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
-    clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());}
+  if(editTarget.kind==='ref'){
+    const p=panes[editTarget.pane];
+    if(p.ref){
+      p.ref.body=$('refPaneBody'+editTarget.pane).innerHTML;
+      markRefDirty(editTarget.pane);
+      [0,1].forEach(j=>{if(panes[j].tab===p.ref)renderPane(j);});
+    }
+  }else{
+    const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
+      clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());
+      [0,1].forEach(j=>{if(panes[j].ref===t)renderRefPane(j);});}
+  }
   $('tbColorBar').style.background=hex;$('tbColor').value=hex;
   settings.recentColors=settings.recentColors||[];
   settings.recentColors=[hex,...settings.recentColors.filter(c=>c.toLowerCase()!==hex.toLowerCase())].slice(0,20);
@@ -3255,6 +4292,12 @@ function paneZoom(i,z){
   $('ed'+i).style.zoom=panes[i].zoom/100;
   if(typeof scheduleSession==='function'&&!restoring)scheduleSession();
 }
+/* 참고창은 본문 에디터와 별개의 배율을 갖는다(둘이 같이 바뀌면 의도와 다르다는 피드백 반영) */
+function refPaneZoom(i,z){
+  panes[i].refZoom=Math.max(60,Math.min(200,z));
+  const rb=$('refPaneBody'+i);if(rb)rb.style.zoom=panes[i].refZoom/100;
+  if(typeof scheduleSession==='function'&&!restoring)scheduleSession();
+}
 [0,1].forEach(i=>{
   $('zoomIn'+i).onclick=()=>paneZoom(i,panes[i].zoom+10);
   $('zoomOut'+i).onclick=()=>paneZoom(i,panes[i].zoom-10);
@@ -3273,6 +4316,8 @@ addEventListener('wheel',e=>{
     settings.focusSize=Math.max(11,Math.min(36,(settings.focusSize||parseFloat(settings.size))+dir));
     applyFocusOpts();saveMeta();return;
   }
+  const refPane=e.target.closest('.ref-pane');
+  if(refPane){e.preventDefault();const pane=refPane.closest('.editor-pane');const i=+pane.dataset.pane;refPaneZoom(i,panes[i].refZoom+dir*10);return;}
   const pane=e.target.closest('.editor-pane');
   if(pane){e.preventDefault();const i=+pane.dataset.pane;paneZoom(i,panes[i].zoom+dir*10);return;}
   if(e.target.closest('.free-area')){e.preventDefault();freeZoom(dir);return;}
@@ -3643,6 +4688,27 @@ function createSeparatorAtEnd(){
   orders[key]=ord;saveOrders();renderTree();
   toast(selectedFolder?('『'+(selectedFolder.disp||selectedFolder.name)+'』 맨 아래에 구분선을 넣었어요'):'맨 아래에 구분선을 넣었어요');
 }
+// 바인더 단축키(새 회차 Ctrl+N / 이름 바꾸기 F2)는 원고를 타이핑하는 중에는 절대 끼어들면
+// 안 되므로, 지금 포커스가 입력 가능한 곳(에디터/인풋/텍스트에어리어)에 있는지부터 확인한다.
+function isEditableActive(){
+  const ae=document.activeElement;
+  if(!ae)return false;
+  if(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')return true;
+  return !!ae.isContentEditable;
+}
+function renameSelectedInBinder(){
+  if(!curWork)return;
+  const tabNode=panes[activePane].tab?findNodeByPath(panes[activePane].tab.path):null;
+  const target=selectedFolder||tabNode;
+  if(target)renameNode(target);
+}
+// Esc 처리에서 쓰는 오버레이 id 목록과 동일 — 팝업/모달이 열려 있을 때는 Delete 키가
+// 엉뚱하게 바인더 삭제로 새지 않게 막는다.
+function anyOverlayOpen(){
+  return ['findBar','hlPop','hlListBg','verBg','trashBg','emojiBg','prefsBg','memoPickBg','expBg2','mobilePreviewBg','confirmBg','customTsBg','modalBg'].some(id=>{
+    const el=$(id);return el&&el.classList.contains('open');
+  });
+}
 $('addNewDoc').onclick=()=>{$('binderAddMenu').classList.remove('open');createNewDoc();};
 $('addNewFolder').onclick=()=>{$('binderAddMenu').classList.remove('open');createNewFolder();};
 $('addNewSep').onclick=()=>{$('binderAddMenu').classList.remove('open');createSeparatorAtEnd();};
@@ -3803,6 +4869,13 @@ $('prefsClose').onclick=()=>$('prefsBg').classList.remove('open');
 // 6번: 모든 설정을 기본값으로. 유저가 작성한 내용, 폴더·문서 구성/위치/열림 상태, 열린 탭 등은
 // settings 객체가 아니라 orders/folderOpen/panes 등 완전히 별도의 상태라서 이 함수가 절대
 // 건드리지 않는다 — settings 하나만 새 기본값으로 통째로 교체한다.
+$('btnOpenCsLog').addEventListener('click',async()=>{
+  try{
+    const dir=await csLogDir();
+    await FS.mkdir(dir,{recursive:true});
+    await T.opener.openPath(dir);
+  }catch(e){toast('진단 폴더를 열 수 없어요: '+e);}
+});
 $('btnResetSettings').addEventListener('click',async()=>{
   const ok=await confirmBox('레이아웃과 환경설정이 모두 기본값으로 돌아가요.\n(작성하신 내용은 그대로 유지돼요.) 진행하시겠습니까?','기본값으로 되돌리기');
   if(!ok)return;
@@ -3988,6 +5061,8 @@ const SHORTCUT_DEFS=[
   {id:'focusMode',label:'집중 모드',defaultKey:'Ctrl+Alt+F',fn:()=>$('focusBtn').click()},
   {id:'darkMode',label:'다크 모드',defaultKey:'Ctrl+Alt+D',fn:()=>$('darkBtn').click()},
   {id:'highlightBrowse',label:'형광펜 모아보기',defaultKey:'Ctrl+Alt+H',fn:()=>$('hlListBtn').click()},
+  {id:'newDoc',label:'새 회차 만들기 (바인더)',defaultKey:'Ctrl+N',fn:()=>{if(isEditableActive())return;createNewDoc();}},
+  {id:'renameSelected',label:'이름 바꾸기 (바인더에서 선택한 회차/폴더)',defaultKey:'F2',fn:()=>{if(isEditableActive())return;renameSelectedInBinder();}},
 ];
 function comboFromEvent(e){
   const parts=[];
@@ -4051,6 +5126,17 @@ addEventListener('keydown',e=>{
     }
   }
 },true);
+// Delete는 에디터 안에서 "오른쪽 글자 지우기"로도 쓰이는 키라, 위 SHORTCUT_DEFS 방식(무조건
+// preventDefault 후 실행)을 그대로 쓰면 원고를 쓰는 중에 그 기본 동작을 막아버리게 된다.
+// 그래서 별도로 두고, 실제로 바인더에서 처리할 상황에서만 preventDefault한다.
+addEventListener('keydown',e=>{
+  if(e.key!=='Delete')return;
+  if(isEditableActive())return;
+  if(anyOverlayOpen())return;
+  if(!curWork)return;
+  e.preventDefault();
+  deleteSelectedInBinder();
+},true);
 // Win+Alt+Shift+D: 브라우저 e.metaKey는 Windows 키를 의미하나, OS/Tauri 웹뷰 레벨에서 Win 키 조합이 가로채져 웹페이지까지 이벤트가 전달되지 않을 수 있음(실제 동작은 배포 환경에서 확인 필요).
 addEventListener('keydown',e=>{
   if(e.metaKey&&e.altKey&&e.shiftKey&&e.key.toLowerCase()==='d'){
@@ -4070,9 +5156,13 @@ addEventListener('keydown',e=>{
     if($('memoPickBg').classList.contains('open')){$('memoPickBg').classList.remove('open');return;}
     if($('expBg2').classList.contains('open')){$('expBg2').classList.remove('open');return;}
     if($('mobilePreviewBg').classList.contains('open')){$('mobilePreviewBg').classList.remove('open');return;}
-    if($('confirmBg').classList.contains('open')){$('confirmBg').classList.remove('open');return;}
+    if($('confirmBg').classList.contains('open')){if(confirmResolve)confirmResolve(false);return;}
     if($('customTsBg').classList.contains('open')){$('customTsBg').classList.remove('open');return;}
     document.body.classList.remove('focus','ghost-tr','ghost-pin','ghost-memo');
+  }
+  // 확인 팝업이 열려 있을 때는 Enter로도 '예'(okLabel) 버튼을 누른 것과 동일하게 동작한다.
+  if(e.key==='Enter'&&$('confirmBg').classList.contains('open')){
+    e.preventDefault();if(confirmResolve)confirmResolve(true);return;
   }
   if((e.ctrlKey||e.metaKey)&&(e.key==='='||e.key==='+'||e.key==='-')){
     e.preventDefault();
@@ -4091,7 +5181,8 @@ addEventListener('keydown',e=>{
         const ta=secEl.querySelector('.note-ta');if(ta)ta.style.fontSize=sec.size+'px';saveMeta();}
       return;
     }
-    paneZoom(activePane,panes[activePane].zoom+dir*10);
+    if(editTarget.kind==='ref'){refPaneZoom(editTarget.pane,panes[editTarget.pane].refZoom+dir*10);}
+    else{paneZoom(activePane,panes[activePane].zoom+dir*10);}
     return;
   }
   if(e.key==='F11'){
@@ -4161,8 +5252,8 @@ handle.addEventListener('mousedown',e=>{
 
 /* ═══════════ 컨텍스트 메뉴: 이름 변경 / 휴지통 ═══════════ */
 addEventListener('click',()=>$('ctxMenu').classList.remove('open'));
-$('ctxNewSub').onclick=()=>{if(ctxNode&&ctxNode.type==='dir'){ctxNode.open=true;folderOpen[curWork.name+'|'+ctxNode.path]=true;saveFolderOpen();selectedFolder=ctxNode;createNewFolder();}};
-$('ctxNewSubDoc').onclick=()=>{if(ctxNode&&ctxNode.type==='dir'){ctxNode.open=true;folderOpen[curWork.name+'|'+ctxNode.path]=true;saveFolderOpen();selectedFolder=ctxNode;createNewDoc();}};
+$('ctxNewSub').onclick=()=>{if(ctxNode&&ctxNode.type==='dir'){ctxNode.open=true;folderOpen[ctxNode.path]=true;saveFolderOpen();selectedFolder=ctxNode;createNewFolder();}};
+$('ctxNewSubDoc').onclick=()=>{if(ctxNode&&ctxNode.type==='dir'){ctxNode.open=true;folderOpen[ctxNode.path]=true;saveFolderOpen();selectedFolder=ctxNode;createNewDoc();}};
 $('ctxRename').onclick=()=>{if(ctxNode)renameNode(ctxNode);};
 /* 잠금 메뉴 라벨을 노드 상태에 맞게 갱신 */
 function updateCtxLockLabel(n){
@@ -4177,7 +5268,7 @@ function updateCtxLockLabel(n){
 }
 $('ctxLock').onclick=()=>{
   if(!ctxNode)return;
-  const key=curWork.name+'|'+ctxNode.path;
+  const key=ctxNode.path;
   if(ctxNode.type==='dir'){
     if(lockedPaths[key])delete lockedPaths[key];else lockedPaths[key]=true;
     saveLocks();
@@ -4206,6 +5297,11 @@ $('ctxTrash').onclick=()=>{
   }
 };
 $('ctxDup').onclick=()=>{if(ctxNode)dupNode(ctxNode);};
+$('ctxRefOpen').addEventListener('click',()=>{
+  if(ctxNode&&ctxNode.type==='file')openRefPane(activePane,ctxNode);
+});
+$('refPaneClose0').addEventListener('click',()=>closeRefPane(0));
+$('refPaneClose1').addEventListener('click',()=>closeRefPane(1));
 function renameNode(node){startInlineRename(node);}   // 인라인 편집으로 진입
 async function doRename(node,nm){
   const cur=node.disp||(node.type==='file'?node.name.replace(/\.md$/,''):node.name);
@@ -4249,6 +5345,11 @@ async function trashNode(node){
       if(!ok)return;
     }
   }
+  await doTrashMove(node);
+}
+// 실제로 휴지통 폴더로 옮기는 부분만 분리 — 확인 팝업을 어떤 방식으로(또는 몇 번) 띄울지는
+// 호출하는 쪽(trashNode/deleteSelectedInBinder)마다 다를 수 있어, 이동 로직 자체와 분리해둔다.
+async function doTrashMove(node){
   await saveAll();
   const ts=Date.now(),tname=ts+'__'+node.name;
   try{
@@ -4265,6 +5366,26 @@ async function trashNode(node){
     if(trMode==='doc')renderTreatment();
     toast('휴지통으로 이동: '+node.name);
   }catch(e){toast('⚠ 실패: '+e);}
+}
+// 바인더에서 Delete 키로 선택 항목을 지울 때 쓰는 경로 — trashNode/trashMany와 달리
+// 문서든 빈 폴더든 내용물 유무와 상관없이 항상 예/아니오 확인을 한 번 받는다(요청 사항).
+async function deleteSelectedInBinder(){
+  if(!curWork)return;
+  if(multiSel.size>1){
+    const nodes=[...multiSel].map(p=>findNodeByPath(p)).filter(Boolean);
+    if(nodes.length)trashMany(nodes);
+    return;
+  }
+  const single=multiSel.size===1?findNodeByPath([...multiSel][0]):null;
+  const tabNode=panes[activePane].tab?findNodeByPath(panes[activePane].tab.path):null;
+  const target=single||selectedFolder||tabNode;
+  if(!target)return;
+  if(isLocked(target.path)){toast('🔒 잠긴 항목은 휴지통으로 보낼 수 없어요');return;}
+  const label=target.type==='dir'?'폴더':'문서';
+  const ok=await confirmBox('"'+(target.disp||target.name)+'" '+label+'을(를) 휴지통으로 보낼까요?','휴지통으로');
+  if(!ok)return;
+  clearMultiSel();
+  await doTrashMove(target);
 }
 async function trashMany(nodes){
   const lockedCount=nodes.filter(n=>isLocked(n.path)).length;
@@ -4298,8 +5419,12 @@ function renderTrash(){
   if(!trashMeta.length){l.innerHTML='<div style="color:var(--ink-faint);font-size:13px;padding:20px;text-align:center">휴지통이 비어 있어요.</div>';return;}
   [...trashMeta].sort((a,b)=>b.ts-a.ts).forEach(entry=>{
     const d=document.createElement('div');d.className='trash-row';
+    // 휴지통은 이제 작품 하나당 하나뿐이라 entry.work는 사실상 항상 지금 열려있는 작품이다.
+    // 다만 entry.work는 버려질 당시의 작품 이름이 그대로 박제되어 있어서, 그 사이에 작품
+    // 이름을 바꾸면 예전 이름으로 보이는 문제가 있었다 — 지금 작품의 표시 이름을 쓴다.
+    const workDisp=curWork?(curWork.disp||curWork.name):entry.work;
     d.innerHTML='<span>'+(entry.type==='dir'?'📁':'📄')+'</span>'+
-      '<span class="tname">'+entry.name+' <span style="font-size:11px;color:var(--ink-faint)">('+entry.work+(entry.origPath?' › '+entry.origPath:'')+')</span></span>';
+      '<span class="tname">'+entry.name+' <span style="font-size:11px;color:var(--ink-faint)">('+workDisp+(entry.origPath?' › '+entry.origPath:'')+')</span></span>';
     const rb=document.createElement('button');rb.textContent='복원';rb.onclick=()=>restoreTrash(entry);
     const db=document.createElement('button');db.textContent='영구 삭제';db.className='danger';
     db.onclick=()=>permaDeleteTrash(entry);
@@ -4340,8 +5465,8 @@ async function emptyMemoTrash(){
   memoTrash=[];saveMemoTrash();renderMemoTrashList();toast('메모 휴지통을 비웠어요');
 }
 async function restoreTrash(entry,destOverridePath){
-  const w=works.find(x=>x.name===entry.work);
-  if(!w){toast('작품 폴더가 없어요: '+entry.work);return;}
+  const w=curWork;   // 휴지통은 이제 작품 자신의 .서재-휴지통이므로 항상 curWork 소속이다
+  if(!w){toast('작품이 열려있지 않아요');return;}
   try{
     const destDir=destOverridePath!=null?(w.path+(destOverridePath?'/'+destOverridePath.replace(/\/$/,''):'')):(w.path+(entry.origPath?'/'+entry.origPath.replace(/\/$/,''):''));
     await FS.mkdir(destDir,{recursive:true});
@@ -4396,9 +5521,8 @@ async function openVersions(i){
   const t=panes[i].tab;if(!t)return;
   verPane=i;verSel=null;
   await saveTab(t);
-  const safe=snapSafe(t);
   const entries=await FS.readDir(snapsPath);
-  verFiles=entries.map(e=>e.name).filter(n=>n.startsWith(safe+'__'))
+  verFiles=entries.map(e=>e.name).filter(n=>snapMatchesTab(n,t))
     .sort((a,b)=>b.localeCompare(a)).map(name=>({name,abs:snapsPath+'/'+name}));
   $('verDocName').textContent=t.name;
   renderVerList();
@@ -4807,156 +5931,130 @@ $('mbSnapOn').addEventListener('change',e=>{settings.snapshotOn=e.target.checked
 $('mbSnapMin').addEventListener('change',e=>{settings.snapshotMin=+e.target.value;saveMeta();toast('백업 주기: '+e.target.value+'분');});
 $('mbNewWork').addEventListener('click',async()=>{
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
-  const ok=await confirmBox('지금 열린 문서를 모두 저장하고,\n새 프로젝트를 만들까요?\n(빈 폴더를 하나 선택하면 그 폴더가 새 프로젝트가 돼요)','저장 후 새 프로젝트');
+  const ok=await confirmBox('지금 열린 문서를 모두 저장하고,\n새 작품을 만들까요?','저장 후 새 작품 만들기');
   if(!ok)return;
   await saveAll();
-  openLibrary('new');
+  openWork('new');
 });
 $('mbOpenLib').addEventListener('click',async()=>{
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
-  const ok=await confirmBox('지금 열린 문서를 모두 저장하고,\n다른 프로젝트를 불러올까요?','저장 후 불러오기');
-  if(!ok)return;
-  await saveAll();
-  openLibrary('pick');
+  // 드롭다운의 "다른 작품 열기"와 동일하게, 별도 확인 팝업 없이 바로 연다
+  // (저장은 openWork 안에서 자동으로 처리된다).
+  await openWork('pick');
 });
-$('mbRenameWork').addEventListener('click',async()=>{
-  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+async function renameCurrentWork(){
   if(!curWork){toast('먼저 작품을 열어주세요.');return;}
   const nm=await modal('작품 이름 바꾸기',curWork.disp||curWork.name);
   if(!nm)return;
   const trimmed=nm.trim();
   if(!trimmed)return;
   if(trimmed===(curWork.disp||curWork.name)){return;}
-  // 유저가 헷갈리지 않도록, 같은 이름의 작품이 동시에 2개 존재할 수 없게 막는다(4번).
-  // 폴더 이름(curWork.name)은 그대로 두고 표시용 이름(.이름 파일)만 바꾸는 방식이라,
-  // 정렬/세션/작품별 설정 키(orders, icons, folderOpen 등은 전부 curWork.name 기준이라
-  // 안전) 어디에도 영향을 주지 않는다.
-  const dup=works.some(w=>w.name!==curWork.name&&(w.disp||w.name)===trimmed);
-  if(dup){toast('⚠ 이미 같은 이름의 작품이 있어요');return;}
   try{
     await writeFile(curWork.path+'/.이름',trimmed);
+    const from=curWork.disp||curWork.name;
     curWork.disp=trimmed;
     $('workName').textContent=trimmed;fitTopbar();
-    await scanWorks();
+    addRecentWork(curWork.path,trimmed);
+    csLog('rename',{path:curWork.path,from:from,to:trimmed});
+    renderWorkMenu();
     toast('작품 이름을 바꿨어요: '+trimmed);
+    // 표시 이름과 실제 폴더 이름을 항상 일치시킨다(원칙보다 이 불일치를 없애는 쪽을 택함).
+    // 다른 폴더와 이름이 겹치거나 디스크 rename 자체가 실패하는 경우에만 예외적으로
+    // 표시 이름만 반영되고 폴더는 그대로 남는다 — 그 경우엔 함수 안에서 별도로 안내한다.
+    await renameWorkFolderToMatch(trimmed);
   }catch(e){toast('⚠ 이름 변경 실패: '+e);}
-});
-/* ═══════════ 작품 숨기기 / 완전 삭제 ═══════════ */
-// 마지막 남은 작품(숨김 제외 목록 기준 1개)까지 숨기거나 지우면 열 작품이 하나도 없어지므로 막는다.
-function wipeWorkKeyedState(workName){
-  const prefix=workName+'|';
-  [orders,folderOpen,icons].forEach(store=>{
-    if(!store)return;
-    Object.keys(store).forEach(k=>{try{if(k.startsWith(prefix))delete store[k];}catch{}});
-  });
-  try{saveOrders();}catch{}
-  try{saveFolderOpen();}catch{}
-  try{saveIcons();}catch{}
 }
-async function switchAwayFrom(workName){
-  await scanWorks();
-  if(works.length){
-    const other=works.find(w=>w.name!==workName)||works[0];
-    await loadWork(other);
-  }else{
-    curWork=null;treeData=[];selectedFolder=null;
-    panes.forEach(pn=>{pn.tabs=[];pn.tab=null;});activePane=0;
-    workTreatment='';$('workName').textContent='작품 없음';fitTopbar();$('tree').innerHTML='';
-    renderAllPanes();renderTreatment();renderMemo();renderWorkMenu();
+// 표시 이름에 맞춰 실제 폴더 이름도 함께 바꾼다. renameCurrentWork(이름을 바꾸는 순간)와
+// 예전부터 이름이 어긋나 있던 작품을 열 때의 1회성 안내, 두 군데에서 공용으로 쓴다.
+async function renameWorkFolderToMatch(newDisp){
+  if(!curWork)return false;
+  const oldPath=curWork.path.replace(/[\\/]+$/,'');
+  const sep=oldPath.lastIndexOf('/')>oldPath.lastIndexOf('\\')?'/':'\\';
+  const parentAbs=oldPath.slice(0,oldPath.lastIndexOf(sep));
+  const curBase=oldPath.split(/[\\/]/).pop();
+  const wanted=safeFileBase(newDisp);
+  if(wanted===curBase)return true;   // 이미 일치
+  if(await FS.exists(parentAbs+'/'+wanted)){
+    toast('⚠ 같은 위치에 "'+wanted+'" 폴더가 이미 있어서, 폴더 이름은 그대로 두고 표시 이름만 반영했어요.');
+    return false;
   }
+  try{
+    await saveAll();await flushMetaAndSessionNow();
+    const newPath=parentAbs+'/'+wanted;
+    await FS.rename(oldPath,newPath);
+    curWork.path=newPath;curWork.name=wanted;
+    rootPath=newPath;seojaePath=newPath+'/.서재';snapsPath=seojaePath+'/snapshots';
+    trashPath=newPath+'/.서재-휴지통';
+    await rescanTree();
+    for(const p of panes){
+      p.tabs.forEach(t=>{const nn=findNodeByPath(t.path);if(nn){t.abs=nn.abs;t.node=nn;}});
+      if(p.ref){const nn=findNodeByPath(p.ref.path);if(nn){p.ref.abs=nn.abs;p.ref.node=nn;}}
+    }
+    if(selectedFolder)selectedFolder=findNodeByPath(selectedFolder.path);
+    renderAllPanes();
+    const existing=getRecentWorks().find(w=>normPath(w.path)===normPath(oldPath));
+    removeRecentWork(oldPath);
+    addRecentWork(newPath,newDisp,existing?existing.pinned:undefined);
+    setWindowWorkRegistry(newPath);
+    csLog('renameFolder',{from:oldPath,to:newPath});
+    toast('폴더 이름도 함께 바꿨어요: '+wanted);
+    return true;
+  }catch(e){
+    toast('⚠ 폴더 이름은 바꾸지 못했어요(표시 이름만 바뀌었어요): '+(e&&e.message?e.message:e));
+    return false;
+  }
+}
+$('mbRenameWork').addEventListener('click',async()=>{
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  await renameCurrentWork();
+});
+/* ═══════════ 작품 닫기 / 완전 삭제 ═══════════ */
+// 이제 폴더 하나 = 작품 하나이므로, 열려 있던 작품을 닫거나 지우면 자동으로 열
+// 다른 작품이 없다 — 처리 후에는 시작 화면으로 돌아간다.
+function closeCurrentWork(){
+  saveCurrentWinGeom();   // curWork를 지우기 전에, 지금 창 상태를 그 작품 몫으로 먼저 기억해둔다
+  curWork=null;treeData=[];selectedFolder=null;
+  setWindowWorkRegistry(null);
+  panes.forEach(pn=>{pn.tabs=[];pn.tab=null;pn.ref=null;});activePane=0;
+  workTreatment='';$('workName').textContent='작품 없음';fitTopbar();$('tree').innerHTML='';
+  rootPath=null;seojaePath=null;snapsPath=null;trashPath=null;updateWorkIcon();
+  setAppWindowTitle(null);
+  renderAllPanes();renderTreatment();renderMemo();renderWorkMenu();
+  $('welcome').style.display='flex';
+  renderRecentWorks();
+  applyWindowGeomFor(null);   // 첫 화면으로 돌아왔으니 항상 기본 크기·화면 가운데로
+}
+async function hideCurrentWork(){
+  if(!curWork){toast('먼저 작품을 열어주세요.');return;}
+  const ok=await confirmBox('『'+(curWork.disp||curWork.name)+'』 작품을 숨길까요?\n폴더는 그대로 남고, 언제든 [파일 › 다른 작품 열기]로 다시 열 수 있어요.','작품 닫기');
+  if(!ok)return;
+  csLog('hide',{path:curWork.path,name:curWork.disp||curWork.name});
+  removeRecentWork(curWork.path);
+  closeCurrentWork();
+  toast('작품을 닫았어요.');
 }
 $('mbHideWork').addEventListener('click',async()=>{
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
-  if(!curWork){toast('먼저 작품을 열어주세요.');return;}
-  if(works.length<=1){toast('마지막 남은 작품은 삭제/숨김 처리할 수 없어요');return;}
-  const ok=await confirmBox('"'+(curWork.disp||curWork.name)+'" 작품을 숨길까요?\n숨긴 작품은 [파일 › 숨긴 작품 관리]에서 언제든 복원할 수 있어요.','작품 숨기기');
-  if(!ok)return;
-  try{
-    await writeFile(curWork.path+'/.hidden','');
-    await switchAwayFrom(curWork.name);
-    toast('작품을 숨겼어요.');
-  }catch(e){toast('⚠ 숨기기 실패: '+e);}
+  await hideCurrentWork();
 });
-async function renderHiddenWorks(){
-  const l=$('hiddenWorksList');l.innerHTML='';
-  const hidden=await scanHiddenWorks();
-  if(!hidden.length){l.innerHTML='<div style="color:var(--ink-faint);font-size:13px;padding:20px;text-align:center">숨긴 작품이 없어요.</div>';return;}
-  hidden.forEach(w=>{
-    const d=document.createElement('div');d.className='trash-row';
-    d.innerHTML='<span>📚</span><span class="tname">'+escHtml(w.disp||w.name)+'</span>';
-    const rb=document.createElement('button');rb.textContent='복원';
-    rb.onclick=async()=>{
-      try{await FS.remove(w.path+'/.hidden');}catch{}
-      await scanWorks();await renderHiddenWorks();
-      toast('작품을 복원했어요: '+(w.disp||w.name));
-    };
-    const db=document.createElement('button');db.textContent='완전 삭제';db.className='danger';
-    db.onclick=async()=>{
-      $('hiddenWorksBg').classList.remove('open');
-      await confirmDeleteWork(w,()=>{ $('hiddenWorksBg').classList.add('open'); renderHiddenWorks(); });
-    };
-    d.appendChild(rb);d.appendChild(db);l.appendChild(d);
-  });
-}
-$('mbHiddenWorks').addEventListener('click',async()=>{
-  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
-  await renderHiddenWorks();
-  $('hiddenWorksBg').classList.add('open');
-});
-$('hiddenWorksClose').onclick=()=>$('hiddenWorksBg').classList.remove('open');
-// 완전 삭제: '삭제합니다'를 정확히 입력해야만 확인 버튼이 동작한다. afterClose는
-// 숨긴 작품 목록에서 삭제했을 때 그 목록 모달로 돌아가기 위한 콜백(선택).
-function confirmDeleteWork(work,afterClose){return new Promise(res=>{
+// 작품 지우기: 실제 파일은 지우지 않고 최근 작품 목록에서만 제거한다.
+async function confirmDeleteWork(work){
   const disp=work.disp||work.name;
-  $('delWorkTitle').textContent=disp+' 작품이 완전히 삭제되며, 복구할 수 없습니다. 그래도 삭제하겠습니까?';
-  $('delWorkInput').value='';
-  $('delWorkBg').classList.add('open');
-  $('delWorkInput').focus();
-  const cleanup=()=>{
-    $('delWorkOk').onclick=null;$('delWorkCancel').onclick=null;$('delWorkInput').onkeydown=null;
-  };
-  const cancel=()=>{$('delWorkBg').classList.remove('open');cleanup();if(afterClose)afterClose();res(false);};
-  const confirm=async()=>{
-    if($('delWorkInput').value!=='삭제합니다'){toast('정확히 입력해주세요');return;}
-    $('delWorkBg').classList.remove('open');cleanup();
-    await doDeleteWork(work);
-    if(afterClose)afterClose();
-    res(true);
-  };
-  $('delWorkOk').onclick=confirm;
-  $('delWorkCancel').onclick=cancel;
-  $('delWorkInput').onkeydown=e=>{if(e.key==='Enter')confirm();if(e.key==='Escape')cancel();};
-});}
+  const ok=await confirmBox('『'+disp+'』을(를) 작품 목록에서 지울까요?\n실제 폴더와 파일은 지워지지 않고 컴퓨터에 그대로 남아요. 나중에 다시 등록하려면 [파일 › 다른 작품 열기]로 그 폴더를 다시 열면 돼요.','지우기');
+  if(!ok)return;
+  await doDeleteWork(work);
+}
 async function doDeleteWork(work){
-  try{
-    await FS.remove(work.path,{recursive:true});
-  }catch(e){toast('⚠ 삭제 실패: '+e);return;}
-  wipeWorkKeyedState(work.name);
-  if(curWork&&curWork.name===work.name){
-    await switchAwayFrom(work.name);
-  }else{
-    await scanWorks();
-  }
-  toast('작품을 완전히 삭제했어요: '+(work.disp||work.name));
+  csLog('removeFromList',{path:work.path,name:work.disp||work.name});
+  removeRecentWork(work.path);
+  if(curWork&&normPath(curWork.path)===normPath(work.path))closeCurrentWork();
+  toast('『'+(work.disp||work.name)+'』을(를) 작품 목록에서 지웠어요. 실제 폴더와 파일은 컴퓨터에 그대로 남아있어요. 완전히 지우려면 파일 탐색기에서 폴더를 직접 삭제해주세요.');
 }
 $('mbDeleteWork').addEventListener('click',async()=>{
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
   if(!curWork){toast('먼저 작품을 열어주세요.');return;}
-  if(works.length<=1){toast('마지막 남은 작품은 삭제/숨김 처리할 수 없어요');return;}
   await confirmDeleteWork(curWork);
 });
-$('mbSaveAs').addEventListener('click',async()=>{
-  const t=panes[activePane].tab;if(!t){toast('먼저 문서를 열어주세요.');return;}
-  const nm=await modal('새 이름으로 저장',t.name+' 사본');if(!nm)return;
-  await saveTab(t);
-  const dirAbs=t.abs.slice(0,t.abs.lastIndexOf('/'));
-  await writeFile(dirAbs+'/'+nm+'.md',serializeDoc(t));
-  await rescanTree();
-  const node=findNodeByPath(t.node.parentPath+nm+'.md');
-  if(node)openDoc(node);
-  toast('새 이름으로 저장했어요: '+nm);
-});
-
 /* ═══════════ 내보내기 (TXT/DOCX/RTF/PDF) ═══════════ */
 // 아래아 한글의 '공백 포함 글자수'는 문단 나눔을 글자로 세지 않는다(칸을 차지하지 않으므로).
 // 문장 안의 공백은 센다. '공백 제외'는 원래도 \s를 전부 걸러내 한글과 값이 같았다.
@@ -5559,7 +6657,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.1.4"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.0"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -5804,7 +6902,7 @@ async function applyIcon(e){
   const node=emojiTarget;if(!node)return;
   $('emojiBg').classList.remove('open');
   if(node.type==='dir'){
-    icons[curWork.name+'|'+node.path]=e;saveIcons();renderTree();
+    icons[node.path]=e;saveIcons();renderTree();
   }else{
     const open=findOpenTab(node.path);
     if(open){open.meta.아이콘=e;open.dirty=true;await saveTab(open);}
@@ -5819,7 +6917,7 @@ async function applyIcon(e){
 $('emojiReset').onclick=async()=>{
   const node=emojiTarget;if(!node)return;
   $('emojiBg').classList.remove('open');
-  if(node.type==='dir'){delete icons[curWork.name+'|'+node.path];saveIcons();}
+  if(node.type==='dir'){delete icons[node.path];saveIcons();}
   else{
     const open=findOpenTab(node.path);
     if(open){delete open.meta.아이콘;open.dirty=true;await saveTab(open);}
@@ -6045,16 +7143,22 @@ function captureSession(){
   if(!curWork||restoring)return;
   // 현재 화면 스크롤을 최신값으로 반영
   [0,1].forEach(i=>{const t=panes[i].tab;if(t)scrollMem[t.path]=$('ed'+i).closest('.ed-scroll').scrollTop;});
+  [0,1].forEach(i=>{const r=panes[i].ref;if(r)refScrollMem[r.path]=$('refPaneBody'+i).scrollTop;});
   const scroll={};
   [...(panes[0].tabs),...(panes[1].tabs)].forEach(t=>{if(scrollMem[t.path]!=null)scroll[t.path]=scrollMem[t.path];});
-  sessions[curWork.name]={
-    scroll,
+  const refScroll={};
+  [0,1].forEach(i=>{const r=panes[i].ref;if(r&&refScrollMem[r.path]!=null)refScroll[r.path]=refScrollMem[r.path];});
+  sessions={
+    scroll,refScroll,
     tabs0:panes[0].tabs.map(t=>t.path),
     tabs1:panes[1].tabs.map(t=>t.path),
     cur0:panes[0].tab?panes[0].tab.path:null,
     cur1:panes[1].tab?panes[1].tab.path:null,
+    ref0:panes[0].ref?panes[0].ref.path:null,
+    ref1:panes[1].ref?panes[1].ref.path:null,
     split:splitOn,active:activePane,
     zoom0:panes[0].zoom,zoom1:panes[1].zoom,
+    refZoom0:panes[0].refZoom,refZoom1:panes[1].refZoom,
     binderW:$('binder').classList.contains('collapsed')?null:$('binder').offsetWidth,
     trW:$('treatment').classList.contains('collapsed')?null:$('treatment').offsetWidth,
     memoW:$('memo').classList.contains('collapsed')?null:$('memo').offsetWidth,
@@ -6074,11 +7178,12 @@ function captureSession(){
 }
 function scheduleSession(){captureSession();}
 async function restoreSession(w){
-  const s=sessions[w.name];if(!s)return;
+  const s=sessions;if(!s||!Object.keys(s).length)return;
   restoring=true;
   try{
     // 스크롤 위치 미리 로드(탭 렌더 시 renderPane이 참조)
     if(s.scroll)Object.assign(scrollMem,s.scroll);
+    if(s.refScroll)Object.assign(refScrollMem,s.refScroll);
     // 외형 설정 복원
     if(s.look){Object.assign(settings,s.look);applySettings();}
     // 패널 폭/접힘
@@ -6097,8 +7202,12 @@ async function restoreSession(w){
       for(const p of s.tabs1||[]){const n=findNodeByPath(p);if(n)await openDoc(n);}}
     if(s.cur0){const t=panes[0].tabs.find(t=>t.path===s.cur0);if(t)panes[0].tab=t;}
     if(s.cur1){const t=panes[1].tabs.find(t=>t.path===s.cur1);if(t)panes[1].tab=t;}
+    // 참고창 복원(탭이 먼저 복원된 뒤라야, 같은 문서가 탭으로도 열려 있으면 객체를 공유한다)
+    if(s.ref0){const n=findNodeByPath(s.ref0);if(n)await openRefPane(0,n);}
+    if(s.ref1){const n=findNodeByPath(s.ref1);if(n)await openRefPane(1,n);}
     activePane=s.split?(s.active||0):0;
     paneZoom(0,s.zoom0||100);paneZoom(1,s.zoom1||100);
+    refPaneZoom(0,s.refZoom0||100);refPaneZoom(1,s.refZoom1||100);
     refreshUI();
   }catch{}
   restoring=false;
@@ -6107,15 +7216,53 @@ async function restoreSession(w){
 /* ═══════════ 시작 ═══════════ */
 $('workSwitcher').onclick=e=>{if(e.target.closest('.wm-item'))return;$('workMenu').classList.toggle('open');};
 addEventListener('click',e=>{if(!$('workSwitcher').contains(e.target))$('workMenu').classList.remove('open');});
-$('btnOpenLib').onclick=()=>openLibrary('pick');
-$('btnNewLib').onclick=()=>openLibrary('new');
-const last=localStorage.getItem('lastLib');
-if(last){
-  const b=$('btnRecentLib');
-  b.style.display='block';
-  b.innerHTML='<b>최근 프로젝트 바로 열기</b> — '+escHtml(last);
-  b.onclick=()=>openLibrary('last');
-}
+// 작품 이름 바꾸기/숨기기는 드롭다운 안이 아니라 이름이 보이는 workSwitcher 자체를
+// 우클릭하면 뜨도록 한다(드롭다운 안에 이름이 중복으로 또 뜨는 걸 없앤 대신 옮김).
+$('workSwitcher').addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(!curWork)return;
+  positionCtxMenu($('workRowCtxMenu'),e.clientX,e.clientY);
+});
+$('btnOpenLib').onclick=()=>openWork('pick');
+$('btnNewLib').onclick=()=>openWork('new');
+addEventListener('storage',e=>{
+  if(e.key==='recentWorks'){
+    if($('welcome').style.display!=='none')renderRecentWorks();
+    updateWorkIcon();
+    renderWorkMenu();
+  }
+});
+$('recentItemUnpin').onclick=async()=>{
+  $('recentItemCtxMenu').classList.remove('open');
+  if(!recentCtxItem)return;
+  const ok=await confirmBox('『'+(recentCtxItem.name||recentCtxItem.path)+'』 고정을 해제하시겠어요?','고정 해제');
+  if(!ok)return;
+  togglePinWork(recentCtxItem.path);
+  renderRecentWorks();renderWorkMenu();
+};
+$('recentItemRemove').onclick=()=>{
+  $('recentItemCtxMenu').classList.remove('open');
+  if(!recentCtxItem)return;
+  removeRecentWork(recentCtxItem.path);
+  renderRecentWorks();renderWorkMenu();
+};
+addEventListener('click',e=>{if(!e.target.closest('#recentItemCtxMenu'))$('recentItemCtxMenu').classList.remove('open');});
+$('workRowRename').onclick=async()=>{$('workRowCtxMenu').classList.remove('open');await renameCurrentWork();};
+$('workRowHide').onclick=async()=>{$('workRowCtxMenu').classList.remove('open');await hideCurrentWork();};
+addEventListener('click',e=>{if(!e.target.closest('#workRowCtxMenu'))$('workRowCtxMenu').classList.remove('open');});
+(async()=>{
+  if(!window.__STORYSEED_OPEN_PATH__&&localStorage.getItem('storyseedNotice220Seen')!=='1'){
+    const isLegacyUser=getRecentWorks().length>0||!!localStorage.getItem('lastLib');
+    if(isLegacyUser)await showNotice220();
+  }
+  await bootstrapLegacyLastLib();
+  if(window.__STORYSEED_OPEN_PATH__){
+    openWorkAt(window.__STORYSEED_OPEN_PATH__,window.__STORYSEED_OPEN_DISP__||null);
+  }else{
+    renderRecentWorks();
+  }
+  if(!window.__STORYSEED_OPEN_PATH__){csEnsureReadme();csSyncWorksIndex();}
+})();
 if(!T){
   document.querySelector('.welcome p').innerHTML='Tauri 환경이 아니에요.<br>이 파일은 스토리시드 데스크톱 앱 안에서 실행돼야 해요.';
 }

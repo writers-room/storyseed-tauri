@@ -3,10 +3,12 @@
   "identifier": "default",
   "description": "스토리시드 기본 권한: 폴더 선택 대화상자 + 선택한 작품 폴더(숨김 폴더 포함) 읽기/쓰기",
   "windows": [
-    "main"
+    "main",
+    "work-*"
   ],
   "permissions": [
     "core:default",
+    "core:path:default",
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-set-position",
