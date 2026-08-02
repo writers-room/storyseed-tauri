@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.1</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.2</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -1732,7 +1732,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.1";
+const APP_VERSION="beta 2.2.2";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -3508,14 +3508,21 @@ async function moveDocViewToPane(fromPane,toPane){
   if(fromPane===toPane)return;
   const fp=panes[fromPane];
   if(!fp.docView)return;
-  const node=fp.docView.node;
   const tp=panes[toPane];
-  if(tp.docView&&tp.docView.node.path===node.path)return; // 이미 그 pane에 같은 문서 보기가 열려있으면 아무것도 안 함
+  if(tp.docView&&tp.docView.node.path===fp.docView.node.path)return; // 이미 그 pane에 같은 문서 보기가 열려있으면 아무것도 안 함
+  flushPane(fromPane);   // 지금 화면에 표시 중인 내용을 먼저 메모리(tab.body)에 반영
   if(tp.docView)closeDocView(toPane); // 대상 pane에 다른 문서 보기가 이미 있으면 먼저 정리
-  flushPane(fromPane);
-  fp.docView.tabs.forEach(t=>{if(t.dirty)saveTab(t);});
+  // 디스크를 다시 읽지 않고, 이미 메모리에 있는 문서 보기 객체(및 그 안의 dirty 상태)를
+  // 그대로 다른 pane으로 옮긴다 — 일반 탭을 pane 간 이동시킬 때(moveTabToPane)와 동일한
+  // 방식. 여기서 disk를 재조회하면, 아직 디스크에 저장되지 않은(dirty) 편집 내용이
+  // 저장 완료 전에 다시 읽혀서 빈 내용으로 덮어써지는 치명적인 데이터 손실 버그가 있었다.
+  tp.docView=fp.docView;
+  tp.docViewIndex=tp.tabs.length;
+  tp.tab=null;
   fp.docView=null;
-  await openDocView(toPane,node);
+  fp.docViewIndex=undefined;
+  fp.tab=null;
+  refreshUI();
 }
 async function openRefPane(paneIdx,node){
   const p=panes[paneIdx];
@@ -7608,7 +7615,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.1"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.2"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
