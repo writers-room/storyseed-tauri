@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.0</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.1</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -140,6 +140,7 @@
   .tree-item{display:flex;align-items:center;gap:3px;padding:5px 8px;border-radius:7px;
     cursor:pointer;color:var(--ink-soft);font-size:13px;white-space:nowrap;overflow:hidden;}
   .tree-item:hover{background:var(--sage-200);}
+  .tree-item.editing-shown{background:var(--sage-150);}
   .tree-item.selected{background:var(--sage-300);color:var(--ink);font-weight:600;}
   .tree-item.drag-over{background:var(--sage-300);outline:1.5px dashed var(--sage-500);}
   .tree-item.dragging{opacity:.4;}
@@ -149,6 +150,9 @@
   .tree-item .nm{overflow:hidden;text-overflow:ellipsis;}
   .tree-item .nm.untitled{color:var(--ink-faint);font-style:italic;}
   .tree-item .nm.empty{color:var(--ink-faint);}
+  .tree-item .tab-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;margin-left:5px;
+    border:1.3px solid var(--sage-500);background:transparent;}
+  .tree-item .tab-dot.active{background:var(--sage-500);}
   .lock-ico{flex-shrink:0;margin-left:3px;opacity:.55;vertical-align:-1px;color:var(--ink-faint);}
   .tree-item .nm-edit{flex:1;min-width:0;border:1px solid var(--sage-400);border-radius:4px;
     background:var(--paper);color:var(--ink);font:inherit;padding:1px 4px;outline:none;}
@@ -179,7 +183,7 @@
   .sel-count .sc-acts select{border:1px solid var(--sage-300);border-radius:6px;background:var(--paper);
     padding:3px 6px;font-size:11.5px;color:var(--ink-soft);max-width:130px;}
   /* ── 트리트먼트 ── */
-  .treatment{width:270px;min-width:180px;background:var(--sage-50);border-right:1px solid var(--sage-200);flex-shrink:0;}
+  .treatment{width:270px;min-width:180px;background:var(--sage-50);border-right:1px solid var(--sage-200);flex-shrink:0;position:relative;}
   .treatment .panel-header{justify-content:space-between;}
   .seg{display:flex;background:var(--sage-150);border-radius:8px;padding:2px;}
   .seg button{border:none;background:transparent;padding:4px 9px;font-size:11px;border-radius:6px;
@@ -235,6 +239,10 @@
   .tab.drag-before{box-shadow:-2px 0 0 var(--sage-500);}
   .tab.drag-after{box-shadow:2px 0 0 var(--sage-500);}
   .tab .dirty{color:var(--accent);font-size:9px;}
+  .tab.docview-tab{font-style:italic;}
+  .tab.docview-tab.on{background:var(--sage-50);}
+  .tab .dv-badge{font-size:9px;font-style:normal;color:var(--sage-600);background:var(--sage-150);
+    border-radius:4px;padding:1px 5px;}
   .pane-title{padding:7px 22px 0;font-size:11px;color:var(--ink-faint);display:flex;gap:8px;align-items:center;flex-shrink:0;
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
   .ed-scroll{flex:1;overflow-y:auto;}
@@ -243,6 +251,8 @@
     font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif);word-break:keep-all;
     text-align:var(--ed-align-default,justify);text-justify:inter-character;text-align-last:var(--ed-align-last-default,left);
     word-break:normal;line-break:auto;overflow-wrap:normal;}
+  .ed.docview-mode{background:var(--sage-50);box-shadow:inset 0 0 0 1px var(--sage-300);
+    outline:1px dashed var(--sage-300);outline-offset:-8px;max-width:none!important;margin:0!important;}
   /* 붙여넣기 등으로 글꼴이 개별 지정된 텍스트가 섞여 있어도, 에디터에는 항상 선택한 글꼴 하나만 표시되게 강제 */
   .ed,.ed *{font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif) !important;}
   .ed div,.ed p{margin-bottom:var(--ed-para,0px);min-height:1em;}
@@ -300,6 +310,19 @@
   .pane-status .goal{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .goal-bar{width:70px;height:5px;background:var(--sage-150);border-radius:3px;overflow:hidden;}
   .goal-bar i{display:block;height:100%;width:0;background:var(--sage-400);border-radius:3px;transition:width .3s;}
+  .scriv-doc{}
+  .scriv-doc.locked{background:rgba(0,0,0,.04);border-radius:6px;padding:4px 8px;margin:-4px -8px;}
+  .scriv-lock-banner{display:flex;align-items:center;gap:6px;padding:2px 0 10px;font-size:13px;font-weight:600;
+    color:var(--ink-soft,#555);user-select:none;}
+  .scriv-lock-banner svg{flex-shrink:0;}
+  /* 위아래 여백을 margin이 아니라 padding으로 준다 — margin은 구분선 바깥의 '주인 없는' 빈
+     공간이라 거기 클릭하면 커서가 어느 .scriv-doc에도 속하지 않은 채 편집영역(ed)의 직계
+     자식 사이에 놓여버리고, 그 상태로 입력하면 구분선과 문서 경계가 깨진다. padding으로 주면
+     그 공간도 .scriv-divider 자신의 박스 안이라 클릭 시 대상이 항상 .scriv-divider가 되고,
+     기존 mousedown 핸들러가 그대로 다음/이전 문서로 커서를 밀어낼 수 있다.*/
+  .scriv-divider{padding:2.5em 0;user-select:none;cursor:default;}
+  .scriv-divider::after{content:'';display:block;border-top:3px dashed var(--sage-400);}
+  .scriv-empty{opacity:.5;padding:1em 0;}
   /* 1단계: 목표 글자수 진행률 바(.goal)부터 접는다(글쓰기 자체엔 지장 없는 보조 정보). */
   .pane-status.psfit1 .goal{display:none!important;}
   /* 2단계: 배율 조절(.zoom-ctrl)을 접는다. */
@@ -346,12 +369,13 @@
     margin-left:calc((100% - min(var(--focus-w,760px),100%))*var(--focus-x,0.5));
     background:var(--focus-page-bg,var(--paper));border-radius:0 0 0 0;padding:40px 40px 40vh;
     font-size:var(--focus-size,var(--ed-size,15.5px)) !important;}
+  body.focus .ed.docview-mode{max-width:none!important;margin:0!important;margin-left:0!important;}
   body.focus .ed-scroll{padding:0;}
   .focus-exit{display:none;position:fixed;top:14px;right:16px;z-index:50;background:var(--paper);
     border:1px solid var(--sage-200);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--ink-soft);
     box-shadow:0 2px 8px rgba(0,0,0,.08);opacity:0;pointer-events:none;transition:opacity .25s;}
   body.focus .focus-exit{display:flex;align-items:center;gap:10px;}
-  body.focus.show-ui .focus-exit{opacity:1;pointer-events:auto;}
+  body.focus.show-ui-top .focus-exit{opacity:1;pointer-events:auto;}
   .focus-exit label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--ink-faint);}
   body.focus.ghost-tr .treatment{display:flex !important;position:fixed;left:0;top:0;bottom:0;width:270px;
     z-index:40;opacity:.25;transition:opacity .25s;border-right:1px solid var(--sage-200);}
@@ -362,7 +386,75 @@
   body.focus.ghost-pin .treatment .collapse-btn{display:none;}
   body.focus .main{filter:brightness(var(--focus-bright,1));}
   /* ── 메모 (포스트잇) ── */
-  .memo{width:250px;min-width:170px;background:var(--postit);border-left:1px solid var(--postit-border);flex-shrink:0;}
+  .memo{width:250px;min-width:170px;background:var(--postit);border-left:1px solid var(--postit-border);flex-shrink:0;position:relative;}
+  /* ── 화면 레이아웃(시놉시스·메모 배치) ── */
+  .content-grid{flex:1;display:grid;
+    grid-template-areas:
+      "top top top"
+      "left center right"
+      "bottom bottom bottom";
+    grid-template-rows:auto 1fr auto;
+    grid-template-columns:auto 1fr auto;
+    overflow:hidden;min-width:0;min-height:0;}
+  /* 좌/우가 상/하보다 바깥쪽(화면 전체 높이를 가로지름)일 때는 반대로 짠다 —
+     좌/우 칼럼이 위/아래 행까지 이어지고, 상/하는 가운데 칼럼(에디터 폭)에만 걸친다. */
+  .content-grid.lr-outer{
+    grid-template-areas:
+      "left top right"
+      "left center right"
+      "left bottom right";}
+  .content-grid>.editor-area{grid-area:center;min-width:0;min-height:0;}
+  /* 기본 배치(자바스크립트가 style.gridArea로 덮어쓴다) — 첫 렌더 깜빡임 방지 */
+  .content-grid>#treatment{grid-area:left;}
+  .content-grid>#memo{grid-area:right;}
+  #treatment.slot-top,#treatment.slot-bottom,#memo.slot-top,#memo.slot-bottom{
+    width:auto !important;height:260px;min-height:120px;max-height:55vh;flex-shrink:0;}
+  #treatment.slot-left,#treatment.slot-right,#memo.slot-left,#memo.slot-right{height:auto !important;}
+  /* 좌/우 배치: 세로 리사이즈 손잡이(폭 드래그) */
+  #treatment.slot-left .rh-treatment,#treatment.slot-right .rh-treatment,
+  #memo.slot-left .rh-memo,#memo.slot-right .rh-memo{
+    position:absolute;top:0;bottom:0;width:5px;height:auto;cursor:col-resize;
+    background:transparent;transition:background .15s;z-index:5;}
+  /* .panel{overflow:hidden}이라 핸들을 패널 밖으로 내밀면 잘린다 — 안쪽 가장자리에 붙인다 */
+  #treatment.slot-left .rh-treatment{right:0;}
+  #treatment.slot-right .rh-treatment{left:0;}
+  #memo.slot-left .rh-memo{right:0;}
+  #memo.slot-right .rh-memo{left:0;}
+  /* 상/하 배치: 가로 리사이즈 손잡이(높이 드래그) — top이면 패널 아래쪽 경계, bottom이면 위쪽 경계 */
+  #treatment.slot-top .rh-treatment,#treatment.slot-bottom .rh-treatment,
+  #memo.slot-top .rh-memo,#memo.slot-bottom .rh-memo{
+    position:absolute;left:0;right:0;height:5px;width:auto;cursor:row-resize;
+    background:transparent;transition:background .15s;z-index:5;}
+  #treatment.slot-top .rh-treatment,#memo.slot-top .rh-memo{bottom:0;}
+  #treatment.slot-bottom .rh-treatment,#memo.slot-bottom .rh-memo{top:0;}
+  #treatment .rh-treatment:hover,#treatment .rh-treatment.dragging,
+  #memo .rh-memo:hover,#memo .rh-memo.dragging{background:var(--sage-400);}
+  /* 상/하 배치일 때 접기는 폭이 아니라 높이를 접는다 */
+  #treatment.slot-top.collapsed,#treatment.slot-bottom.collapsed,
+  #memo.slot-top.collapsed,#memo.slot-bottom.collapsed{
+    width:auto !important;height:34px !important;min-height:34px;cursor:pointer;}
+  #treatment.slot-top.collapsed .strip,#treatment.slot-bottom.collapsed .strip,
+  #memo.slot-top.collapsed .strip,#memo.slot-bottom.collapsed .strip{
+    writing-mode:horizontal-tb;justify-content:center;padding:0 14px;letter-spacing:1px;}
+  #treatment.slot-top.collapsed .rh-treatment,#treatment.slot-bottom.collapsed .rh-treatment,
+  #memo.slot-top.collapsed .rh-memo,#memo.slot-bottom.collapsed .rh-memo{display:none;}
+  /* 상/하 배치: 시놉시스/메모 안의 칸 나누기(.notes-stack)와 프리노트+메모 몸통(.memo-body)이
+     세로 쌓기 대신 가로로 나란히 놓인다 — "시놉시스-이 폴더 | 시놉시스-이 회차 | 시놉시스-전체",
+     "노트 | 메모1 | 메모2" 같은 배치. */
+  .panel.slot-top .notes-stack,.panel.slot-bottom .notes-stack{flex-direction:row;}
+  .panel.slot-top .note-sec,.panel.slot-bottom .note-sec{border-top:none;min-height:0;min-width:140px;}
+  .panel.slot-top .note-sec+.note-sec,.panel.slot-bottom .note-sec+.note-sec{border-left:1px solid var(--sage-150);}
+  .memo.slot-top .note-sec+.note-sec,.memo.slot-bottom .note-sec+.note-sec{border-left:1px solid var(--postit-border);}
+  .note-vresize.horiz{height:auto;width:5px;cursor:col-resize;align-self:stretch;flex-shrink:0;}
+  .memo-body{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
+  #memo.slot-top .memo-body,#memo.slot-bottom .memo-body{flex-direction:row;}
+  #memo.slot-top .free-area,#memo.slot-bottom .free-area{
+    height:auto !important;width:var(--free-w,32%);min-width:140px;flex:none;
+    border-bottom:none;border-right:1px solid var(--ivory-border);}
+  #memo.slot-top .vresize,#memo.slot-bottom .vresize{height:auto;width:6px;cursor:col-resize;align-self:stretch;}
+  #memo.slot-top .vresize::after,#memo.slot-bottom .vresize::after{width:2px;height:34px;}
+  #memo.slot-top .vresize:hover::after,#memo.slot-top .vresize.dragging::after,
+  #memo.slot-bottom .vresize:hover::after,#memo.slot-bottom .vresize.dragging::after{height:60px;width:2px;}
   .memo .panel-header{justify-content:space-between;color:var(--postit-ink);}
   .memo-doc-label{font-size:11px;font-weight:400;opacity:.7;overflow:hidden;text-overflow:ellipsis;}
   .memo-edit{flex:1;border:none;outline:none;resize:none;background:transparent;
@@ -425,6 +517,7 @@
   .recent-works .rw-current .rw-name, .work-menu .wm-list .rw-current .rw-name{color:var(--sage-700,var(--ink));font-weight:600;}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:300;display:none;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
+  #csViewBg{z-index:310;}
   .modal{background:var(--paper);border-radius:14px;padding:22px;min-width:min(320px,92vw);
     max-width:94vw;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.2);}
   .modal h3{font-size:14px;margin-bottom:12px;color:var(--ink);}
@@ -454,6 +547,27 @@
     font-size:12.5px;background:var(--sage-50);color:var(--ink);outline:none;}
   .prefs-body select{border:1px solid var(--sage-200);border-radius:7px;padding:4px 6px;
     font-size:12.5px;background:var(--paper);color:var(--ink-soft);}
+  /* 실제 화면(.content-grid)과 똑같은 grid-template-areas 구조를 써서, 상/하↔좌/우
+     겹침 순서 토글이 바뀌면 미리보기도 실제 배치와 똑같은 모양으로 즉시 바뀐다. */
+  .layout-designer{display:grid;gap:6px;margin:0 auto;max-width:340px;
+    grid-template-areas:"top top top" "left center right" "bottom bottom bottom";
+    grid-template-columns:1fr 1.6fr 1fr;grid-template-rows:auto 80px auto;}
+  .layout-designer.lr-outer{
+    grid-template-areas:"left top right" "left center right" "left bottom right";}
+  .ld-order-toggle{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-soft);}
+  .ld-order-toggle label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+  .ld-zone{border:2px dashed var(--sage-300);border-radius:8px;min-height:44px;display:flex;align-items:center;
+    justify-content:center;transition:background .15s,border-color .15s;}
+  .ld-zone[data-zone="top"]{grid-area:top;}
+  .ld-zone[data-zone="bottom"]{grid-area:bottom;}
+  .ld-zone[data-zone="left"]{grid-area:left;}
+  .ld-zone[data-zone="right"]{grid-area:right;}
+  .ld-zone.drag-over{background:var(--sage-150);border-color:var(--sage-500);}
+  .ld-editor{grid-area:center;border-radius:8px;background:var(--sage-100);color:var(--ink-faint);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;}
+  .ld-chip{padding:8px 12px;border-radius:7px;background:var(--paper);border:1px solid var(--sage-300);
+    font-size:12.5px;font-weight:600;color:var(--ink);cursor:grab;user-select:none;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+  .ld-chip.dragging{opacity:.4;}
   .ur-add{border:1px solid var(--sage-200);border-radius:7px;background:var(--paper);
     color:var(--ink-soft);cursor:pointer;font-size:12px;padding:4px 12px;}
   .ur-add:hover{background:var(--sage-100);}
@@ -520,9 +634,12 @@
   #hlPop .hl-sep{height:1px;background:var(--sage-150);margin:2px 0 4px;}
   .hl-list-filters{display:flex;gap:8px;flex-wrap:wrap;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--sage-150);}
   .hl-list-sec-title{font-size:12px;color:var(--ink-faint);display:flex;align-items:center;gap:6px;margin:12px 0 6px;}
-  .hl-list-item{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--ink-soft);display:flex;gap:8px;align-items:baseline;}
+  .hl-list-item{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:2px;}
   .hl-list-item:hover{background:var(--sage-50);}
+  .hl-list-item .hl-list-top{display:flex;gap:8px;align-items:baseline;}
   .hl-list-item .hl-list-doc{color:var(--ink-faint);font-size:11px;flex-shrink:0;}
+  .hl-list-item .mini-btn{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--sage-300,#ccc);background:var(--paper);cursor:pointer;color:var(--ink-soft);}
+  .hl-list-item .mini-btn:hover{background:var(--sage-50);}
   .hl-list-empty{padding:24px;text-align:center;color:var(--ink-faint);font-size:12.5px;}
   /* ── 찾기/바꾸기 바 ── */
   .find-bar{display:none;position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:180;
@@ -620,7 +737,7 @@
     opacity:0;pointer-events:none;transition:opacity .25s;align-items:center;gap:8px;
     font-size:12px;color:var(--ink-faint);box-shadow:0 2px 8px rgba(0,0,0,.08);}
   body.focus .focus-xbar{display:flex;}
-  body.focus.show-ui .focus-xbar{opacity:1;pointer-events:auto;}
+  body.focus.show-ui-bottom .focus-xbar{opacity:1;pointer-events:auto;}
   .focus-xbar input{width:240px;}
   /* ── 노트 스택 (시놉시스/메모 분할) ── */
   .notes-stack{flex:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -765,7 +882,8 @@
   </div>
   <div class="mb-item" id="mbSet">설정
     <div class="mb-drop">
-      <div class="mb-op" id="mbPrefs">환경설정 열기</div>
+      <div class="mb-op" id="mbPrefsCommon">공통 환경설정 열기</div>
+      <div class="mb-op" id="mbPrefsWork">작품별 환경설정 열기</div>
     </div>
   </div>
 </div>
@@ -831,6 +949,7 @@
   </aside>
   <div class="resize-handle rh-binder" data-panel="binder" data-dir="1"></div>
 
+  <div class="content-grid" id="contentGrid">
   <aside class="panel treatment" id="treatment">
     <div class="strip">🧭 시놉시스</div>
     <div class="panel-header">시놉시스
@@ -840,8 +959,8 @@
       </div>
     </div>
     <div class="notes-stack" id="trStack"></div>
+    <div class="resize-handle rh-treatment" data-panel="treatment" data-dir="1"></div>
   </aside>
-  <div class="resize-handle rh-treatment" data-panel="treatment" data-dir="1"></div>
 
   <section class="editor-area">
     <div class="toolbar" id="toolbar">
@@ -935,25 +1054,28 @@
       </div>
     </div>
   </section>
-  <div class="resize-handle rh-memo" data-panel="memo" data-dir="-1"></div>
 
   <aside class="panel memo" id="memo">
+    <div class="resize-handle rh-memo" data-panel="memo" data-dir="-1"></div>
     <div class="strip">📌 노트·메모</div>
     <div class="panel-header">
       <button class="collapse-btn" data-target="memo">⟩</button>
       노트·메모
       <button class="collapse-btn" id="memoAdd2" title="메모 칸 나누기 (최대 3)" style="margin-left:auto">⊞</button>
     </div>
-    <div class="free-area" id="freeArea">
-      <div class="free-head"></div>
-      <textarea class="free-ta" id="freeTa" spellcheck="false"></textarea>
-    </div>
-    <div class="vresize" id="memoVResize" title="드래그하여 높이 조절"></div>
-    <div class="memo-stack-wrap">
-      <div class="memo-doc-label" id="memoLabel" style="padding:4px 12px 0;font-size:11px"></div>
-      <div class="notes-stack" id="memoStack"></div>
+    <div class="memo-body" id="memoBody">
+      <div class="free-area" id="freeArea">
+        <div class="free-head"></div>
+        <textarea class="free-ta" id="freeTa" spellcheck="false"></textarea>
+      </div>
+      <div class="vresize" id="memoVResize" title="드래그하여 크기 조절"></div>
+      <div class="memo-stack-wrap">
+        <div class="memo-doc-label" id="memoLabel" style="padding:4px 12px 0;font-size:11px"></div>
+        <div class="notes-stack" id="memoStack"></div>
+      </div>
     </div>
   </aside>
+  </div>
 </div>
 
 <!-- 찾기/바꾸기 (현재 문서 안에서만 — 작품 전체 찾기는 바인더의 문서 찾기(⌕)를 이용) -->
@@ -1057,6 +1179,12 @@
     <div class="ver-preview" id="trashPreviewBody" style="flex:1;overflow-y:auto"></div>
   </div>
 </div>
+<div class="modal-bg" id="csViewBg">
+  <div class="big-modal" style="width:min(560px,92vw)">
+    <h3><span id="csViewTitle">진단 정보</span><span class="close" id="csViewClose">✕</span></h3>
+    <div style="flex:1;overflow-y:auto" id="csViewBody"></div>
+  </div>
+</div>
 
 <!-- 이모지 피커 -->
 <div class="modal-bg" id="emojiBg">
@@ -1075,19 +1203,20 @@
     <h3>환경설정<span class="close" id="prefsClose">✕</span></h3>
     <div style="display:flex;gap:0;flex:1;overflow:hidden">
       <div class="prefs-nav" id="prefsNav">
-        <div class="pn-item on" data-cat="general">일반</div>
-        <div class="pn-item" data-cat="fonts">글꼴</div>
-        <div class="pn-item" data-cat="replace">자동 치환</div>
-        <div class="pn-item" data-cat="paste">붙여넣기</div>
-        <div class="pn-item" data-cat="backup">저장·백업</div>
-        <div class="pn-item" data-cat="theme">테마</div>
-        <div class="pn-item" data-cat="shortcuts">단축키</div>
-        <div class="pn-item" data-cat="about">정보</div>
+        <div class="pn-item on" data-cat="general" data-scope="common">일반</div>
+        <div class="pn-item" data-cat="fonts" data-scope="common">글꼴</div>
+        <div class="pn-item" data-cat="replace" data-scope="common">자동 치환</div>
+        <div class="pn-item" data-cat="paste" data-scope="common">붙여넣기</div>
+        <div class="pn-item" data-cat="backup" data-scope="common">저장·백업</div>
+        <div class="pn-item" data-cat="theme" data-scope="work">테마</div>
+        <div class="pn-item" data-cat="goal" data-scope="work">목표 글자수</div>
+        <div class="pn-item" data-cat="layout" data-scope="work">화면 레이아웃</div>
+        <div class="pn-item" data-cat="shortcuts" data-scope="common">단축키</div>
+        <div class="pn-item" data-cat="about" data-scope="common">정보</div>
       </div>
       <div class="prefs-body">
         <div class="prefs-cat" data-cat="general">
           <div class="set-row">일일 글자 수 리셋 시각 <span><input type="number" id="setResetHour" min="0" max="23">시</span></div>
-          <div class="set-row">기본 목표 글자수 (새 회차) <input type="number" id="setDefaultGoal" min="100" step="100" style="width:80px"></div>
           <div class="set-row">문단 첫 줄 들여쓰기 <input type="checkbox" id="setIndent"></div>
           <div class="set-row">프로그램 배율 (화면이 잘려 보일 때) <select id="setUiScale">
             <option value="80">80%</option><option value="90">90%</option><option value="100">100%</option>
@@ -1147,6 +1276,35 @@
           <div style="font-size:12px;color:var(--ink-faint);margin-bottom:4px">색 20종 · 어두운 테마(미드나잇~다크코코아)는 고르면 다크 모드로 전환돼요</div>
           <div class="theme-grid" id="themeGrid"></div>
         </div>
+        <div class="prefs-cat" data-cat="goal" style="display:none">
+          <div class="set-row">기본 목표 글자수 (새 회차) <input type="number" id="setDefaultGoal" min="100" step="100" style="width:80px">
+            <label style="margin-left:8px;font-size:12px"><input type="radio" name="setDefaultGoalMode" value="no" checked>공백 제외</label>
+            <label style="font-size:12px"><input type="radio" name="setDefaultGoalMode" value="all">공백 포함</label>
+          </div>
+        </div>
+        <div class="prefs-cat" data-cat="layout" style="display:none">
+          <div style="font-size:12px;color:var(--ink-faint);margin-bottom:10px;line-height:1.6">
+            시놉시스·노트+메모 칩을 원하는 자리로 드래그해서 놓으세요. 같은 자리에 이미 다른 칸이 있으면 서로 자리를 바꿔요.<br>
+            바인더와 에디터의 위치는 항상 고정돼요. 이 작품에만 적용되는 설정이에요.
+          </div>
+          <div class="layout-designer" id="layoutDesigner">
+            <div class="ld-zone" data-zone="top"></div>
+            <div class="ld-zone" data-zone="left"></div>
+            <div class="ld-editor">에디터</div>
+            <div class="ld-zone" data-zone="right"></div>
+            <div class="ld-zone" data-zone="bottom"></div>
+          </div>
+          <div class="set-row" style="border:none;padding-top:14px;flex-direction:column;align-items:stretch;gap:6px">
+            <div>상/하 배치와 좌/우 배치가 만날 때</div>
+            <div class="ld-order-toggle" id="ldOrderToggle">
+              <label><input type="radio" name="ldOrder" value="tb-outer"> 상/하가 화면 전체 폭을 가로질러요 (기본값)</label>
+              <label><input type="radio" name="ldOrder" value="lr-outer"> 좌/우가 화면 전체 높이를 가로질러요</label>
+            </div>
+          </div>
+          <div class="set-row" style="border:none;padding-top:12px">
+            <button class="ur-add" id="layoutResetBtn">기본값으로 되돌리기 (시놉시스 왼쪽 · 메모 오른쪽)</button>
+          </div>
+        </div>
         <div class="prefs-cat" data-cat="shortcuts" style="display:none">
           <div style="font-size:12px;color:var(--ink-faint);margin-bottom:6px">키를 바꾸려면 "변경"을 누르고 원하는 키 조합을 눌러주세요</div>
           <div id="shortcutList"></div>
@@ -1160,7 +1318,7 @@
           <div class="set-row">모든 설정 <button class="ur-add" id="btnResetSettings">기본값으로</button></div>
           <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.6;margin-top:2px">
             레이아웃과 환경설정만 초기화돼요. 작성하신 글, 폴더·문서 구성과 위치는 그대로 남아요.</div>
-          <div class="set-row">문제 해결 <button class="ur-add" id="btnOpenCsLog">진단 폴더 열기</button></div>
+          <div class="set-row">문제 해결 <button class="ur-add" id="btnOpenCsLog">진단 폴더 열기</button> <button class="ur-add" id="btnViewCsLog">진단 정보 확인하기</button></div>
           <div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px">작품 경로 기록, 오류 기록이 담긴 폴더예요. 문제가 있을 때 개발자에게 이 폴더를 보내주시면 도움이 돼요.</div>
         </div>
       </div>
@@ -1345,6 +1503,10 @@
   <div class="modal">
     <h3 id="modalTitle">이름</h3>
     <input type="text" id="modalInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div id="modalGoalModeOpts" style="display:none;margin:8px 0 4px;font-size:12px;color:var(--ink-faint)">
+      <label style="margin-right:12px"><input type="radio" name="modalGoalMode" value="no" checked>공백 제외</label>
+      <label><input type="radio" name="modalGoalMode" value="all">공백 포함</label>
+    </div>
     <div class="btns"><button class="cancel" id="modalCancel">취소</button><button class="ok" id="modalOk">확인</button></div>
   </div>
 </div>
@@ -1507,15 +1669,32 @@ function defaultSettings(){
     exp:{jj:'유지',jjN:1,dj:'유지',djN:1,dd:'유지',ddN:1,sceneSym:'* * *',sceneBr:1,author:'',order:'binder'}};
 }
 let settings=defaultSettings();
+const WORK_ONLY_SETTINGS_KEYS=['dark','theme','defaultGoal','defaultGoalCountMode'];
+let commonSettings={},commonSettingsFileExisted=false;
+async function loadCommonSettings(){
+  const p=await commonSettingsPath();
+  commonSettingsFileExisted=await FS.exists(p).catch(()=>false);
+  commonSettings=await readJson(p,{});
+}
+async function ensureCommonSettingsSeeded(rawWorkSettings){
+  if(commonSettingsFileExisted)return;
+  Object.keys(rawWorkSettings).forEach(k=>{
+    if(!WORK_ONLY_SETTINGS_KEYS.includes(k))commonSettings[k]=rawWorkSettings[k];
+  });
+  commonSettingsFileExisted=true;
+  try{await writeFile(await commonSettingsPath(),JSON.stringify(commonSettings));}catch{}
+}
 let stats={};
-let curWork=null,treeData=[],trashTreeData=[],selectedFolder=null;
-const panes=[{tabs:[],tab:null,zoom:100,ref:null,refZoom:100},{tabs:[],tab:null,zoom:100,ref:null,refZoom:100}];
+let curWork=null,treeData=[],trashTreeData=[],selectedFolder=null,selectedNode=null;
+const panes=[{tabs:[],tab:null,zoom:100,ref:null,refZoom:100,docView:null},{tabs:[],tab:null,zoom:100,ref:null,refZoom:100,docView:null}];
 let activePane=0,splitOn=false;
 let editTarget={pane:0,kind:'tab'}; // kind: 'tab'(메인 에디터) | 'ref'(참고창)
 function edSurfaceEl(){ return editTarget.kind==='ref' ? $('refPaneBody'+editTarget.pane) : $('ed'+editTarget.pane); }
 let trMode='doc',workTreatment='',workTreatmentDirty=false;
 let dragNode=null,dragNodes=[],dragSep=null,dragSeps=[],ctxSepInfo=null,ctxNode=null,orders={},trashMeta=[],icons={},folderOpen={},dragTrashEntry=null;
 let lockedPaths={},unlockedOverrides={};   // 바인더 폴더/문서 잠금(3번)
+// 화면 레이아웃(작품 단위): 시놉시스·메모를 에디터 기준 상/하/좌/우 어디에 둘지
+let workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
 let verPane=0,verSel=null,verFiles=[];
 let freeNote="",freeNoteDirty=false,freeTimer=null;
 let multiSel=new Set(),multiSelSeps=new Set(),lastSelPath=null,visList=[];
@@ -1553,7 +1732,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.0";
+const APP_VERSION="beta 2.2.1";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1598,6 +1777,10 @@ async function csLogDir(){
   const base=await T.path.appDataDir();
   return base.replace(/[\\/]+$/,'')+'/cs-log';
 }
+async function commonSettingsPath(){
+  const base=await T.path.appDataDir();
+  return base.replace(/[\\/]+$/,'')+'/settings.json';
+}
 async function csLog(kind,data){
   try{
     const dir=await csLogDir();
@@ -1632,6 +1815,95 @@ async function csEnsureReadme(){
       '그대로 남아 있으며, 스토리시드는 어떤 경우에도 사용자의 원고 파일을 자동으로 삭제하지 않습니다.\n\n'+
       '문제가 있을 때 이 폴더 전체를 개발자에게 보내주시면 진단에 도움이 됩니다.\n');
   }catch(e){console.warn('csEnsureReadme 실패',e);}
+}
+/* ═══════════ 진단 정보 확인 모달 ═══════════ */
+function csHistoryLine(e){
+  const t=e.t?new Date(e.t).toLocaleString('ko-KR'):'';
+  let msg;
+  switch(e.kind){
+    case 'open': msg=`'${e.name}' 문서를 열었어요`; break;
+    case 'create': msg=`'${e.name}' 문서를 새로 만들었어요`; break;
+    case 'rename': msg=`'${e.from}' → '${e.to}' 로 이름을 바꿨어요`; break;
+    case 'renameFolder': msg=`폴더 '${e.from}' → '${e.to}' 로 이름을 바꿨어요`; break;
+    case 'hide': msg=`'${e.name}' 을(를) 숨겼어요`; break;
+    case 'removeFromList': msg=`'${e.name}' 을(를) 목록에서 제거했어요`; break;
+    default: { const rest=Object.assign({},e); delete rest.t; delete rest.kind; msg='['+e.kind+'] '+JSON.stringify(rest); }
+  }
+  return t+' — '+msg;
+}
+function csErrorLine(e){
+  const t=e.t?new Date(e.t).toLocaleString('ko-KR'):'';
+  const msg=e.msg!==undefined?String(e.msg):'';
+  const path=e.path?(' (path: '+e.path+')'):'';
+  return t+' — '+msg+path;
+}
+async function csReadLogLines(file){
+  const dir=await csLogDir();
+  let text='';
+  try{text=await readFile(dir+'/'+file);}catch(e){return [];}
+  const entries=[];
+  for(const line of text.split('\n')){
+    if(!line)continue;
+    try{entries.push(JSON.parse(line));}catch(e){}
+  }
+  entries.reverse();
+  return entries.slice(0,50);
+}
+function csViewEmptyHtml(){
+  return '<div style="color:var(--ink-faint);font-size:13px;padding:20px;text-align:center">기록이 없어요.</div>';
+}
+function csViewDetail(title,rowsHtml){
+  $('csViewTitle').textContent=title;
+  const b=$('csViewBody');
+  b.innerHTML='<div class="ver-actions" style="margin-bottom:8px"><button class="plain" id="csViewBack">‹ 목록으로</button></div>'+rowsHtml;
+  $('csViewBack').onclick=()=>csViewList();
+}
+async function csViewShowWorks(){
+  const dir=await csLogDir();
+  const list=await readJson(dir+'/works-index.json',[]);
+  let rows;
+  if(!list.length){
+    rows=csViewEmptyHtml();
+  }else{
+    rows=list.map(w=>{
+      const name=escHtml(w.name||w.path||'');
+      const time=w.lastOpened?(' — '+escHtml(new Date(w.lastOpened).toLocaleString('ko-KR'))):'';
+      const path=w.path?('<div style="font-size:11px;color:var(--ink-faint)">'+escHtml(w.path)+'</div>'):'';
+      return '<div class="set-row" style="display:block;padding:8px 0">'+name+time+path+'</div>';
+    }).join('');
+  }
+  csViewDetail('최근에 연 작품 목록',rows);
+}
+async function csViewShowHistory(){
+  const entries=await csReadLogLines('history.log');
+  let rows;
+  if(!entries.length){
+    rows=csViewEmptyHtml();
+  }else{
+    rows=entries.map(e=>'<div class="set-row" style="display:block;padding:6px 0;font-size:12.5px">'+escHtml(csHistoryLine(e))+'</div>').join('');
+  }
+  csViewDetail('최근 작업 기록',rows);
+}
+async function csViewShowErrors(){
+  const entries=await csReadLogLines('errors.log');
+  let rows;
+  if(!entries.length){
+    rows=csViewEmptyHtml();
+  }else{
+    rows=entries.map(e=>'<div class="set-row" style="display:block;padding:6px 0;font-size:12.5px">'+escHtml(csErrorLine(e))+'</div>').join('');
+  }
+  csViewDetail('오류 기록',rows);
+}
+function csViewList(){
+  $('csViewTitle').textContent='진단 정보';
+  const b=$('csViewBody');
+  b.innerHTML=
+    '<div class="set-row" style="cursor:pointer" id="csViewWorksRow">최근에 연 작품 목록 <span style="color:var(--ink-faint)">›</span></div>'+
+    '<div class="set-row" style="cursor:pointer" id="csViewHistoryRow">최근 작업 기록 <span style="color:var(--ink-faint)">›</span></div>'+
+    '<div class="set-row" style="cursor:pointer" id="csViewErrorsRow">오류 기록 <span style="color:var(--ink-faint)">›</span></div>';
+  $('csViewWorksRow').onclick=()=>csViewShowWorks();
+  $('csViewHistoryRow').onclick=()=>csViewShowHistory();
+  $('csViewErrorsRow').onclick=()=>csViewShowErrors();
 }
 function dayKey(){const d=new Date(Date.now()-settings.resetHour*3600*1000);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -1779,7 +2051,7 @@ function renderRecentWorks(){
 
 /* ═══════════ front-matter ═══════════ */
 function parseDoc(text){
-  const meta={제목:'',목표글자수:5000,회차트리트먼트:'',메모들:[]};
+  const meta={제목:'',목표글자수:5000,목표글자수모드:'no',회차트리트먼트:'',메모들:[],형광펜메모:{}};
   let body=text;
   if(text.startsWith('---\n')){
     const end=text.indexOf('\n---\n',4);
@@ -1790,12 +2062,14 @@ function parseDoc(text){
         const k=m[1].trim();let v=m[2];
         if(v==='|'){const ls=[];while(i+1<head.length&&(head[i+1].startsWith('  ')||head[i+1]==='')){i++;ls.push(head[i].slice(2));}v=ls.join('\n');}
         if(k==='메모들'){try{meta.메모들=JSON.parse(v)||[];}catch{meta.메모들=[];}}
+        else if(k==='형광펜메모'){try{meta.형광펜메모=JSON.parse(v)||{};}catch{meta.형광펜메모={};}}
         else if(k==='회차메모'){ // 구버전 호환: 단일 메모 → 배열로
           let t=v;
           if(v.startsWith('[')){try{t=(JSON.parse(v)||[]).map(x=>'['+x.tag+'] '+x.text).join('\n\n');}catch{t='';}}
           if(t)meta.메모들.push({id:'m'+Math.abs(hashStr(t)),text:t});
         }
         else if(k==='목표글자수')meta[k]=parseInt(v)||5000;
+        else if(k==='목표글자수모드')meta[k]=(v==='all'?'all':'no');
         else if(k==='상태'||k==='발행일'){} // 구버전 필드 무시
         else meta[k]=v;
       }
@@ -1810,9 +2084,11 @@ function blk(s){return s.split('\n').map(l=>'  '+l).join('\n');}
 function serializeDoc(t){
   const m=t.meta;
   let h='---\n목표글자수: '+m.목표글자수+'\n';
+  if(m.목표글자수모드==='all')h+='목표글자수모드: all\n';
   if(m.제목)h+='제목: '+m.제목+'\n';
   if(m.아이콘)h+='아이콘: '+m.아이콘+'\n';
   if(m.메모들&&m.메모들.length)h+='메모들: '+JSON.stringify(m.메모들)+'\n';
+  if(m.형광펜메모&&Object.keys(m.형광펜메모).length)h+='형광펜메모: '+JSON.stringify(m.형광펜메모)+'\n';
   if(m.회차트리트먼트)h+='회차트리트먼트: |\n'+blk(m.회차트리트먼트)+'\n';
   return h+'---\n'+t.body;
 }
@@ -2149,13 +2425,16 @@ async function openWorkAt(path,dispHint){
     rootPath=path;
     seojaePath=path+'/.서재';snapsPath=seojaePath+'/snapshots';
     await FS.mkdir(snapsPath,{recursive:true});
-    settings=Object.assign(defaultSettings(),await readJson(seojaePath+'/settings.json',{}));
+    const rawWorkSettings=await readJson(seojaePath+'/settings.json',{});
+    await ensureCommonSettingsSeeded(rawWorkSettings);
+    settings=Object.assign(defaultSettings(),commonSettings,rawWorkSettings);
     stats=await readJson(seojaePath+'/stats.json',{});
     orders=await readJson(seojaePath+'/order.json',{});
     icons=await readJson(seojaePath+'/icons.json',{});
     folderOpen=await readJson(seojaePath+'/folders.json',{});
     lockedPaths=await readJson(seojaePath+'/locks.json',{});
     unlockedOverrides=await readJson(seojaePath+'/unlocks.json',{});
+    await loadWorkLayout();
     memoTrash=await readJson(seojaePath+'/memo-trash.json',[]);
     sessions=await readJson(seojaePath+'/session.json',{});
     if(parseInt(settings.edW)>100)settings.edW='100';
@@ -2455,10 +2734,10 @@ async function loadWork(w){
   trashPath=w.path+'/.서재-휴지통';
   await FS.mkdir(trashPath,{recursive:true});
   trashMeta=await readJson(trashPath+'/trash.json',[]);
-  $('workName').textContent=w.disp||w.name;fitTopbar();selectedFolder=null;updateWorkIcon();
+  $('workName').textContent=w.disp||w.name;fitTopbar();selectedFolder=null;selectedNode=null;updateWorkIcon();
   setAppWindowTitle(w.disp||w.name);
   settings.lastWork=w.name;saveMeta();   // 다음에 켤 때도 마지막 작품이 열리도록 기억
-  panes.forEach(p=>{p.tabs=[];p.tab=null;p.ref=null;});activePane=0;
+  panes.forEach(p=>{p.tabs=[];p.tab=null;p.ref=null;p.docView=null;});activePane=0;
   try{workTreatment=await readFile(w.path+'/treatment.md');}catch{workTreatment='';}
   try{freeNote=await readFile(w.path+'/.프리노트.md');}catch{freeNote='';}
   $('freeTa').value=freeNote;freeNoteDirty=false;
@@ -2466,13 +2745,7 @@ async function loadWork(w){
   docCache.clear();folderSyn.clear();
   await rescanTree();renderWorkMenu();renderAllPanes();renderTreatment();renderMemo();
   hideInternalFiles(w.path); // fire-and-forget: Windows 숨김 속성 부여, 실패해도 무시
-  await restoreSession(w);
-  // restoreSession이 저장돼 있던 바인더/시놉시스/메모 폭(binderW/trW/memoW)을 그대로
-  // 복원하는데, 그 폭이 지금 창 너비 기준으로는 너무 넓을 수 있다. 여기서 다시 한번
-  // 좁은 화면 자동 숨김을 재평가해주지 않으면, 넓은 창에서 저장된 폭이 좁은 창에 그대로
-  // 남아 바인더/시놉시스는 (이전 상태 그대로) 자동 숨김이 걸려도 메모만 안 걸리는 것처럼
-  // 보이는 반응형 버그로 이어진다.
-  if(typeof fitPanels==='function')fitPanels();
+  await restoreSession(w);   // 창 너비에 맞춘 자동 숨김 재평가는 restoreSession 안에서 처리한다
 }
 /* Windows에서 실제 FILE_ATTRIBUTE_HIDDEN 속성을 걸어준다. 점(.) 접두사만으로는
    탐색기가 자동으로 숨겨주지 않기 때문에 별도로 필요하다. */
@@ -2569,8 +2842,31 @@ function siblingList(node){
   return node.parentPath===''?treeData:(findNodeByPath(node.parentPath)||{}).children||[];
 }
 let orderTimer=null;
-function saveOrders(){clearTimeout(orderTimer);orderTimer=setTimeout(()=>{
+function saveOrders(){
+  refreshDocViewOrder();   // orders는 이 함수를 부르기 전에 이미 갱신돼 있으므로, 지금 열려 있는
+                            // 문서 보기가 있으면 즉시 순서를 다시 계산해 반영한다(파일 저장은 디바운스돼도
+                            // 화면 반영은 기다릴 이유가 없다).
+  clearTimeout(orderTimer);orderTimer=setTimeout(()=>{
   writeFile(seojaePath+'/order.json',JSON.stringify(orders)).catch(()=>{});},800);}
+// 문서 보기 중인 폴더의 정렬 순서가(드래그 재배치, 구분선 이동 등으로) 바뀌면, 다시 폴더를
+// 선택하지 않아도 즉시 새 순서로 다시 늘어놓는다. 내용을 다시 읽어오진 않고(이미 메모리에
+// 있는 탭 객체를 그대로 재사용), 나열 순서만 바꾼다. 문서 구성 자체가 달라진 경우(추가/삭제)는
+// 범위 밖으로 두고 손대지 않는다 — 그런 변화는 각자의 경로에서 이미 처리되고 있다.
+function refreshDocViewOrder(){
+  [0,1].forEach(paneIdx=>{
+    const p=panes[paneIdx];
+    if(!p.docView)return;
+    const docs=collectDocsRecursive(p.docView.node);
+    const newTabs=docs.map(n=>p.docView.tabs.find(t=>t.path===n.path)).filter(Boolean);
+    if(newTabs.length!==p.docView.tabs.length)return;
+    const changed=newTabs.some((t,idx)=>t!==p.docView.tabs[idx]);
+    if(!changed)return;
+    if(!p.tab)flushPane(paneIdx);   // 다시 조립하기 전에 지금 화면에 쳐 있는 내용부터 먼저 반영(유실 방지)
+    p.docView.tabs=newTabs;
+    p._lastDocViewPath=null;   // 순서가 바뀌었으니 다음 렌더에서 강제로 다시 조립하게 만든다
+    if(!p.tab)renderPane(paneIdx);   // 지금 실제로 화면에 보이고 있을 때만 즉시 다시 그린다
+  });
+}
 function saveIcons(){writeFile(seojaePath+'/icons.json',JSON.stringify(icons)).catch(()=>{});}
 let folderOpenTimer=null;
 function saveFolderOpen(){clearTimeout(folderOpenTimer);folderOpenTimer=setTimeout(()=>{
@@ -2605,11 +2901,19 @@ function docIcoSvg(isEmpty){
     ?'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.4"><path d="M4 1.5h5.5L13 5v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z"/></svg>'
     :'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.5h5.5L13 5v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z"/><path d="M9.5 1.5V5H13"/></svg>';
 }
+// 지금 활성 화면의 에디터에 실제로 떠 있는 게 무엇인지(문서 탭이면 그 문서, 문서 보기면
+// 그 폴더) — 분할 화면이어도 활성 쪽 하나만 본다("편집 중인 쪽"이 요구사항이므로).
+function curEditingPath(){
+  const p=panes[activePane];
+  if(p.tab)return p.tab.path;
+  if(p.docView)return p.docView.node.path;
+  return null;
+}
 function renderTree(){
   const t=$('tree');t.innerHTML='';
   visList=[];
   if(!curWork)return;
-  const cur=panes[activePane].tab;
+  const editingPath=curEditingPath();
   const renderSepEl=(folderPath,sepName,depth)=>{
     const parts=sepName.split('__'); // ['','sep',id,style,weight]
     const style=parts[3]||'solid',weight=parts[4]||'thin';
@@ -2673,30 +2977,40 @@ function renderTree(){
       d.innerHTML='<span class="caret">'+(n.open?'▾':'▸')+'</span><span class="ico">'+folderIco+'</span>'+
         (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+'">'+escHtml(dispName)+'</span>'+lockIco);
       if(editing){setupInlineEdit(d,n);}
-      if(selectedFolder&&selectedFolder.path===n.path)d.classList.add('selected');
+      if(editingPath&&editingPath===n.path)d.classList.add('editing-shown');
+      if(selectedNode&&selectedNode.path===n.path)d.classList.add('selected');
       d.onclick=e=>{
         if(editing)return;
         if(e.shiftKey){rangeMultiSel(n);return;}
         if(e.ctrlKey||e.metaKey){toggleMultiSel(n);return;}
         if(selMode){toggleMultiSel(n);return;}
         clearMultiSel(false);lastSelPath=n.path;
-        if(selectedFolder&&selectedFolder.path===n.path){
+        if(selectedNode&&selectedNode.path===n.path){
           n.open=!n.open;
           folderOpen[n.path]=n.open;saveFolderOpen();   // 2번: 재실행해도 열림/닫힘 상태 유지
         }
-        selectedFolder=n;renderTree();};
+        selectedNode=n;selectedFolder=n;
+        openDocView(activePane,n);
+        renderTree();};
     }else{
       const docIco=n.icon||docIcoSvg(!!n.empty);
+      const isOpenTab=!!findOpenTab(n.path);
+      const isActiveTab=!!(panes[activePane].tab&&panes[activePane].tab.path===n.path);
+      if(isOpenTab)d.classList.add('tab-open');
+      if(isActiveTab)d.classList.add('tab-active');
+      const tabDot=(isOpenTab||isActiveTab)?'<span class="tab-dot'+(isActiveTab?' active':'')+'"></span>':'';
       d.innerHTML='<span class="caret"></span><span class="ico">'+docIco+'</span>'+
-        (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+(n.empty?' empty':'')+'">'+escHtml(dispName)+'</span>'+lockIco);
+        (editing?'<input class="nm-edit" value="'+escHtml(dispName)+'">':'<span class="nm'+untitledCls+(n.empty?' empty':'')+'">'+escHtml(dispName)+'</span>'+lockIco+tabDot);
       if(editing){setupInlineEdit(d,n);}
-      if(cur&&cur.path===n.path)d.classList.add('selected');
+      if(editingPath&&editingPath===n.path)d.classList.add('editing-shown');
+      if(selectedNode&&selectedNode.path===n.path)d.classList.add('selected');
       d.onclick=e=>{
         if(editing)return;
         if(e.shiftKey){rangeMultiSel(n);return;}
         if(e.ctrlKey||e.metaKey){toggleMultiSel(n);return;}
         if(selMode){toggleMultiSel(n);return;}
         clearMultiSel(false);lastSelPath=n.path;
+        selectedNode=n;
         openDoc(n);};
     }
     d.addEventListener('dblclick',e=>{
@@ -2819,6 +3133,14 @@ function renderTree(){
   t.appendChild(tn);
   if(trashNodeOpen)walkTrash(trashTreeData,1);
 }
+// 바인더의 빈 공간(항목 밖)을 클릭하면 선택을 해제한다(스크리브너 스타일).
+$('tree').addEventListener('click',e=>{
+  if(e.target!==$('tree'))return;   // 항목/구분선 위 클릭은 각자의 onclick이 처리한다
+  if(selMode)return;
+  clearMultiSel(false);
+  selectedNode=null;selectedFolder=null;
+  renderTree();
+});
 $('tree').addEventListener('dragover',e=>{e.preventDefault();
   if(e.target===$('tree'))$('tree').classList.add('drag-root');});
 $('tree').addEventListener('dragleave',e=>{if(e.target===$('tree'))$('tree').classList.remove('drag-root');});
@@ -3106,9 +3428,14 @@ function findOpenRefByPath(path){
   for(const p of panes)if(p.ref&&p.ref.path===path)return p.ref;
   return null;
 }
-async function openDoc(node){
+function findOpenDocViewTab(path){
+  for(const p of panes){if(p.docView){const t=p.docView.tabs.find(x=>x.path===path);if(t)return t;}}
+  return null;
+}
+async function ensureDocTab(node){
   let tab=findOpenTab(node.path);
   if(!tab)tab=findOpenRefByPath(node.path);
+  if(!tab)tab=findOpenDocViewTab(node.path);
   if(tab&&tab.lastSnap===undefined)tab.lastSnap=0;
   if(!tab){
     let text='';try{text=await readFile(node.abs);}catch{}
@@ -3116,10 +3443,79 @@ async function openDoc(node){
     tab={path:node.path,name:node.disp||node.name.replace(/\.md$/,''),abs:node.abs,meta,body,dirty:false,lastSnap:0,node};
     snapshotIfDue(tab,true);
   }
+  return tab;
+}
+function collectDocsRecursive(folderNode){
+  const out=[];
+  const walk=(nodes,folderPath)=>{
+    const arr=nodes.slice();
+    sortNodes(arr,folderPath);
+    arr.forEach(n=>{
+      if(n.type==='file')out.push(n);
+      else if(n.type==='dir')walk(n.children,n.path);
+    });
+  };
+  walk(folderNode.children,folderNode.path);
+  return out;
+}
+function flushPane(paneIdx){
+  // 화면에 지금 실제로 표시되고 있는 것(일반 탭이든 문서 보기든)의 DOM 내용을 데이터에
+  // 반영한다. 다른 탭/문서 보기로 전환하거나 문서 보기를 닫기 직전에는 반드시 이걸
+  // 먼저 호출해야 한다 — 안 그러면 아직 저장 안 된 편집 내용이 그대로 날아간다.
+  if(panes[paneIdx].tab||panes[paneIdx].docView){clearTimeout(syncTimers[paneIdx]);syncFromDOM(paneIdx);}
+}
+async function openDocView(paneIdx,folderNode){
+  const p=panes[paneIdx];
+  if(p.docView&&p.docView.node.path===folderNode.path){
+    // 이미 이 폴더의 문서 보기가 열려 있음 — 다시 읽어오지 않고 그대로 활성화만 한다.
+    // (재조회하면 findOpenTab/findOpenRefByPath가 문서 보기 안의 탭 객체를 찾지 못해
+    // 디스크에서 새로 읽어들이면서, 아직 저장 전인 편집 내용이 통째로 사라지는 치명적인
+    // 버그가 있었다 — 폴더를 접었다 펴는 것만으로도 매번 재조회가 일어났던 게 원인.)
+    flushPane(paneIdx);
+    p.tab=null;
+    refreshUI();
+    return;
+  }
+  flushPane(paneIdx);
+  const docs=collectDocsRecursive(folderNode);
+  const tabs=[];
+  for(const n of docs){tabs.push(await ensureDocTab(n));}
+  p.tab=null;
+  p.docView={node:folderNode,tabs};
+  p.docViewIndex=p.tabs.length;   // 기본 위치: 탭들 맨 뒤(기존 동작과 동일)
+  refreshUI();
+}
+async function openDoc(node){
+  flushPane(activePane);
+  const tab=await ensureDocTab(node);
   const p=panes[activePane];
+  // 문서 보기는 그대로 유지한다(탭바에 계속 남아 다시 클릭하면 돌아갈 수 있게) — 여기서
+  // 지워버리면 문서 보기에서 다른 탭으로 넘어갈 때마다 그 폴더의 문서 보기가 사라진다.
   if(!p.tabs.includes(tab))p.tabs.push(tab);
   p.tab=tab;
   refreshUI();
+}
+function closeDocView(paneIdx){
+  const p=panes[paneIdx];
+  if(!p.docView)return;
+  flushPane(paneIdx);
+  p.docView.tabs.forEach(t=>{if(t.dirty)saveTab(t);});
+  p.docView=null;
+  renderPane(paneIdx);renderPaneTabs(0);renderPaneTabs(1);renderTree();renderMemo();
+  if(trMode==='doc')renderTreatment();
+}
+async function moveDocViewToPane(fromPane,toPane){
+  if(fromPane===toPane)return;
+  const fp=panes[fromPane];
+  if(!fp.docView)return;
+  const node=fp.docView.node;
+  const tp=panes[toPane];
+  if(tp.docView&&tp.docView.node.path===node.path)return; // 이미 그 pane에 같은 문서 보기가 열려있으면 아무것도 안 함
+  if(tp.docView)closeDocView(toPane); // 대상 pane에 다른 문서 보기가 이미 있으면 먼저 정리
+  flushPane(fromPane);
+  fp.docView.tabs.forEach(t=>{if(t.dirty)saveTab(t);});
+  fp.docView=null;
+  await openDocView(toPane,node);
 }
 async function openRefPane(paneIdx,node){
   const p=panes[paneIdx];
@@ -3232,6 +3628,7 @@ function moveTabToPane(tab,fromPane,toPane,beforeTab){
   let insertAt=beforeTab?tp.tabs.indexOf(beforeTab):tp.tabs.length;
   if(insertAt<0)insertAt=tp.tabs.length;
   tp.tabs.splice(insertAt,0,tab);
+  flushPane(toPane);
   tp.tab=tab;
   activePane=toPane;
   document.querySelectorAll('.editor-pane').forEach((el,j)=>el.classList.toggle('pane-active',j===activePane));
@@ -3240,14 +3637,49 @@ function moveTabToPane(tab,fromPane,toPane,beforeTab){
 }
 function renderPaneTabs(i){
   const bar=$('tabbar'+i),p=panes[i];bar.innerHTML='';
-  p.tabs.forEach(t=>{
+  let dd=null;
+  if(p.docView){
+    const dv=p.docView;
+    dd=document.createElement('div');
+    dd.className='tab docview-tab'+(!p.tab?' on':'');
+    dd.innerHTML='📚 '+escHtml(dv.node.disp||dv.node.name)+' <span class="dv-badge">문서 보기</span> <span class="x">✕</span>';
+    dd.onclick=e=>{
+      if(e.target.classList.contains('x')){closeDocView(i);return;}
+      setActivePane(i);flushPane(i);p.tab=null;
+      selectedNode=dv.node;selectedFolder=dv.node;   // 탭바의 '문서 보기' 탭을 클릭해도 바인더 선택이 따라오게
+      renderPane(i);renderPaneTabs(i);renderTree();renderMemo();
+      if(trMode==='doc')renderTreatment();
+    };
+    dd.draggable=true;
+    dd.addEventListener('dragstart',e=>{
+      dragTab={pane:i,tab:null,isDocView:true};
+      e.dataTransfer.effectAllowed='move';
+      dd.classList.add('tab-dragging');
+    });
+    dd.addEventListener('dragend',()=>{
+      dragTab=null;dd.classList.remove('tab-dragging');
+    });
+    dd.addEventListener('dragover',e=>{
+      if(dragTab)e.preventDefault();
+    });
+    dd.addEventListener('drop',e=>{
+      if(!dragTab||!dragTab.isDocView)return;
+      e.preventDefault();e.stopPropagation();
+      moveDocViewToPane(dragTab.pane,i);
+    });
+  }
+  const insertAt=p.docView?Math.max(0,Math.min(p.docViewIndex??p.tabs.length,p.tabs.length)):-1;
+  p.tabs.forEach((t,idx)=>{
+    if(dd&&idx===insertAt){bar.appendChild(dd);dd=null;}
     const d=document.createElement('div');
     d.className='tab'+(p.tab===t?' on':'');
     d.innerHTML=(t.meta.아이콘||'📄')+' '+t.name+(t.dirty?' <span class="dirty">●</span>':'')+' <span class="x">✕</span>';
     d.draggable=true;
     d.onclick=e=>{
       if(e.target.classList.contains('x')){closeTab(i,t);return;}
-      setActivePane(i);p.tab=t;renderPane(i);renderPaneTabs(i);renderTree();renderMemo();
+      setActivePane(i);flushPane(i);p.tab=t;
+      if(t.node)selectedNode=t.node;   // 탭바에서 이미 열려 있는 탭을 클릭해도 바인더 선택이 따라오게
+      renderPane(i);renderPaneTabs(i);renderTree();renderMemo();
       if(trMode==='doc')renderTreatment();
     };
     d.addEventListener('dragstart',e=>{
@@ -3272,24 +3704,40 @@ function renderPaneTabs(i){
       e.preventDefault();e.stopPropagation();
       const before=d.classList.contains('drag-before');
       d.classList.remove('drag-before','drag-after');
+      if(dragTab.isDocView){
+        if(dragTab.pane===i){
+          p.docViewIndex=p.tabs.indexOf(t)+(before?0:1);
+          renderPaneTabs(i);
+        }else{
+          moveDocViewToPane(dragTab.pane,i);
+        }
+        return;
+      }
       const nextTab=p.tabs[p.tabs.indexOf(t)+1]||null;
       moveTabToPane(dragTab.tab,dragTab.pane,i,before?t:nextTab);
     });
     bar.appendChild(d);
   });
+  if(dd)bar.appendChild(dd);   // insertAt이 tabs.length 이상이었거나 tabs가 비어있는 경우
   bar.ondragover=e=>{if(dragTab)e.preventDefault();};
   bar.ondrop=e=>{
     if(!dragTab||e.target!==bar)return;   // 개별 탭 위에서의 drop은 이미 위에서 처리됨
     e.preventDefault();
+    if(dragTab.isDocView){
+      if(dragTab.pane===i){p.docViewIndex=p.tabs.length;renderPaneTabs(i);}
+      else moveDocViewToPane(dragTab.pane,i);
+      return;
+    }
     moveTabToPane(dragTab.tab,dragTab.pane,i,null);
   };
 }
 function renderAllPanes(){renderPane(0);renderPane(1);renderPaneTabs(0);renderPaneTabs(1);renderRefPane(0);renderRefPane(1);}
 function renderPane(i){
   const p=panes[i],ed=$('ed'+i);
+  if(!p.tab&&p.docView){renderDocViewPane(i);return;}
   if(!p.tab){
-    ed.innerHTML='';ed.contentEditable='false';p._lastPath=null;
-    ed.classList.remove('locked');
+    ed.innerHTML='';ed.contentEditable='false';p._lastPath=null;p._lastDocViewPath=null;
+    ed.classList.remove('locked');ed.classList.remove('docview-mode');
     const scroller0=ed.closest('.ed-scroll');
     const banner0=scroller0&&scroller0.querySelector('.lock-topbar');
     if(banner0)banner0.remove();
@@ -3303,6 +3751,8 @@ function renderPane(i){
     const locked=isLocked(t.path);
     ed.contentEditable=locked?'false':'true';
     ed.classList.toggle('locked',locked);
+    ed.classList.remove('docview-mode');
+    p._lastDocViewPath=null;
     if(ed.innerHTML!==t.body)ed.innerHTML=t.body;
     $('title'+i).textContent=curWork.name+' › '+t.path.replace(/\//g,' › ').replace(/\.md$/,'');
     const scroller=ed.closest('.ed-scroll');
@@ -3336,20 +3786,90 @@ function renderPane(i){
   $('zoomVal'+i).textContent=p.zoom+'%';
   ed.style.zoom=p.zoom/100;
 }
+function renderDocViewPane(i){
+  const p=panes[i],ed=$('ed'+i),dv=p.docView;
+  ed.contentEditable='true';
+  ed.classList.remove('locked');
+  ed.classList.add('docview-mode');
+  const scroller=ed.closest('.ed-scroll');
+  scroller.classList.remove('locked');
+  const banner=scroller.querySelector('.lock-topbar');if(banner)banner.remove();
+  if(p._lastDocViewPath!==dv.node.path){
+    p._lastDocViewPath=dv.node.path;
+    p._lastPath=null;
+    ed.contentEditable='false';ed.contentEditable='true'; // 탭 전환 때와 같은 이유로 네이티브 undo 기록 초기화
+    ed.innerHTML=dv.tabs.map((t,idx)=>
+      '<div class="scriv-doc" data-path="'+escHtml(t.path)+'">'+(t.body||'<p><br></p>')+'</div>'+
+      (idx<dv.tabs.length-1?'<div class="scriv-divider" contenteditable="false"></div>':'')
+    ).join('')||'<div class="scriv-empty">이 폴더에는 문서가 없어요.</div>';
+    requestAnimationFrame(()=>{scroller.scrollTop=0;});
+  }
+  // 문서별 잠금 상태는 새로 조립했든 아니든 매번 다시 반영한다 — 문서 보기를 켜놓은 채로
+  // 바인더에서 잠금/해제를 할 수도 있으므로. 잠긴 문서는 그 문서의 .scriv-doc 래퍼만
+  // contenteditable을 꺼서 편집을 막고, 그 위에 회색 오버레이와 자물쇠 배너를 얹는다
+  // (문서 보기 전체가 아니라 잠긴 문서가 차지한 영역에만 뜨게).
+  dv.tabs.forEach(t=>{
+    const wrap=ed.querySelector('.scriv-doc[data-path="'+CSS.escape(t.path)+'"]');
+    if(!wrap)return;
+    const locked=isLocked(t.path);
+    wrap.contentEditable=locked?'false':'true';
+    wrap.classList.toggle('locked',locked);
+    let lb=wrap.querySelector(':scope>.scriv-lock-banner');
+    if(locked){
+      if(!lb){
+        lb=document.createElement('div');
+        lb.className='scriv-lock-banner';lb.contentEditable='false';
+        lb.innerHTML='<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span>잠긴 문서입니다</span>';
+        wrap.insertBefore(lb,wrap.firstChild);
+      }
+    }else if(lb){lb.remove();}
+  });
+  $('title'+i).textContent=curWork.name+' › '+dv.node.path.replace(/\//g,' › ').replace(/\/$/,'')+' (문서 보기)';
+  $('save'+i).textContent=dv.tabs.some(t=>t.dirty)?'수정됨':'저장됨';
+  const allTxt=dv.tabs.map(t=>plainTextOf(t.body)).join('');
+  const c=countOf(allTxt);
+  $('chars'+i).textContent=fmt(c.all)+'자 / 공백 제외 '+fmt(c.no)+'자';
+  $('goal'+i).style.width='0';$('goalPct'+i).textContent='';
+  $('zoomVal'+i).textContent=p.zoom+'%';
+  ed.style.zoom=p.zoom/100;
+}
 function updateCounts(i){
   const t=panes[i].tab;if(!t)return;
   const txt=plainTextOf(t.body);
   const c=countOf(txt),all=c.all,no=c.no;
   $('chars'+i).textContent=fmt(all)+'자 / 공백 제외 '+fmt(no)+'자';
-  const goal=t.meta.목표글자수||5000,pct=Math.min(100,Math.round(no/goal*100));
+  const goal=t.meta.목표글자수||5000,goalBase=(t.meta.목표글자수모드==='all'?all:no),pct=Math.min(100,Math.round(goalBase/goal*100));
   $('goal'+i).style.width=pct+'%';$('goalPct'+i).textContent=pct+'%';
 }
 
 /* ═══════════ 입력·자동 치환·통계 ═══════════ */
 const saveTimers=[null,null],syncTimers=[null,null];
 let pasteSuppressChars=0;   // 붙여넣은 글자 수 — 작업량 집계에서 제외
+// 같은 문서(t)를 동시에 보여주고 있을 수 있는 모든 화면(다른 화면의 일반 탭, 참고창,
+// 그리고 다른 화면에서 지금 실제로 보이고 있는 문서 보기 안의 해당 문서 래퍼)에
+// 방금 바뀐 t.body를 즉시 반영한다. 어느 화면에서 편집이 일어났든(일반 탭/참고창/문서
+// 보기) 이 함수 하나로 나머지 화면들에 실시간 동기화한다. 편집이 실제로 일어난 그
+// 화면 자체는 already up-to-date이므로 비교 후 그대로 두면 자연히 건드리지 않는다.
+function mirrorTabToOtherViews(t){
+  [0,1].forEach(j=>{
+    const pj=panes[j];
+    if(pj.tab===t){
+      const edj=$('ed'+j);
+      if(edj.innerHTML!==t.body){edj.innerHTML=t.body;updateCounts(j);}
+    }
+    if(pj.ref===t){
+      const rb=$('refPaneBody'+j);
+      if(rb&&rb.innerHTML!==t.body){rb.innerHTML=t.body;}
+    }
+    if(pj.docView&&!pj.tab&&pj.docView.tabs.includes(t)&&!isLocked(t.path)){
+      const wrap=$('ed'+j).querySelector('.scriv-doc[data-path="'+CSS.escape(t.path)+'"]');
+      if(wrap&&wrap.innerHTML!==t.body)wrap.innerHTML=t.body;
+    }
+  });
+}
 /* DOM → 데이터 동기화: 긴 문서에서도 프리징 없도록 디바운스 */
 function syncFromDOM(i){
+  const p=panes[i];if(!p.tab&&p.docView){syncDocViewFromDOM(i);return;}
   const t=panes[i].tab;if(!t)return;
   const ed=$('ed'+i);
   const prevLen=t.body.replace(/<[^>]+>/g,'').length;
@@ -3377,25 +3897,158 @@ function syncFromDOM(i){
     }
   }
   updateCounts(i);renderPaneTabs(0);renderPaneTabs(1);
-  const o=1-i;
-  if(panes[o].tab===t&&$('ed'+o).innerHTML!==t.body){$('ed'+o).innerHTML=t.body;updateCounts(o);}
-  [0,1].forEach(j=>{if(panes[j].ref===t)renderRefPane(j);});
+  mirrorTabToOtherViews(t);
   clearTimeout(saveTimers[i]);saveTimers[i]=setTimeout(()=>saveTab(t),AS());
 }
+function syncDocViewFromDOM(i){
+  const p=panes[i],ed=$('ed'+i),dv=p.docView;if(!dv)return;
+  // 보수 처리: ed의 직계 자식인데 .scriv-doc/.scriv-divider 래퍼가 아닌 노드
+  // (구분선 바로 뒤나 맨 끝에 입력된 내용 등)는 바로 앞의 .scriv-doc 래퍼에 재귀속시킨다.
+  Array.from(ed.childNodes).forEach(node=>{
+    if(node.nodeType===1&&(node.classList.contains('scriv-doc')||node.classList.contains('scriv-divider')))return;
+    let prev=node.previousSibling;
+    while(prev&&!(prev.nodeType===1&&prev.classList.contains('scriv-doc')))prev=prev.previousSibling;
+    const target=prev||ed.querySelector('.scriv-doc');
+    if(target){target.appendChild(node);}
+  });
+  const wraps=[...ed.querySelectorAll(':scope>.scriv-doc')];
+  const seenPaths=new Set();
+  wraps.forEach(w=>{
+    const path=w.dataset.path;
+    const t=dv.tabs.find(x=>x.path===path);
+    if(!t)return;
+    seenPaths.add(path);
+    // 잠긴 문서는 contenteditable을 꺼둬서 편집 자체가 안 되므로 동기화할 것도 없다 —
+    // 그대로 두지 않으면 안에 얹어둔 자물쇠 배너(.scriv-lock-banner) 마크업까지
+    // innerHTML에 섞여서 그대로 t.body에 저장돼 버린다.
+    if(isLocked(path))return;
+    const html=w.innerHTML;
+    if(t.body!==html){
+      t.body=html;t.dirty=true;
+      if(t.node){
+        const isEmpty=!plainTextOf(t.body).trim();
+        if(t.node.empty!==isEmpty){
+          t.node.empty=isEmpty;
+          const itemEl=document.querySelector('.tree-item[data-path="'+CSS.escape(t.node.path)+'"]');
+          if(itemEl){
+            const nmEl=itemEl.querySelector('.nm');if(nmEl)nmEl.classList.toggle('empty',isEmpty);
+            const icoEl=itemEl.querySelector('.ico');
+            if(icoEl&&!t.node.icon)icoEl.innerHTML=docIcoSvg(isEmpty);
+          }
+        }
+      }
+    }
+  });
+  // 문서 경계를 넘어 삭제해 래퍼 자체가 통째로 사라진 경우 그 문서는 비워진 것으로 취급
+  dv.tabs.forEach(t=>{if(!seenPaths.has(t.path)&&t.body!==''){t.body='';t.dirty=true;}});
+  $('save'+i).textContent='수정됨';
+  renderPaneTabs(0);renderPaneTabs(1);
+  // 같은 탭 객체를 보여주는 다른 뷰(일반 탭/참고창/다른 화면의 문서 보기)에도 즉시 반영
+  dv.tabs.forEach(t=>mirrorTabToOtherViews(t));
+  clearTimeout(saveTimers[i]);
+  saveTimers[i]=setTimeout(()=>{dv.tabs.forEach(t=>{if(t.dirty)saveTab(t);});},AS());
+}
 function syncNow(i){clearTimeout(syncTimers[i]);syncFromDOM(i);}
-function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEditable)syncNow(i);});}
+function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('ed'+i).isContentEditable)syncNow(i);});}
 [0,1].forEach(i=>{
   const ed=$('ed'+i);
   ed.addEventListener('focus',()=>{setActivePane(i);editTarget={pane:i,kind:'tab'};});
-  ed.addEventListener('compositionstart',()=>{imeComposing=true;});
+  // 문서 보기의 .scriv-divider는 유저가 추가·복제·삭제할 수 없는 시스템 표시용 구분선이다.
+  // 1) 클릭해도 그 위에 커서(선택)가 놓이지 않게, 바로 다음 문서의 맨 앞으로 밀어낸다
+  //    (다음 문서가 없으면 바로 앞 문서의 맨 끝으로).
+  ed.addEventListener('mousedown',e=>{
+    if(!panes[i].docView)return;
+    const dv=e.target.closest&&e.target.closest('.scriv-divider');
+    if(!dv)return;
+    e.preventDefault();
+    const next=dv.nextElementSibling&&dv.nextElementSibling.classList.contains('scriv-doc')?dv.nextElementSibling:null;
+    const target=next||dv.previousElementSibling;
+    if(!target)return;
+    const r=document.createRange();
+    r.selectNodeContents(target);r.collapse(!!next);
+    const sel=getSelection();sel.removeAllRanges();sel.addRange(r);
+  });
+  // 2) 삭제(Backspace/Delete/Cut)든, 선택 범위를 다른 입력으로 덮어쓰든 — 그 대상 범위가
+  //    구분선 하나라도 걸치면 통째로 막는다(getTargetRanges로 브라우저가 실제로 건드릴
+  //    범위를 정확히 받아서 판단하므로, 방향/커서 위치를 직접 계산할 필요가 없다).
+  ed.addEventListener('beforeinput',e=>{
+    if(!panes[i].docView)return;
+    const dividers=[...ed.querySelectorAll(':scope>.scriv-divider')];
+    if(dividers.length&&typeof e.getTargetRanges==='function'){
+      const ranges=e.getTargetRanges();
+      for(const sr of ranges){
+        let rr;
+        try{rr=document.createRange();rr.setStart(sr.startContainer,sr.startOffset);rr.setEnd(sr.endContainer,sr.endOffset);}
+        catch{continue;}
+        if(dividers.some(dv=>rr.intersectsNode(dv))){e.preventDefault();return;}
+      }
+    }
+    // 2-1) 문서 맨 앞에서 백스페이스(맨 뒤에서 Delete)를 누르면, 위 range 기반 검사로는
+    //    안 잡히는 경우가 있다 — 브라우저가 "이 블록의 맨 앞/뒤"라는 위치만으로 삭제를
+    //    처리하면서, 넘겨주는 target range 자체가 구분선에 닿지 않는 collapsed range일 수
+    //    있기 때문(그런데도 기본 동작은 실제로 옆 문서 내용을 끌어와 병합해 버린다). 그래서
+    //    커서가 문서(.scriv-doc) 맨 앞/뒤에 있고 그 방향으로 삭제하려는 요청이면 range와
+    //    무관하게 아예 막는다 — 문서 보기에서 문서 경계를 넘는 삭제는 어떤 형태로도 안 된다.
+    const it=e.inputType||'';
+    if(/^delete/.test(it)&&/(Backward|Forward)$/.test(it)){
+      const sel=getSelection();
+      if(sel&&sel.isCollapsed&&sel.anchorNode){
+        const anchorEl=sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+        const wrap=anchorEl&&anchorEl.closest?anchorEl.closest('.scriv-doc'):null;
+        if(wrap){
+          const backward=/Backward$/.test(it);
+          const r=document.createRange();
+          r.selectNodeContents(wrap);
+          try{
+            if(backward)r.setEnd(sel.anchorNode,sel.anchorOffset);
+            else r.setStart(sel.anchorNode,sel.anchorOffset);
+            if(r.toString().length===0){e.preventDefault();return;}
+          }catch{}
+        }
+      }
+    }
+  });
+  // 3) 최후의 안전망: 위 beforeinput 차단을 어떤 경로로든(브라우저별 병합 동작, 드래그,
+  //    실행취소 등 getTargetRanges가 못 잡아내는 경우) 뚫고 구분선이나 문서 래퍼가 DOM에서
+  //    사라지면, ed의 직계 자식 구성이 바뀔 때만 반응하는 이 옵저버가 즉시 감지해서 살릴 수
+  //    있는 내용은 먼저 데이터에 반영한 뒤 시스템 구조를 다시 그려 원상 복구한다.
+  new MutationObserver(()=>{
+    const p=panes[i],dv=p.docView;
+    if(!dv||p.tab)return;
+    const expectedDividers=Math.max(0,dv.tabs.length-1);
+    const actualDividers=ed.querySelectorAll(':scope>.scriv-divider').length;
+    const wrapsOk=dv.tabs.every(t=>ed.querySelector(':scope>.scriv-doc[data-path="'+CSS.escape(t.path)+'"]'));
+    if(actualDividers===expectedDividers&&wrapsOk)return;
+    syncDocViewFromDOM(i);
+    p._lastDocViewPath=null;
+    renderDocViewPane(i);
+    toast('구분선은 삭제할 수 없어요. 문서 보기 구조를 복구했어요.');
+  }).observe(ed,{childList:true});
+  ed.addEventListener('compositionstart',()=>{
+    imeComposing=true;
+    // 아래 blur 핸들러로도 못 잡는 극단적인 경우(포커스는 안 잃었는데 브라우저가 그냥
+    // compositionend를 안 보내는 경우)에 대비한 최후의 안전망 — 정상적인 한글 조합은
+    // 몇 초 안에 끝나므로, 그보다 훨씬 길게 켜져 있으면 강제로 꺼버린다.
+    clearTimeout(imeComposingStuckTimer);
+    imeComposingStuckTimer=setTimeout(()=>{imeComposing=false;},5000);
+  });
   ed.addEventListener('compositionend',()=>{
     imeComposing=false;
+    clearTimeout(imeComposingStuckTimer);
     // 한글 조합이 끝난 시점에 한 번은 반드시 동기화해준다 — 조합 중에는 input 핸들러가
     // 아무 것도 안 하므로, 혹시 뒤따르는 input 이벤트가 안 오는 웹뷰 환경 대비 안전망.
-    const t=panes[i].tab;if(t)syncNow(i);
+    const t=panes[i].tab||panes[i].docView;if(t)syncNow(i);
   });
+  // 한글 조합 중에 포커스를 잃으면(바인더 클릭, 다른 탭 클릭, 참고창 클릭 등) 브라우저가
+  // compositionend를 안 보내주는 경우가 있어서(윈도우 IME에서 드물지 않게 재현됨),
+  // imeComposing이 true로 영원히 고정돼버릴 수 있었다. 이게 켜져 있으면 fitPanels·fitTopbar·
+  // applyUiScale 등 리사이즈 관련 로직이 통째로 아무 것도 안 하고 조용히 무시하도록 짜여
+  // 있어서, "창을 아무리 줄여도 메모 패널만 끝까지 안 사라지는" 것처럼 보이는 반응형 버그가
+  // 매번 다시 생기는 진짜 원인이었다 — 한글로 뭔가 입력하다가 포커스를 옮기기만 하면
+  // 재현됐다. blur 시점에 안전하게 강제로 꺼서, 다시는 이 상태로 갇히지 않게 한다.
+  ed.addEventListener('blur',()=>{imeComposing=false;clearTimeout(imeComposingStuckTimer);});
   ed.addEventListener('input',e=>{
-    const t=panes[i].tab;if(!t)return;
+    const t=panes[i].tab||panes[i].docView;if(!t)return;
     // 한글 조합(IME) 도중에는 DOM을 건드리지 않는다 — 자동 치환(autoReplaceCE)이 텍스트
     // 노드를 직접 수정하면 조합 중인 IME 세션이 깨지면서, 특히 창을 옮기거나 크기를 바꿔
     // 이벤트 처리가 밀리는 상황에서 입력이 심하게 밀리거나 씹히는 현상(윈도우 '문자열
@@ -3403,9 +4056,10 @@ function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEdit
     if(e.isComposing||imeComposing)return;
     autoReplaceCE();
     hidePasteBox();
-    // 짧은 문서는 즉시, 긴 문서는 디바운스 동기화 (프리징 방지)
+    // 짧은 문서는 즉시, 긴 문서는 디바운스 동기화 (프리징 방지). 문서 보기(docView)는
+    // 하나의 body 길이로 판단할 수 없으므로 항상 200ms 디바운스로 처리한다.
     clearTimeout(syncTimers[i]);
-    if(t.body.length<50000)syncFromDOM(i);
+    if(t.body!==undefined&&t.body.length<50000)syncFromDOM(i);
     else syncTimers[i]=setTimeout(()=>syncFromDOM(i),200);
     typewriterScroll();
   });
@@ -3413,6 +4067,7 @@ function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEdit
   ed.addEventListener('keydown',e=>{
     if(e.key!=='Backspace'&&e.key!=='Delete')return;
     const t=panes[i].tab;if(!t)return;
+    if(panes[i].docView)return;
     const sel=getSelection();
     if(!sel||sel.isCollapsed||!sel.rangeCount||!ed.contains(sel.anchorNode))return;
     if(t.body.length<40000)return;   // 작은 문서는 브라우저 기본 처리로 충분
@@ -3459,9 +4114,7 @@ function syncAllNow(){[0,1].forEach(i=>{if(panes[i].tab&&$('ed'+i).isContentEdit
     const p=panes[i];if(!p.ref)return;
     p.ref.body=e.target.innerHTML;
     markRefDirty(i);
-    [0,1].forEach(j=>{if(panes[j].tab===p.ref)renderPane(j);});
-    const o=1-i;
-    if(panes[o].ref===p.ref&&$('refPaneBody'+o).innerHTML!==p.ref.body){$('refPaneBody'+o).innerHTML=p.ref.body;}
+    mirrorTabToOtherViews(p.ref);
   });
   $('refPaneBody'+i).addEventListener('focus',()=>{setActivePane(i);editTarget={pane:i,kind:'ref'};});
   $('refPaneBody'+i).addEventListener('scroll',()=>{
@@ -3684,6 +4337,7 @@ async function saveAll(){
   if(typeof captureSession==='function')captureSession();
   const seen=new Set();
   for(const p of panes)for(const t of p.tabs)if(!seen.has(t)){seen.add(t);await saveTab(t);}
+  for(const p of panes)if(p.docView)for(const t of p.docView.tabs)if(!seen.has(t)){seen.add(t);await saveTab(t);}
   if(workTreatmentDirty&&curWork){
     try{await writeFile(curWork.path+'/treatment.md',workTreatment);workTreatmentDirty=false;}catch{}
   }
@@ -3691,9 +4345,18 @@ async function saveAll(){
   await saveRefPane(0);await saveRefPane(1);
 }
 let metaTimer=null;
+async function persistSettingsToDisk(){
+  const workOnly={};
+  WORK_ONLY_SETTINGS_KEYS.forEach(k=>{if(k in settings)workOnly[k]=settings[k];});
+  const common={};
+  Object.keys(settings).forEach(k=>{if(!WORK_ONLY_SETTINGS_KEYS.includes(k))common[k]=settings[k];});
+  commonSettings=common;
+  await writeFile(seojaePath+'/settings.json',JSON.stringify(workOnly));
+  await writeFile(await commonSettingsPath(),JSON.stringify(common));
+}
 function saveMeta(){clearTimeout(metaTimer);metaTimer=setTimeout(async()=>{
   try{await writeFile(seojaePath+'/stats.json',JSON.stringify(stats));
-    await writeFile(seojaePath+'/settings.json',JSON.stringify(settings));}catch{}
+    await persistSettingsToDisk();}catch{}
 },1500);}
 // 스냅샷 파일명은 작품 폴더 이름과 무관하게 문서의 상대경로만으로 정한다(작품 이름을
 // 바꾸면 이제 폴더 이름도 함께 바뀌는데, 여기에 작품 이름이 들어가 있으면 이름을 바꿀
@@ -3730,7 +4393,7 @@ async function flushMetaAndSessionNow(){
   clearTimeout(metaTimer);clearTimeout(sessionTimer);
   try{
     await writeFile(seojaePath+'/stats.json',JSON.stringify(stats));
-    await writeFile(seojaePath+'/settings.json',JSON.stringify(settings));
+    await persistSettingsToDisk();
   }catch{}
   try{
     if(typeof captureSession==='function')captureSession();   // sessions 객체를 최신 상태로 갱신
@@ -3744,6 +4407,7 @@ async function flushMetaAndSessionNow(){
 function timeout(ms){return new Promise(res=>setTimeout(res,ms));}
 let appClosing=false;
 let imeComposing=false;
+let imeComposingStuckTimer=null;
 if(T&&T.window&&T.window.getCurrentWindow){
   let appWin;
   try{appWin=T.window.getCurrentWindow();}catch{appWin=null;}
@@ -3799,13 +4463,13 @@ document.querySelectorAll('.tb-btn').forEach(b=>{
       if(p.ref){
         p.ref.body=$('refPaneBody'+editTarget.pane).innerHTML;
         markRefDirty(editTarget.pane);
-        [0,1].forEach(j=>{if(panes[j].tab===p.ref)renderPane(j);});
+        mirrorTabToOtherViews(p.ref);
       }
     }else{
-      const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
-        clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());
-        renderPaneTabs(0);renderPaneTabs(1);
-        [0,1].forEach(j=>{if(panes[j].ref===t)renderRefPane(j);});}
+      // 일반 탭이든 문서 보기든 syncNow가 알아서 분기해서 저장·다른 화면 미러링까지 처리한다
+      // (예전엔 여기서 panes[activePane].tab만 보고 수동으로 동기화했는데, 문서 보기 중엔
+      // .tab이 null이라 서식 버튼을 눌러도 데이터에 반영이 안 되는 문제가 있었다).
+      syncNow(activePane);
     }
     updateAlignButtons();
   });
@@ -3826,14 +4490,21 @@ function applyExplicitAlign(align){
       el.style.textJustify='auto';el.style.textAlignLast=align;
     }
   };
-  const blockKids=Array.from(ed.children).filter(c=>c.nodeType===1);
+  // 문서 보기(Scrivenings)에서는 ed의 직계 자식이 '문단'이 아니라 문서 하나 전체를 감싸는
+  // .scriv-doc 래퍼다 — 그대로 ed.children을 대상으로 삼으면 선택된 문단 하나가 아니라
+  // 그 문서 전체(여러 문단 전부)에 정렬이 통째로 씌워져 버리고, 일반 탭으로 같은 문서를
+  // 열었을 때의 문단별 정렬과 어긋나 버린다(=서로 반영이 안 되는 것처럼 보이는 원인).
+  // 커서가 속한 .scriv-doc 래퍼가 있으면 그 안에서, 없으면(일반 탭) ed 자체에서 문단을 찾는다.
+  const anchorEl=sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const scope=(anchorEl&&anchorEl.closest&&anchorEl.closest('.scriv-doc'))||ed;
+  const blockKids=Array.from(scope.children).filter(c=>c.nodeType===1&&!c.classList.contains('scriv-divider'));
   let matched=false;
   blockKids.forEach(child=>{
     if(range.intersectsNode(child)){setAlign(child);matched=true;}
   });
   // <div>로 감싸이지 않은 루즈 텍스트(문서를 아직 한 번도 Enter로 나누지 않은 '첫 줄' 등)까지
-  // 걸쳐 있으면 컨테이너(.ed) 자체에도 적용해야 반영된다.
-  if(!matched&&range.intersectsNode(ed))setAlign(ed);
+  // 걸쳐 있으면 컨테이너(scope) 자체에도 적용해야 반영된다.
+  if(!matched&&range.intersectsNode(scope))setAlign(scope);
 }
 /* 커서 위치의 정렬 상태를 툴바 아이콘에 반영 */
 function updateAlignButtons(){
@@ -3852,6 +4523,21 @@ function updateAlignButtons(){
   tbAlignBtns.forEach(b=>b.classList.toggle('active',b.dataset.cmd===cmd));
 }
 document.addEventListener('selectionchange',updateAlignButtons);
+// 문서 보기 중 커서가 다른 문서로 넘어가면 '시놉시스 · 이 회차' 칸도 따라가게 한다.
+// 같은 문서 안에서 타이핑할 때마다(=선택 위치가 자주 바뀔 때마다) 매번 다시 그리지
+// 않도록, 실제로 대상 문서가 바뀐 경우에만 renderTreatment()를 호출한다.
+let lastNoteDocPath=undefined;
+document.addEventListener('selectionchange',()=>{
+  if(trMode!=='doc')return;
+  const p=panes[activePane];
+  if(!p.docView)return;   // 일반 탭/참고창은 탭 전환 시점에 이미 renderTreatment가 호출된다
+  if(!trSecs().some(s=>s.mode==='doc'))return;   // '이 회차' 칸이 하나도 없으면 계산할 필요 없음
+  const dt=curDocForNote();
+  const path=dt?dt.path:null;
+  if(path===lastNoteDocPath)return;
+  lastNoteDocPath=path;
+  renderTreatment();
+});
 /* ═══════════ 글자 색: 최근 20 + 즐겨찾기 10 ═══════════ */
 let lastSelRange=null;
 function rememberSel(){const s=getSelection();if(s&&s.rangeCount&&edSurfaceEl().contains(s.anchorNode))lastSelRange=s.getRangeAt(0).cloneRange();}
@@ -3864,12 +4550,10 @@ function applyColor(hex){
     if(p.ref){
       p.ref.body=$('refPaneBody'+editTarget.pane).innerHTML;
       markRefDirty(editTarget.pane);
-      [0,1].forEach(j=>{if(panes[j].tab===p.ref)renderPane(j);});
+      mirrorTabToOtherViews(p.ref);
     }
   }else{
-    const t=panes[activePane].tab;if(t){t.body=$('ed'+activePane).innerHTML;t.dirty=true;
-      clearTimeout(saveTimers[activePane]);saveTimers[activePane]=setTimeout(()=>saveTab(t),AS());
-      [0,1].forEach(j=>{if(panes[j].ref===t)renderRefPane(j);});}
+    syncNow(activePane);   // 일반 탭이든 문서 보기든 알아서 분기해서 저장·미러링까지 처리
   }
   $('tbColorBar').style.background=hex;$('tbColor').value=hex;
   settings.recentColors=settings.recentColors||[];
@@ -4020,11 +4704,17 @@ $('hlClearItem').addEventListener('mousedown',ev=>ev.preventDefault());
 $('hlClearItem').addEventListener('click',()=>{
   if(!hlPopCtx)return;
   const{ed,hitSpan,hasSelection,range}=hlPopCtx;
+  const spans=[];
   if(hasSelection&&range){
-    hlSpansInRange(ed,range).forEach(unwrapHlSpan);
+    spans.push(...hlSpansInRange(ed,range));
   }else if(hitSpan){
-    unwrapHlSpan(hitSpan);
+    spans.push(hitSpan);
   }
+  const t=panes[activePane].tab;
+  if(t&&t.meta&&t.meta.형광펜메모){
+    spans.forEach(sp=>{const id=sp.dataset.hlId;if(id)delete t.meta.형광펜메모[id];});
+  }
+  spans.forEach(unwrapHlSpan);
   closeHlPop();
   commitHlChange(ed);
 });
@@ -4036,19 +4726,93 @@ async function scanAllHl(){
   (function c(ns){ns.forEach(n=>{if(n.type==='file')files.push(n);else c(n.children);});})(treeData);
   const out=[];
   for(const fnode of files){
-    let body='';
+    let body='',memoMap={};
     const open=findOpenTab(fnode.path);
-    if(open)body=open.body;
-    else{try{body=parseDoc(await readFile(fnode.abs)).body;}catch{body='';}}
+    if(open){body=open.body;memoMap=open.meta.형광펜메모||{};}
+    else{try{const d=parseDoc(await readFile(fnode.abs));body=d.body;memoMap=d.meta.형광펜메모||{};}catch{body='';}}
     if(!body||body.indexOf('class="hl"')<0)continue;
     const div=document.createElement('div');div.innerHTML=body;
     div.querySelectorAll('.hl').forEach(sp=>{
-      out.push({node:fnode,color:sp.dataset.hlColor||'c1',id:sp.dataset.hlId,text:sp.textContent||''});
+      const id=sp.dataset.hlId;
+      out.push({node:fnode,color:sp.dataset.hlColor||'c1',id,text:sp.textContent||'',memo:memoMap[id]||''});
     });
   }
   return out;
 }
 function hlSnippet(txt){const s=(txt||'').replace(/\s+/g,' ').trim();return s?(s.length>24?s.slice(0,24)+'…':s):'(빈 하이라이트)';}
+async function saveHlMemo(it,text){
+  const open=findOpenTab(it.node.path);
+  if(open){
+    open.meta.형광펜메모=open.meta.형광펜메모||{};
+    if(text)open.meta.형광펜메모[it.id]=text;else delete open.meta.형광펜메모[it.id];
+    open.dirty=true;await saveTab(open);
+  }else{
+    const{meta,body}=parseDoc(await readFile(it.node.abs));
+    meta.형광펜메모=meta.형광펜메모||{};
+    if(text)meta.형광펜메모[it.id]=text;else delete meta.형광펜메모[it.id];
+    await writeFile(it.node.abs,serializeDoc({meta,body}));
+  }
+  it.memo=text||'';
+}
+function renderMemoWrap(wrap,it){
+  wrap.innerHTML='';
+  wrap.addEventListener('click',e=>e.stopPropagation());
+  wrap.addEventListener('mousedown',e=>e.stopPropagation());
+  if(!it._editing){
+    if(it.memo){
+      const disp=document.createElement('div');
+      disp.style.cssText='font-size:11px;font-style:italic;color:var(--ink-faint);margin-top:2px;cursor:pointer;';
+      const s=it.memo.replace(/\s+/g,' ').trim();
+      disp.textContent='📝 '+(s.length>40?s.slice(0,40)+'…':s);
+      disp.onclick=()=>{it._editing=true;renderMemoWrap(wrap,it);};
+      wrap.appendChild(disp);
+    }else{
+      const add=document.createElement('span');
+      add.textContent='+ 메모';
+      add.style.cssText='font-size:11px;color:var(--ink-faint);cursor:pointer;';
+      add.onclick=()=>{it._editing=true;renderMemoWrap(wrap,it);};
+      wrap.appendChild(add);
+    }
+  }else{
+    const ta=document.createElement('textarea');
+    ta.value=it.memo||'';
+    ta.style.cssText='width:100%;min-height:44px;font-size:12px;box-sizing:border-box;margin-top:2px;';
+    ta.onclick=e=>e.stopPropagation();
+    ta.onmousedown=e=>e.stopPropagation();
+    wrap.appendChild(ta);
+    const btnRow=document.createElement('div');
+    btnRow.style.cssText='display:flex;gap:6px;margin-top:4px;';
+    const saveBtn=document.createElement('button');
+    saveBtn.textContent='저장';saveBtn.className='mini-btn';
+    saveBtn.onclick=async e=>{
+      e.stopPropagation();
+      await saveHlMemo(it,ta.value.trim());
+      it._editing=false;
+      renderMemoWrap(wrap,it);
+    };
+    btnRow.appendChild(saveBtn);
+    if(it.memo){
+      const delBtn=document.createElement('button');
+      delBtn.textContent='삭제';delBtn.className='mini-btn';
+      delBtn.onclick=async e=>{
+        e.stopPropagation();
+        await saveHlMemo(it,'');
+        it._editing=false;
+        renderMemoWrap(wrap,it);
+      };
+      btnRow.appendChild(delBtn);
+    }
+    const cancelBtn=document.createElement('button');
+    cancelBtn.textContent='취소';cancelBtn.className='mini-btn';
+    cancelBtn.onclick=e=>{
+      e.stopPropagation();
+      it._editing=false;
+      renderMemoWrap(wrap,it);
+    };
+    btnRow.appendChild(cancelBtn);
+    wrap.appendChild(btnRow);
+  }
+}
 let hlListFilter=new Set();
 async function openHlList(){
   if(!curWork){toast('작품을 먼저 열어주세요');return;}
@@ -4094,7 +4858,12 @@ async function renderHlList(){
     body.appendChild(sec);
     list.forEach(it=>{
       const row=document.createElement('div');row.className='hl-list-item';
-      row.innerHTML='<span class="hl-list-doc">'+escHtml(it.node.disp||it.node.name.replace(/\.md$/,''))+'</span><span>'+escHtml(hlSnippet(it.text))+'</span>';
+      const top=document.createElement('div');top.className='hl-list-top';
+      top.innerHTML='<span class="hl-list-doc">'+escHtml(it.node.disp||it.node.name.replace(/\.md$/,''))+'</span><span>'+escHtml(hlSnippet(it.text))+'</span>';
+      row.appendChild(top);
+      const memoWrap=document.createElement('div');
+      renderMemoWrap(memoWrap,it);
+      row.appendChild(memoWrap);
       row.onclick=async()=>{
         await openDoc(it.node);
         requestAnimationFrame(()=>{
@@ -4356,6 +5125,27 @@ function curFolderAbs(){
   if(selectedFolder)return selectedFolder.abs;
   return curWork?curWork.path:null;
 }
+// '시놉시스 · 이 회차'가 대상으로 삼을 문서를 정한다. 일반 탭이면 그 탭 그대로,
+// 문서 보기(Scrivenings) 중이면 지금 커서가 들어가 있는 .scriv-doc 래퍼의 문서를 따라간다
+// (커서를 못 찾으면 문서 보기의 첫 문서로 대체).
+function curDocForNote(){
+  const p=panes[activePane];
+  if(p.tab)return p.tab;
+  if(p.docView){
+    const sel=getSelection();
+    const ed=$('ed'+activePane);
+    if(sel&&sel.rangeCount&&sel.anchorNode&&ed.contains(sel.anchorNode)){
+      const anchorEl=sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+      const wrap=anchorEl&&anchorEl.closest?anchorEl.closest('.scriv-doc'):null;
+      if(wrap){
+        const dt=p.docView.tabs.find(x=>x.path===wrap.dataset.path);
+        if(dt)return dt;
+      }
+    }
+    return p.docView.tabs[0]||null;
+  }
+  return null;
+}
 async function loadFolderSyn(abs){
   if(folderSyn.has(abs))return folderSyn.get(abs);
   let v='';try{v=await readFile(abs+'/.시놉시스.md');}catch{}
@@ -4370,7 +5160,7 @@ function saveFolderSyn(abs){
 function renderTreatment(){
   const stack=$('trStack');if(!stack)return;
   const secs=trSecs();stack.innerHTML='';
-  const t=panes[activePane].tab;
+  const t=curDocForNote();
   secs.forEach((sec,idx)=>{
     const el=document.createElement('div');el.className='note-sec';
     el.dataset.panel='tr';el.dataset.idx=idx;
@@ -4417,22 +5207,25 @@ function syncNote(src){
 }
 function wireStackResize(stackId,secs,saveFn){
   const stack=$(stackId);const items=[...stack.querySelectorAll('.note-sec')];
+  const panel=stack.closest('.panel');
+  const horiz=panel&&(panel.classList.contains('slot-top')||panel.classList.contains('slot-bottom'));
   items.forEach((el,i)=>{
     const sec=secs[i];
     el.style.flex=sec&&sec.h?('0 0 '+sec.h+'%'):'1 1 0';
-    el.style.minHeight='48px';
+    el.style.minHeight=horiz?'0':'48px';
+    el.style.minWidth=horiz?'140px':'';
     if(i<items.length-1){
-      const hr=document.createElement('div');hr.className='note-vresize';
+      const hr=document.createElement('div');hr.className='note-vresize'+(horiz?' horiz':'');
       stack.insertBefore(hr,el.nextSibling);
       hr.addEventListener('mousedown',e=>{
-        e.preventDefault();hr.classList.add('dragging');document.body.style.cursor='row-resize';
-        const a=items[i],b=items[i+1],total=stack.offsetHeight;
-        const startY=e.clientY,ha=a.offsetHeight,hb=b.offsetHeight;
-        const move=ev=>{let d=ev.clientY-startY;
-          let na=Math.max(48,ha+d),nb=Math.max(48,hb-d);
+        e.preventDefault();hr.classList.add('dragging');document.body.style.cursor=horiz?'col-resize':'row-resize';
+        const a=items[i],b=items[i+1],total=horiz?stack.offsetWidth:stack.offsetHeight;
+        const startPos=horiz?e.clientX:e.clientY,sa=horiz?a.offsetWidth:a.offsetHeight,sb=horiz?b.offsetWidth:b.offsetHeight;
+        const move=ev=>{let d=(horiz?ev.clientX:ev.clientY)-startPos;
+          let na=Math.max(48,sa+d),nb=Math.max(48,sb-d);
           a.style.flex='0 0 '+(na/total*100)+'%';b.style.flex='0 0 '+(nb/total*100)+'%';};
         const up=()=>{hr.classList.remove('dragging');document.body.style.cursor='';
-          items.forEach((it,k)=>{if(secs[k])secs[k].h=it.offsetHeight/total*100;});saveFn();
+          items.forEach((it,k)=>{if(secs[k])secs[k].h=(horiz?it.offsetWidth:it.offsetHeight)/total*100;});saveFn();
           removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
         addEventListener('mousemove',move);addEventListener('mouseup',up);
       });
@@ -4626,18 +5419,28 @@ async function saveFree(){
   if(!freeNoteDirty||!curWork)return;
   try{await writeFile(curWork.path+'/.프리노트.md',freeNote);freeNoteDirty=false;}catch{}
 }
-/* 프리 노트 ↔ 메모 높이 드래그 */
+/* 프리 노트 ↔ 메모 크기 드래그 (좌/우 배치: 높이, 상/하 배치: 폭) */
 (()=>{const vr=$('memoVResize');
 vr.addEventListener('mousedown',e=>{
   e.preventDefault();const area=$('freeArea'),memo=$('memo');
-  const startY=e.clientY,startH=area.offsetHeight,total=memo.offsetHeight;
-  vr.classList.add('dragging');document.body.style.cursor='row-resize';
-  const move=ev=>{const hpx=Math.max(60,Math.min(total-120,startH+(ev.clientY-startY)));
-    area.style.height=(hpx/total*100)+'%';};
-  const up=()=>{vr.classList.remove('dragging');document.body.style.cursor='';
-    settings.freeH=area.style.height;saveMeta();
-    removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
-  addEventListener('mousemove',move);addEventListener('mouseup',up);
+  const horiz=memo.classList.contains('slot-top')||memo.classList.contains('slot-bottom');
+  vr.classList.add('dragging');document.body.style.cursor=horiz?'col-resize':'row-resize';
+  if(horiz){
+    const startX=e.clientX,startW=area.offsetWidth,total=memo.offsetWidth;
+    const move=ev=>{const wpx=Math.max(80,Math.min(total-160,startW+(ev.clientX-startX)));
+      area.style.width=(wpx/total*100)+'%';};
+    const up=()=>{vr.classList.remove('dragging');document.body.style.cursor='';
+      removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
+    addEventListener('mousemove',move);addEventListener('mouseup',up);
+  }else{
+    const startY=e.clientY,startH=area.offsetHeight,total=memo.offsetHeight;
+    const move=ev=>{const hpx=Math.max(60,Math.min(total-120,startH+(ev.clientY-startY)));
+      area.style.height=(hpx/total*100)+'%';};
+    const up=()=>{vr.classList.remove('dragging');document.body.style.cursor='';
+      settings.freeH=area.style.height;saveMeta();
+      removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
+    addEventListener('mousemove',move);addEventListener('mouseup',up);
+  }
 });})();
 
 /* ═══════════ 새 회차/폴더/구분선 ═══════════ */
@@ -4659,7 +5462,7 @@ async function createNewDoc(){
   const base='이름 없는 문서';
   const fname=await uniqueFileName(dirAbs,base,'.md');   // 이름 없는 문서-1 형태
   const nm=fname.replace(/\.md$/,'');
-  await writeFile(dirAbs+'/'+fname,'---\n제목: '+nm+'\n목표글자수: '+(settings.defaultGoal||5000)+'\n---\n');
+  await writeFile(dirAbs+'/'+fname,'---\n제목: '+nm+'\n목표글자수: '+(settings.defaultGoal||5000)+'\n목표글자수모드: '+(settings.defaultGoalCountMode==='all'?'all':'no')+'\n---\n');
   appendToOrder(selectedFolder?selectedFolder.path:'',fname);
   await rescanTree();
   const node=findNodeByPath((selectedFolder?selectedFolder.path:'')+fname);
@@ -4761,6 +5564,7 @@ function applySettings(){
   $('setQuotes').checked=settings.replaceQuotes;
   $('setIndent').checked=!!settings.indent;
   $('setDefaultGoal').value=settings.defaultGoal||5000;
+  document.querySelectorAll('input[name="setDefaultGoalMode"]').forEach(r=>r.checked=(r.value===(settings.defaultGoalCountMode==='all'?'all':'no')));
   $('setDash').checked=settings.replaceDash!==false;
   $('setQuotePair').checked=!!settings.quotePair;
   $('setPasteFormat').value=settings.pasteFormat||'plain';
@@ -4876,6 +5680,11 @@ $('btnOpenCsLog').addEventListener('click',async()=>{
     await T.opener.openPath(dir);
   }catch(e){toast('진단 폴더를 열 수 없어요: '+e);}
 });
+$('btnViewCsLog').addEventListener('click',()=>{
+  csViewList();
+  $('csViewBg').classList.add('open');
+});
+$('csViewClose').onclick=()=>$('csViewBg').classList.remove('open');
 $('btnResetSettings').addEventListener('click',async()=>{
   const ok=await confirmBox('레이아웃과 환경설정이 모두 기본값으로 돌아가요.\n(작성하신 내용은 그대로 유지돼요.) 진행하시겠습니까?','기본값으로 되돌리기');
   if(!ok)return;
@@ -4922,7 +5731,8 @@ addEventListener('resize',fitTopbar);
 if(window.ResizeObserver){
   try{new ResizeObserver(()=>fitTopbar()).observe(document.body);}catch(e){}
 }
-const AUTO_HIDE_ORDER=['binder','treatment','memo']; // 숨김 우선순위: 바인더→시놉시스→메모, 복원은 역순
+let AUTO_HIDE_ORDER=['binder','treatment','memo']; // 숨김 우선순위: 바인더→시놉시스→메모, 복원은 역순
+                                                   // (applyWorkLayout이 좌/우에 있는 패널만 남기도록 다시 채운다)
 const AUTO_HIDE_MINW={binder:150,treatment:180,memo:170};
 const EDITOR_MINW=200;
 function panelReqWidth(key){
@@ -4968,7 +5778,117 @@ function fitPanels(){
 }
 addEventListener('resize',fitPanels);
 if(window.ResizeObserver){try{new ResizeObserver(()=>fitPanels()).observe(document.querySelector('.main'));}catch(e){}}
-addEventListener('load',fitPanels);
+addEventListener('load',()=>{applyWorkLayout();fitPanels();});
+/* ═══════════ 화면 레이아웃(시놉시스·메모 배치) ═══════════ */
+function applyWorkLayout(){
+  const map={synopsis:$('treatment'),memo:$('memo')};
+  ['synopsis','memo'].forEach(key=>{
+    const el=map[key];if(!el)return;
+    const pos=workLayout[key];
+    el.style.gridArea=pos;
+    el.classList.remove('slot-top','slot-bottom','slot-left','slot-right');
+    el.classList.add('slot-'+pos);
+  });
+  const grid=$('contentGrid');
+  if(grid)grid.classList.toggle('lr-outer',workLayout.order==='lr-outer');
+  // 반응형 자동 숨김(fitPanels)은 가로 폭 계산이라 좌/우에 있는 패널만 대상으로 삼는다 —
+  // 상/하에 놓인 패널은 가로 폭을 전혀 차지하지 않으므로 이 계산에서 아예 뺀다.
+  AUTO_HIDE_ORDER=['binder'];
+  if(workLayout.synopsis==='left'||workLayout.synopsis==='right')AUTO_HIDE_ORDER.push('treatment');
+  if(workLayout.memo==='left'||workLayout.memo==='right')AUTO_HIDE_ORDER.push('memo');
+  // 계산에서 빠진 패널이 예전에 자동 숨김 상태였다면 그대로 숨은 채 남으므로 여기서 되돌린다.
+  ['treatment','memo'].forEach(k=>{
+    if(AUTO_HIDE_ORDER.includes(k))return;
+    document.body.classList.remove('auto-hide-'+k);
+    const el=document.getElementById(k);if(el&&el.style.display==='none')el.style.display='';
+  });
+  updateCollapseIcons();
+  // 상/하 ↔ 좌/우 전환 시 시놉시스/노트+메모 안의 칸 나누기 방향도 바뀌어야 하므로 다시 그린다.
+  if(curWork){
+    if(typeof renderTreatment==='function')renderTreatment();
+    if(typeof renderMemo==='function')renderMemo();
+  }
+  renderLayoutDesigner();
+  if(typeof fitPanels==='function')fitPanels();
+}
+function updateCollapseIcons(){
+  const dir={left:'⟨',right:'⟩',top:'▲',bottom:'▼'};
+  const trBtn=document.querySelector('.collapse-btn[data-target="treatment"]');
+  if(trBtn)trBtn.textContent=dir[workLayout.synopsis]||'⟨';
+  const memoBtn=document.querySelector('.collapse-btn[data-target="memo"]');
+  if(memoBtn)memoBtn.textContent=dir[workLayout.memo]||'⟩';
+}
+async function loadWorkLayout(){
+  workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
+  try{
+    const t=await readFile(seojaePath+'/layout.json');
+    const parsed=JSON.parse(t);
+    const valid=v=>['top','bottom','left','right'].includes(v);
+    if(parsed&&valid(parsed.synopsis)&&valid(parsed.memo)&&parsed.synopsis!==parsed.memo){
+      workLayout={synopsis:parsed.synopsis,memo:parsed.memo,
+        order:parsed.order==='lr-outer'?'lr-outer':'tb-outer'};
+    }
+  }catch{}
+  applyWorkLayout();
+}
+function saveWorkLayout(){
+  if(!seojaePath)return;
+  writeFile(seojaePath+'/layout.json',JSON.stringify(workLayout)).catch(()=>{});
+}
+function renderLayoutDesigner(){
+  const root=$('layoutDesigner');if(!root)return;
+  root.classList.toggle('lr-outer',workLayout.order==='lr-outer');
+  const orderToggle=$('ldOrderToggle');
+  if(orderToggle){
+    const r=orderToggle.querySelector('input[value="'+(workLayout.order==='lr-outer'?'lr-outer':'tb-outer')+'"]');
+    if(r)r.checked=true;
+  }
+  root.querySelectorAll('.ld-zone').forEach(z=>z.innerHTML='');
+  const labels={synopsis:'🧭 시놉시스',memo:'📌 노트+메모'};
+  ['synopsis','memo'].forEach(key=>{
+    const zone=root.querySelector('.ld-zone[data-zone="'+workLayout[key]+'"]');
+    if(!zone)return;
+    const chip=document.createElement('div');
+    chip.className='ld-chip';chip.draggable=true;chip.textContent=labels[key];chip.dataset.panel=key;
+    chip.addEventListener('dragstart',e=>{
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',key);
+      chip.classList.add('dragging');
+    });
+    chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
+    zone.appendChild(chip);
+  });
+  root.querySelectorAll('.ld-zone').forEach(zone=>{
+    if(zone.dataset.ldBound)return;   // 존은 재생성되지 않으므로 리스너는 한 번만 건다
+    zone.dataset.ldBound='1';
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop',e=>{
+      e.preventDefault();zone.classList.remove('drag-over');
+      const draggedKey=e.dataTransfer.getData('text/plain');
+      if(!draggedKey||!workLayout[draggedKey])return;
+      const targetZone=zone.dataset.zone;
+      const oldZone=workLayout[draggedKey];
+      if(targetZone===oldZone)return;
+      const otherKey=draggedKey==='synopsis'?'memo':'synopsis';
+      if(workLayout[otherKey]===targetZone)workLayout[otherKey]=oldZone;   // 충돌 시 서로 자리 교환
+      workLayout[draggedKey]=targetZone;
+      applyWorkLayout();
+      saveWorkLayout();
+    });
+  });
+}
+$('layoutResetBtn').addEventListener('click',()=>{
+  workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
+  applyWorkLayout();
+  saveWorkLayout();
+});
+$('ldOrderToggle').addEventListener('change',e=>{
+  if(e.target.name!=='ldOrder')return;
+  workLayout.order=e.target.value==='lr-outer'?'lr-outer':'tb-outer';
+  applyWorkLayout();
+  saveWorkLayout();
+});
 function fitPaneStatus(){
   if(imeComposing)return;
   document.querySelectorAll('.pane-status').forEach(ps=>{
@@ -5030,16 +5950,29 @@ $('urAdd').onclick=()=>{
   $('urFrom').value='';$('urTo').value='';
 };
 $('setDefaultGoal').onchange=e=>{settings.defaultGoal=Math.max(100,+e.target.value||5000);saveMeta();};
+document.querySelectorAll('input[name="setDefaultGoalMode"]').forEach(r=>r.onchange=e=>{settings.defaultGoalCountMode=e.target.value;saveMeta();});
 $('setResetHour').onchange=e=>{settings.resetHour=Math.max(0,Math.min(23,+e.target.value||0));updateTodayChip();saveMeta();};
 $('setEllipsis').onchange=e=>{settings.replaceEllipsis=e.target.checked;saveMeta();};
 $('setQuotes').onchange=e=>{settings.replaceQuotes=e.target.checked;saveMeta();};
 $('setIndent').onchange=e=>{settings.indent=e.target.checked;applyEditorStyle();saveMeta();};
-$('focusBtn').onclick=()=>{
-  if(!panes[activePane].tab){toast('먼저 문서를 열어주세요.');return;}
-  document.body.classList.add('focus');applyGhost();
-  $('ed'+activePane).focus();
-};
-$('focusExit').onclick=()=>document.body.classList.remove('focus','ghost-pin','ghost-memo');
+// 집중 모드 On/Off를 한 곳에서만 관리한다 — 창 크기와 무관하게 화면 전체를 덮도록(스크리브너
+// 스타일) OS 레벨 전체화면(setFullscreen)도 같이 켜고 끈다. 예전엔 body에 'focus' 클래스만
+// 씌우는 CSS 트릭이라, 창이 최대화 상태가 아니면 그 창 크기만큼만 덮여서 화면 전체를
+// 덮지 못했다.
+async function setFocusMode(on){
+  if(on){
+    if(!panes[activePane].tab){toast('먼저 문서를 열어주세요.');return;}
+    document.body.classList.add('focus');applyGhost();
+    $('ed'+activePane).focus();
+  }else{
+    document.body.classList.remove('focus','ghost-tr','ghost-pin','ghost-memo');
+  }
+  try{
+    if(T&&T.window&&T.window.getCurrentWindow)await T.window.getCurrentWindow().setFullscreen(on);
+  }catch{}
+}
+$('focusBtn').onclick=()=>setFocusMode(true);
+$('focusExit').onclick=()=>setFocusMode(false);
 function applyGhost(){
   document.body.classList.toggle('ghost-pin',$('trShowToggle').checked);
   document.body.classList.toggle('ghost-memo',$('memoShowToggle').checked);
@@ -5063,6 +5996,7 @@ const SHORTCUT_DEFS=[
   {id:'highlightBrowse',label:'형광펜 모아보기',defaultKey:'Ctrl+Alt+H',fn:()=>$('hlListBtn').click()},
   {id:'newDoc',label:'새 회차 만들기 (바인더)',defaultKey:'Ctrl+N',fn:()=>{if(isEditableActive())return;createNewDoc();}},
   {id:'renameSelected',label:'이름 바꾸기 (바인더에서 선택한 회차/폴더)',defaultKey:'F2',fn:()=>{if(isEditableActive())return;renameSelectedInBinder();}},
+  {id:'insertTimestamp',label:'타임스탬프 넣기',defaultKey:'Ctrl+Alt+Shift+D',fn:()=>insertTimestamp()},
 ];
 function comboFromEvent(e){
   const parts=[];
@@ -5137,13 +6071,6 @@ addEventListener('keydown',e=>{
   e.preventDefault();
   deleteSelectedInBinder();
 },true);
-// Win+Alt+Shift+D: 브라우저 e.metaKey는 Windows 키를 의미하나, OS/Tauri 웹뷰 레벨에서 Win 키 조합이 가로채져 웹페이지까지 이벤트가 전달되지 않을 수 있음(실제 동작은 배포 환경에서 확인 필요).
-addEventListener('keydown',e=>{
-  if(e.metaKey&&e.altKey&&e.shiftKey&&e.key.toLowerCase()==='d'){
-    e.preventDefault();e.stopPropagation();
-    insertTimestamp();
-  }
-},true);
 addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if($('findBar').classList.contains('open')){findClose();return;}
@@ -5158,7 +6085,7 @@ addEventListener('keydown',e=>{
     if($('mobilePreviewBg').classList.contains('open')){$('mobilePreviewBg').classList.remove('open');return;}
     if($('confirmBg').classList.contains('open')){if(confirmResolve)confirmResolve(false);return;}
     if($('customTsBg').classList.contains('open')){$('customTsBg').classList.remove('open');return;}
-    document.body.classList.remove('focus','ghost-tr','ghost-pin','ghost-memo');
+    if(document.body.classList.contains('focus'))setFocusMode(false);
   }
   // 확인 팝업이 열려 있을 때는 Enter로도 '예'(okLabel) 버튼을 누른 것과 동일하게 동작한다.
   if(e.key==='Enter'&&$('confirmBg').classList.contains('open')){
@@ -5187,11 +6114,7 @@ addEventListener('keydown',e=>{
   }
   if(e.key==='F11'){
     e.preventDefault();
-    if(document.body.classList.contains('focus')){
-      document.body.classList.remove('focus','ghost-pin','ghost-memo');
-    }else if(panes[activePane].tab){
-      document.body.classList.add('focus');applyGhost();$('ed'+activePane).focus();
-    }
+    setFocusMode(!document.body.classList.contains('focus'));
   }
 });
 
@@ -5205,6 +6128,19 @@ document.querySelectorAll('.panel').forEach(p=>p.addEventListener('click',()=>{
 document.querySelectorAll('.resize-handle').forEach(h=>h.addEventListener('mousedown',e=>{
   e.preventDefault();const panel=$(h.dataset.panel);
   if(panel.classList.contains('collapsed'))return;
+  const horiz=panel.classList.contains('slot-top')||panel.classList.contains('slot-bottom');
+  if(horiz){
+    // 상/하 배치: 아래쪽에 놓인 손잡이(slot-top)를 아래로 끌면 커지고, 위쪽 손잡이(slot-bottom)를 위로 끌면 커진다
+    const dir=panel.classList.contains('slot-top')?1:-1,startY=e.clientY,startH=panel.offsetHeight;
+    h.classList.add('dragging');document.body.style.cursor='row-resize';
+    const move=ev=>{panel.style.height=Math.max(120,Math.min(innerHeight*0.55,startH+dir*(ev.clientY-startY)))+'px';};
+    const up=()=>{h.classList.remove('dragging');document.body.style.cursor='';
+      scheduleSession();
+      if(typeof fitPanels==='function')fitPanels();
+      removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
+    addEventListener('mousemove',move);addEventListener('mouseup',up);
+    return;
+  }
   const dir=+h.dataset.dir,startX=e.clientX,startW=panel.offsetWidth;
   h.classList.add('dragging');document.body.style.cursor='col-resize';
   const move=ev=>{panel.style.width=Math.max(150,Math.min(460,startW+dir*(ev.clientX-startX)))+'px';};
@@ -5920,11 +6856,25 @@ $('mbReplace').addEventListener('click',()=>{
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
   openReplace();
 });
-$('mbPrefs').addEventListener('click',e=>{e.stopPropagation();
-  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+function openPrefs(scope){
   applySettings();
   renderShortcutList();
-  $('prefsBg').classList.add('open');});
+  renderLayoutDesigner();
+  document.querySelectorAll('.pn-item').forEach(b=>{b.style.display=(b.dataset.scope===scope)?'':'none';});
+  const firstVisible=document.querySelector('.pn-item[data-scope="'+scope+'"]');
+  if(firstVisible){
+    document.querySelectorAll('.pn-item').forEach(b=>b.classList.remove('on'));
+    firstVisible.classList.add('on');
+    document.querySelectorAll('.prefs-cat').forEach(c=>c.style.display=(c.dataset.cat===firstVisible.dataset.cat)?'':'none');
+  }
+  $('prefsBg').classList.add('open');
+}
+$('mbPrefsCommon').addEventListener('click',e=>{e.stopPropagation();
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  openPrefs('common');});
+$('mbPrefsWork').addEventListener('click',e=>{e.stopPropagation();
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  openPrefs('work');});
 $('mbAutoSave').addEventListener('change',e=>{settings.autoSaveSec=+e.target.value;saveMeta();toast('자동 저장: '+e.target.value+'초');});
 $('mbSnapOn').addEventListener('change',e=>{settings.snapshotOn=e.target.checked;saveMeta();
   toast(e.target.checked?'백업을 켰어요':'백업을 껐어요');});
@@ -6013,11 +6963,12 @@ $('mbRenameWork').addEventListener('click',async()=>{
 // 다른 작품이 없다 — 처리 후에는 시작 화면으로 돌아간다.
 function closeCurrentWork(){
   saveCurrentWinGeom();   // curWork를 지우기 전에, 지금 창 상태를 그 작품 몫으로 먼저 기억해둔다
-  curWork=null;treeData=[];selectedFolder=null;
+  curWork=null;treeData=[];selectedFolder=null;selectedNode=null;
   setWindowWorkRegistry(null);
-  panes.forEach(pn=>{pn.tabs=[];pn.tab=null;pn.ref=null;});activePane=0;
+  panes.forEach(pn=>{pn.tabs=[];pn.tab=null;pn.ref=null;pn.docView=null;});activePane=0;
   workTreatment='';$('workName').textContent='작품 없음';fitTopbar();$('tree').innerHTML='';
   rootPath=null;seojaePath=null;snapsPath=null;trashPath=null;updateWorkIcon();
+  workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
   setAppWindowTitle(null);
   renderAllPanes();renderTreatment();renderMemo();renderWorkMenu();
   $('welcome').style.display='flex';
@@ -6657,7 +7608,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.0"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.1"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -6819,15 +7770,20 @@ $('ctxExport').addEventListener('click',()=>{
 /* ═══════════ 목표 글자수 ═══════════ */
 async function setGoal(node){
   const open=findOpenTab(node.path);
-  const cur=open?open.meta.목표글자수:(await getDocData(node)).meta.목표글자수;
-  const v=await modal('이 문서의 목표 글자수 (공백 제외)',String(cur||5000));
+  const curMeta=open?open.meta:(await getDocData(node)).meta;
+  const cur=curMeta.목표글자수,curMode=(curMeta.목표글자수모드==='all'?'all':'no');
+  document.querySelectorAll('input[name="modalGoalMode"]').forEach(r=>r.checked=(r.value===curMode));
+  $('modalGoalModeOpts').style.display='';
+  const v=await modal('이 문서의 목표 글자수',String(cur||5000));
+  const mode=document.querySelector('input[name="modalGoalMode"]:checked').value;
+  $('modalGoalModeOpts').style.display='none';
   if(!v)return;
   const goal=parseInt(v.replace(/[^0-9]/g,''))||5000;
-  if(open){open.meta.목표글자수=goal;open.dirty=true;await saveTab(open);
+  if(open){open.meta.목표글자수=goal;open.meta.목표글자수모드=mode;open.dirty=true;await saveTab(open);
     [0,1].forEach(i=>{if(panes[i].tab===open)updateCounts(i);});}
   else{
     const{meta,body}=parseDoc(await readFile(node.abs));
-    meta.목표글자수=goal;
+    meta.목표글자수=goal;meta.목표글자수모드=mode;
     await writeFile(node.abs,serializeDoc({meta,body}));
   }
   toast('목표: '+fmt(goal)+'자');
@@ -6928,13 +7884,25 @@ $('emojiReset').onclick=async()=>{
   renderTree();toast('기본 아이콘으로 되돌렸어요');
 };
 
-/* ═══════════ 집중 모드: 마우스 움직일 때만 UI 표시 ═══════════ */
-let uiTimer=null;
-addEventListener('mousemove',()=>{
+/* ═══════════ 집중 모드: 마우스가 화면 위/아래 가장자리에 갈 때만 그쪽 UI 표시 ═══════════ */
+// 예전엔 화면 아무 데서나 마우스만 움직여도(스크롤하며 읽을 때 포함) 위/아래 호버 메뉴가
+// 둘 다 튀어나와서 거슬린다는 피드백이 있었다. 이제는 마우스가 실제로 위쪽 가장자리에
+// 있을 때만 위쪽 메뉴(.focus-exit)가, 아래쪽 가장자리에 있을 때만 아래쪽 메뉴(.focus-xbar)가
+// 뜨도록 나눴다 — 화면 중앙에서 읽거나 스크롤하는 동안은 아무것도 뜨지 않는다.
+let uiTopTimer=null,uiBottomTimer=null;
+const FOCUS_HOVER_ZONE=64; // 가장자리로부터 이 픽셀 안에 들어와야 '가장자리에 있다'고 본다
+addEventListener('mousemove',e=>{
   if(!document.body.classList.contains('focus'))return;
-  document.body.classList.add('show-ui');
-  clearTimeout(uiTimer);
-  uiTimer=setTimeout(()=>document.body.classList.remove('show-ui'),2200);
+  if(e.clientY<=FOCUS_HOVER_ZONE){
+    document.body.classList.add('show-ui-top');
+    clearTimeout(uiTopTimer);
+    uiTopTimer=setTimeout(()=>document.body.classList.remove('show-ui-top'),2200);
+  }
+  if(e.clientY>=innerHeight-FOCUS_HOVER_ZONE){
+    document.body.classList.add('show-ui-bottom');
+    clearTimeout(uiBottomTimer);
+    uiBottomTimer=setTimeout(()=>document.body.classList.remove('show-ui-bottom'),2200);
+  }
 });
 
 /* ═══════════ 타자기 스크롤 ═══════════ */
@@ -7154,6 +8122,8 @@ function captureSession(){
     tabs1:panes[1].tabs.map(t=>t.path),
     cur0:panes[0].tab?panes[0].tab.path:null,
     cur1:panes[1].tab?panes[1].tab.path:null,
+    docView0:panes[0].docView?panes[0].docView.node.path:null,
+    docView1:panes[1].docView?panes[1].docView.node.path:null,
     ref0:panes[0].ref?panes[0].ref.path:null,
     ref1:panes[1].ref?panes[1].ref.path:null,
     split:splitOn,active:activePane,
@@ -7202,6 +8172,16 @@ async function restoreSession(w){
       for(const p of s.tabs1||[]){const n=findNodeByPath(p);if(n)await openDoc(n);}}
     if(s.cur0){const t=panes[0].tabs.find(t=>t.path===s.cur0);if(t)panes[0].tab=t;}
     if(s.cur1){const t=panes[1].tabs.find(t=>t.path===s.cur1);if(t)panes[1].tab=t;}
+    // 문서 보기(docView) 복원
+    for(const i of [0,1]){
+      const dp=s['docView'+i];
+      if(dp&&!panes[i].tab){
+        try{
+          const n=findNodeByPath(dp);
+          if(n)await openDocView(i,n);
+        }catch{}
+      }
+    }
     // 참고창 복원(탭이 먼저 복원된 뒤라야, 같은 문서가 탭으로도 열려 있으면 객체를 공유한다)
     if(s.ref0){const n=findNodeByPath(s.ref0);if(n)await openRefPane(0,n);}
     if(s.ref1){const n=findNodeByPath(s.ref1);if(n)await openRefPane(1,n);}
@@ -7209,6 +8189,11 @@ async function restoreSession(w){
     paneZoom(0,s.zoom0||100);paneZoom(1,s.zoom1||100);
     refPaneZoom(0,s.refZoom0||100);refPaneZoom(1,s.refZoom1||100);
     refreshUI();
+    // 저장돼 있던 바인더/시놉시스/메모 폭을 그대로 복원했는데, 그 폭이 지금 창 너비 기준으론
+    // 너무 넓을 수 있다. restoreSession을 부르는 쪽(작품 열기 등)에서 매번 따로 fitPanels()를
+    // 잊지 않고 호출해줘야 하는 구조라 계속 빠뜨려지고 재발했다 — 아예 여기서 책임지고
+    // 호출해서, restoreSession을 부르는 곳이 어디든 이 반응형 버그가 다시 생기지 않게 한다.
+    if(typeof fitPanels==='function')fitPanels();
   }catch{}
   restoring=false;
 }
@@ -7251,6 +8236,7 @@ $('workRowRename').onclick=async()=>{$('workRowCtxMenu').classList.remove('open'
 $('workRowHide').onclick=async()=>{$('workRowCtxMenu').classList.remove('open');await hideCurrentWork();};
 addEventListener('click',e=>{if(!e.target.closest('#workRowCtxMenu'))$('workRowCtxMenu').classList.remove('open');});
 (async()=>{
+  await loadCommonSettings();
   if(!window.__STORYSEED_OPEN_PATH__&&localStorage.getItem('storyseedNotice220Seen')!=='1'){
     const isLegacyUser=getRecentWorks().length>0||!!localStorage.getItem('lastLib');
     if(isLegacyUser)await showNotice220();
@@ -7386,6 +8372,43 @@ function selectImgWrap(wrap){
     syncImgPane(node);
   });
   ed.addEventListener('dragend',()=>{dragImgNode=null;});
+
+  // 텍스트 드래그: padding 빈 영역(콘텐츠 바깥)에 드롭될 때 caret-from-point 폴백으로
+  // 커서가 문서 최하단으로 튀는 브라우저 버그를 보정한다. 기존 이미지 드래그 로직과는 독립적.
+  let dragTextRange=null;
+  ed.addEventListener('dragstart',e=>{
+    const isImgDrag=e.target.classList&&e.target.classList.contains('img-wrap')||
+      (e.target.tagName==='IMG'&&e.target.closest('.img-wrap'));
+    if(isImgDrag)return;
+    const sel=window.getSelection();
+    if(sel&&!sel.isCollapsed){
+      dragTextRange=sel.getRangeAt(0).cloneRange();
+    }
+  });
+  ed.addEventListener('drop',e=>{
+    if(dragImgNode||!dragTextRange)return;
+    const cs=getComputedStyle(ed);
+    const padB=parseFloat(cs.paddingBottom)||0;
+    const r=ed.getBoundingClientRect();
+    const boundary=r.bottom-padB;
+    if(e.clientY<=boundary){
+      return; // 정상 콘텐츠 영역 → 네이티브 드래그 동작에 맡김
+    }
+    e.preventDefault();
+    const clampedY=boundary-2;
+    const dropRange=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,clampedY):null;
+    if(!dropRange){dragTextRange=null;return;}
+    const frag=dragTextRange.extractContents();
+    dropRange.insertNode(frag);
+    const sel2=getSelection();
+    sel2.removeAllRanges();
+    const after=dropRange.cloneRange();
+    after.collapse(true);
+    sel2.addRange(after);
+    clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
+    dragTextRange=null;
+  });
+  ed.addEventListener('dragend',()=>{dragTextRange=null;});
 });
 // 바깥 클릭 → 이미지 선택 해제
 addEventListener('mousedown',e=>{

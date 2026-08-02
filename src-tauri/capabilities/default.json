@@ -17,6 +17,7 @@
     "core:window:allow-outer-size",
     "core:window:allow-is-maximized",
     "core:window:allow-maximize",
+    "core:window:allow-set-fullscreen",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
