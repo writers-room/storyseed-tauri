@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.2</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.3</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -367,9 +367,13 @@
   body.focus .editor-pane{border:none !important;box-shadow:none !important;border-radius:0;background:transparent;flex:1 !important;}
   body.focus .ed{max-width:var(--focus-w,760px);margin:0;
     margin-left:calc((100% - min(var(--focus-w,760px),100%))*var(--focus-x,0.5));
-    background:var(--focus-page-bg,var(--paper));border-radius:0 0 0 0;padding:40px 40px 40vh;
+    background:var(--focus-page-bg,var(--paper));border-radius:0 0 0 0;padding:calc(40px + var(--focus-top-pad,0px)) 40px calc(40vh + var(--focus-bottom-pad,0px));
     font-size:var(--focus-size,var(--ed-size,15.5px)) !important;}
-  body.focus .ed.docview-mode{max-width:none!important;margin:0!important;margin-left:0!important;}
+  /* .ed.docview-mode{max-width:none!important}(전체보기 전용 규칙)가 !important라서 위 규칙보다
+     우선순위가 높아, 집중 모드에서도 문서 보기가 폭 제한 없이 전체 폭으로 뜨는 문제가 있었다.
+     같은 !important 강도로 다시 눌러서 집중 모드에서는 문서 보기도 일반 탭과 같은 폭을 쓰게 한다. */
+  body.focus .ed.docview-mode{max-width:var(--focus-w,760px) !important;margin:0 !important;
+    margin-left:calc((100% - min(var(--focus-w,760px),100%))*var(--focus-x,0.5)) !important;}
   body.focus .ed-scroll{padding:0;}
   .focus-exit{display:none;position:fixed;top:14px;right:16px;z-index:50;background:var(--paper);
     border:1px solid var(--sage-200);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--ink-soft);
@@ -377,13 +381,20 @@
   body.focus .focus-exit{display:flex;align-items:center;gap:10px;}
   body.focus.show-ui-top .focus-exit{opacity:1;pointer-events:auto;}
   .focus-exit label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--ink-faint);}
-  body.focus.ghost-tr .treatment{display:flex !important;position:fixed;left:0;top:0;bottom:0;width:270px;
-    z-index:40;opacity:.25;transition:opacity .25s;border-right:1px solid var(--sage-200);}
-  body.focus.ghost-tr .treatment:hover{opacity:1;}
-  body.focus.ghost-tr .treatment .collapse-btn{display:none;}
-  body.focus.ghost-pin .treatment{display:flex !important;position:fixed;left:0;top:0;bottom:0;width:270px;
-    z-index:40;opacity:1;border-right:1px solid var(--sage-200);}
-  body.focus.ghost-pin .treatment .collapse-btn{display:none;}
+  body.focus.ghost-tr #treatment,body.focus.ghost-pin #treatment{display:flex !important;position:fixed;z-index:40;}
+  body.focus.ghost-tr #treatment .collapse-btn,body.focus.ghost-pin #treatment .collapse-btn{display:none;}
+  body.focus.ghost-tr #treatment.slot-left,body.focus.ghost-pin #treatment.slot-left{
+    left:0;top:0;bottom:0;width:270px;height:auto !important;border-right:1px solid var(--sage-200);}
+  body.focus.ghost-tr #treatment.slot-right,body.focus.ghost-pin #treatment.slot-right{
+    right:0;top:0;bottom:0;width:270px;height:auto !important;border-left:1px solid var(--sage-200);}
+  body.focus.ghost-tr #treatment.slot-top,body.focus.ghost-pin #treatment.slot-top{
+    left:0;right:0;top:0;width:auto !important;height:260px;border-bottom:1px solid var(--sage-200);}
+  body.focus.ghost-tr #treatment.slot-bottom,body.focus.ghost-pin #treatment.slot-bottom{
+    left:0;right:0;bottom:0;width:auto !important;height:260px;border-top:1px solid var(--sage-200);}
+  body.focus.ghost-tr #treatment{opacity:.25;transition:opacity .25s;}
+  body.focus.ghost-tr #treatment:hover{opacity:1;}
+  body.focus.ghost-pin #treatment{opacity:1;}
+  body.focus.ghost-tr #treatment .rh-treatment,body.focus.ghost-pin #treatment .rh-treatment{display:block !important;}
   body.focus .main{filter:brightness(var(--focus-bright,1));}
   /* ── 메모 (포스트잇) ── */
   .memo{width:250px;min-width:170px;background:var(--postit);border-left:1px solid var(--postit-border);flex-shrink:0;position:relative;}
@@ -479,9 +490,17 @@
   .vresize:hover::after,.vresize.dragging::after{background:var(--sage-400);width:60px;}
   .memo-stack-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
   /* 집중 모드: 노트·메모 오른쪽 고정 */
-  body.focus.ghost-memo .memo{display:flex !important;position:fixed;right:0;top:0;bottom:0;width:300px;
-    z-index:40;opacity:1;border-left:1px solid var(--postit-border);}
-  body.focus.ghost-memo .memo .collapse-btn{display:none;}
+  body.focus.ghost-memo #memo{display:flex !important;position:fixed;z-index:40;opacity:1;}
+  body.focus.ghost-memo #memo .collapse-btn{display:none;}
+  body.focus.ghost-memo #memo.slot-right{
+    right:0;top:0;bottom:0;width:300px;height:auto !important;border-left:1px solid var(--postit-border);}
+  body.focus.ghost-memo #memo.slot-left{
+    left:0;top:0;bottom:0;width:300px;height:auto !important;border-right:1px solid var(--postit-border);}
+  body.focus.ghost-memo #memo.slot-top{
+    left:0;right:0;top:0;width:auto !important;height:260px;border-bottom:1px solid var(--postit-border);}
+  body.focus.ghost-memo #memo.slot-bottom{
+    left:0;right:0;bottom:0;width:auto !important;height:260px;border-top:1px solid var(--postit-border);}
+  body.focus.ghost-memo #memo .rh-memo{display:block !important;}
   /* ── 웰컴/모달/토스트/설정 ── */
   .overlay{position:fixed;inset:0;background:var(--sage-100);z-index:200;display:flex;align-items:center;justify-content:center;}
   .welcome{text-align:center;max-width:480px;}
@@ -1732,7 +1751,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.2";
+const APP_VERSION="beta 2.2.3";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -2156,7 +2175,8 @@ async function migrateOldProject(oldRootPath){
   // 사라지더라도(유저가 실수로 삭제하는 등) 안전하도록 별도의 완료 표시 파일
   // (.스토리시드-이관완료)도 함께 확인한다 — 둘 중 하나만 있어도 이미 이관된 것으로 본다.
   const alreadyMigrated=entries.some(en=>en.isDirectory&&en.name.startsWith('.서재-이관백업-'))
-    ||entries.some(en=>!en.isDirectory&&en.name==='.스토리시드-이관완료');
+    ||entries.some(en=>!en.isDirectory&&en.name==='.스토리시드-이관완료')
+    ||await looksFullyMigrated(oldRootPath,entries);
   if(alreadyMigrated){
     // 이미 이관된 프로젝트 폴더다. .스토리시드-프로젝트 마커는 재이관 방지를 위해 일부러
     // 지우지 않았는데, 그 때문에 이 프로젝트 루트를 나중에 다시 열면(예: 옛 즐겨찾기, 다시
@@ -2176,6 +2196,14 @@ async function migrateOldProject(oldRootPath){
     // 정상 이관 경로와 마찬가지로 전부 "최근 작품"에 고정 등록한다 — 이걸 빠뜨리면
     // openWorkAt이 첫 번째 작품만 열고 나머지는 최근 목록에 아예 안 뜨는 버그가 된다.
     already.forEach(w=>addRecentWork(w.path,w.disp||w.name,true));
+    try{
+      if(!(await FS.exists(oldRootPath+'/.스토리시드-이관완료'))){
+        await writeFile(oldRootPath+'/.스토리시드-이관완료',
+          '이 폴더는 예전 버전에서 여러 작품을 한데 모아 쓰던 프로젝트 폴더였던 것으로 보이고,\n'+
+          '하위 작품들이 이미 각자 독립된 폴더로 정리되어 있어 이관이 끝난 것으로 판단했습니다.\n'+
+          '이 파일은 스토리시드가 "이미 이관된 폴더"임을 알아보는 데 쓰는 표시라 지우지 않는 걸 권장해요.');
+      }
+    }catch{}
     // 프로젝트 루트에 남아있는 .서재-이관백업-*/.스토리시드-이관완료/.스토리시드-프로젝트도
     // 이 시점에 다시 한번 숨김 처리해둔다(윈도우 숨김 속성이 이번에 처음 생긴 기능이라,
     // 이미 예전에 이관됐던 프로젝트 루트는 아직 숨김 처리가 안 돼 있을 수 있어서).
@@ -2473,6 +2501,23 @@ async function openWorkAt(path,dispHint){
     $('workLoading').style.display='none';
   }
 }
+// rootPath 바로 밑의 (숨김 폴더 제외) 하위 폴더가 하나 이상 있고, 전부 이미 자기 .서재를
+// 갖고 있으면 true를 반환한다 — 즉 "이 폴더 자체는 옛날 통합 프로젝트 마커가 남아있어도,
+// 실제로는 하위 작품들이 전부 이미 독립적으로 정리가 끝난 상태"라는 뜻. entries는 미리
+// 읽어둔 FS.readDir 결과가 있으면 재사용하고, 없으면 새로 읽는다.
+async function looksFullyMigrated(rootPath,entries){
+  try{
+    const list=entries||await FS.readDir(rootPath);
+    const dirs=list.filter(en=>en.isDirectory&&!en.name.startsWith('.'));
+    let valid=0;
+    for(const en of dirs){
+      if(await FS.exists(rootPath+'/'+en.name+'/.hidden'))continue;   // 숨겨진 폴더(휴지통 등)는 판단 근거에서 제외
+      valid++;
+      if(!(await FS.exists(rootPath+'/'+en.name+'/.서재')))return false;
+    }
+    return valid>0;   // 판단할 유효한 하위 폴더가 하나도 없으면 근거 부족으로 false(기존 동작 유지)
+  }catch{return false;}
+}
 // 폴더가 지금 "그 자체로 하나의 작품(또는 아직 이관 전인 옛 프로젝트)"인지 판별한다.
 // .스토리시드-프로젝트 마커는 이관을 마친 뒤에도 재이관 방지용으로 영구히 남겨두기
 // 때문에(migrateOldProject 참고), 마커 유무만으로 판단하면 이미 이관이 끝나서 지금은
@@ -2497,6 +2542,17 @@ async function isWorkRoot(p){
       // 필요 없어 await하지 않는다).
       writeFile(p+'/.스토리시드-이관완료',
         '이 폴더는 예전 버전에서 여러 작품을 한데 모아 쓰던 프로젝트 폴더였고, 이미 이관을 마쳤습니다.\n'+
+        '이 파일은 스토리시드가 "이미 이관된 폴더"임을 알아보는 데 쓰는 표시라 지우지 않는 걸 권장해요.').catch(()=>{});
+      hideInternalFiles(p);
+      return false;
+    }
+    if(await looksFullyMigrated(p,entries)){
+      // 옛 프로젝트 마커는 남아있지만 하위 작품들이 이미 전부 독립적으로 정리돼 있다 —
+      // (예: 이 폴더 자체를 앱으로 연 적이 없어서 이관 완료 표시가 못 붙은 경우) 완료
+      // 표시를 지금 붙여서 다음부터는 이 판단을 다시 안 해도 되게 한다.
+      writeFile(p+'/.스토리시드-이관완료',
+        '이 폴더는 예전 버전에서 여러 작품을 한데 모아 쓰던 프로젝트 폴더였던 것으로 보이고,\n'+
+        '하위 작품들이 이미 각자 독립된 폴더로 정리되어 있어 이관이 끝난 것으로 판단했습니다.\n'+
         '이 파일은 스토리시드가 "이미 이관된 폴더"임을 알아보는 데 쓰는 표시라 지우지 않는 걸 권장해요.').catch(()=>{});
       hideInternalFiles(p);
       return false;
@@ -4096,23 +4152,23 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
   ed.addEventListener('paste',e=>{
     e.preventDefault();
     const cd=(e.clipboardData||window.clipboardData);
-    const raw=cd.getData('text/plain');
-    const rawHtml=cd.getData('text/html');
-    if(!raw&&!rawHtml){
-      const imgFile=[...(cd.files||[])].find(f=>f.type&&f.type.startsWith('image/'))
-        ||(()=>{const it=[...(cd.items||[])].find(x=>x.kind==='file'&&x.type&&x.type.startsWith('image/'));return it?it.getAsFile():null;})();
-      if(imgFile){
-        if(imgFile.size>5*1024*1024){toast('이미지는 5MB 이하로 넣어주세요');return;}
-        const reader=new FileReader();
-        reader.onload=()=>{
-          ed.focus();
-          document.execCommand('insertImage',false,reader.result);
-          clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
-        };
-        reader.readAsDataURL(imgFile);
-      }
+    const imgFile=[...(cd.files||[])].find(f=>f.type&&f.type.startsWith('image/'))
+      ||(()=>{const it=[...(cd.items||[])].find(x=>x.kind==='file'&&x.type&&x.type.startsWith('image/'));return it?it.getAsFile():null;})();
+    if(imgFile){
+      if(imgFile.size>5*1024*1024){toast('이미지는 5MB 이하로 넣어주세요');return;}
+      const savedRange=(()=>{const s=getSelection();return(s&&s.rangeCount&&ed.contains(s.anchorNode))?s.getRangeAt(0).cloneRange():null;})();
+      const reader=new FileReader();
+      reader.onload=()=>{
+        ed.focus();
+        if(savedRange){try{const s=getSelection();s.removeAllRanges();s.addRange(savedRange);}catch{}}
+        document.execCommand('insertImage',false,reader.result);
+        clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
+      };
+      reader.readAsDataURL(imgFile);
       return;
     }
+    const raw=cd.getData('text/plain');
+    const rawHtml=cd.getData('text/html');
     doPaste(i,raw,rawHtml);
   });
 });
@@ -4288,6 +4344,47 @@ $('pasteNoAsk').addEventListener('change',e=>{
     if($('setPasteAsk'))$('setPasteAsk').checked=true;
   }
 });
+// 시놉시스/노트·메모/프리노트(textarea) 전용 자동 치환. contenteditable용 autoReplaceCE와
+// 달리 selectionStart/value 기반으로 동작한다. 사용자 대치어(userRepl)는 이번 범위 밖이라
+// 넣지 않는다.
+function autoReplaceTA(ta){
+  if(ta.selectionStart!==ta.selectionEnd)return;   // 선택 영역이 있으면 건드리지 않음
+  const off=ta.selectionStart,v=ta.value;
+  if(settings.replaceEllipsis&&off>=3&&v.slice(off-3,off)==='...'){
+    ta.value=v.slice(0,off-3)+'…'+v.slice(off);
+    ta.selectionStart=ta.selectionEnd=off-2;
+    return;
+  }
+  if(settings.replaceDash!==false&&off>=2&&v.slice(off-2,off)==='--'){
+    ta.value=v.slice(0,off-2)+'—'+v.slice(off);
+    ta.selectionStart=ta.selectionEnd=off-1;
+    return;
+  }
+  if(off>=1){
+    const ch=v[off-1];
+    if(ch==='"'||ch==="'"){
+      if(settings.quotePair){
+        const pair=ch==='"'?'“”':'‘’';
+        ta.value=v.slice(0,off-1)+pair+v.slice(off);
+        ta.selectionStart=ta.selectionEnd=off;
+        return;
+      }
+      if(settings.replaceQuotes){
+        const prev=off>=2?v[off-2]:'';
+        const opening=!prev||/[\s([{「『—…]/.test(prev);
+        const rep=ch==='"'?(opening?'“':'”'):(opening?'‘':'’');
+        ta.value=v.slice(0,off-1)+rep+v.slice(off);
+        ta.selectionStart=ta.selectionEnd=off;
+      }
+    }
+  }
+}
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t&&t.tagName==='TEXTAREA'&&(t.classList.contains('note-ta')||t.classList.contains('free-ta'))){
+    autoReplaceTA(t);
+  }
+},true);
 function autoReplaceCE(){
   const sel=getSelection();if(!sel.rangeCount)return;
   const node=sel.anchorNode;if(!node||node.nodeType!==3)return;
@@ -5968,7 +6065,7 @@ $('setIndent').onchange=e=>{settings.indent=e.target.checked;applyEditorStyle();
 // 덮지 못했다.
 async function setFocusMode(on){
   if(on){
-    if(!panes[activePane].tab){toast('먼저 문서를 열어주세요.');return;}
+    if(!panes[activePane].tab&&!panes[activePane].docView){toast('먼저 문서를 열어주세요.');return;}
     document.body.classList.add('focus');applyGhost();
     $('ed'+activePane).focus();
   }else{
@@ -5980,9 +6077,30 @@ async function setFocusMode(on){
 }
 $('focusBtn').onclick=()=>setFocusMode(true);
 $('focusExit').onclick=()=>setFocusMode(false);
+// 집중 모드에서 시놉시스/메모가 상단(slot-top) 또는 하단(slot-bottom)에 떠 있을 때,
+// 그 패널의 실제 높이(사용자가 드래그로 조절했을 수도 있음)만큼 에디터 padding을 늘려서
+// 본문 텍스트가 패널 밑에 가려지지 않게 한다. 좌/우 배치는 이번 범위 밖(요청에 없음).
+function applyFocusPad(){
+  if(!document.body.classList.contains('focus'))return;
+  let topH=0,botH=0;
+  const tr=$('treatment'),mm=$('memo');
+  const trOn=document.body.classList.contains('ghost-tr')||document.body.classList.contains('ghost-pin');
+  const mmOn=document.body.classList.contains('ghost-memo');
+  if(trOn&&tr){
+    if(tr.classList.contains('slot-top'))topH+=tr.offsetHeight;
+    else if(tr.classList.contains('slot-bottom'))botH+=tr.offsetHeight;
+  }
+  if(mmOn&&mm){
+    if(mm.classList.contains('slot-top'))topH+=mm.offsetHeight;
+    else if(mm.classList.contains('slot-bottom'))botH+=mm.offsetHeight;
+  }
+  document.documentElement.style.setProperty('--focus-top-pad',topH?(topH+16)+'px':'0px');
+  document.documentElement.style.setProperty('--focus-bottom-pad',botH?(botH+16)+'px':'0px');
+}
 function applyGhost(){
   document.body.classList.toggle('ghost-pin',$('trShowToggle').checked);
   document.body.classList.toggle('ghost-memo',$('memoShowToggle').checked);
+  applyFocusPad();
 }
 $('trShowToggle').onchange=applyGhost;
 $('memoShowToggle').onchange=applyGhost;
@@ -6140,10 +6258,12 @@ document.querySelectorAll('.resize-handle').forEach(h=>h.addEventListener('mouse
     // 상/하 배치: 아래쪽에 놓인 손잡이(slot-top)를 아래로 끌면 커지고, 위쪽 손잡이(slot-bottom)를 위로 끌면 커진다
     const dir=panel.classList.contains('slot-top')?1:-1,startY=e.clientY,startH=panel.offsetHeight;
     h.classList.add('dragging');document.body.style.cursor='row-resize';
-    const move=ev=>{panel.style.height=Math.max(120,Math.min(innerHeight*0.55,startH+dir*(ev.clientY-startY)))+'px';};
+    const move=ev=>{panel.style.height=Math.max(120,Math.min(innerHeight*0.55,startH+dir*(ev.clientY-startY)))+'px';
+      if(typeof applyFocusPad==='function')applyFocusPad();};
     const up=()=>{h.classList.remove('dragging');document.body.style.cursor='';
       scheduleSession();
       if(typeof fitPanels==='function')fitPanels();
+      if(typeof applyFocusPad==='function')applyFocusPad();
       removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
     addEventListener('mousemove',move);addEventListener('mouseup',up);
     return;
@@ -6734,6 +6854,26 @@ $('mbSave').addEventListener('click',()=>{saveAll();toast('저장했어요');});
 /* ═══════════ 편집 메뉴 ═══════════ */
 // 메뉴 클릭 시 활성 문서(contentEditable)로 포커스를 되돌려준 뒤 execCommand를 실행해야
 // 실제로 편집 중이던 문서에 명령이 먹는다(메뉴 클릭으로 포커스가 빠져나가 있기 때문).
+// 메뉴 클릭이나 OS 파일 대화상자처럼 에디터가 일시적으로 포커스를 잃는 동작 이후에도
+// "커서가 있던 자리"에 정확히 삽입할 수 있도록, 두 pane의 마지막 캐럿 위치를 계속 기억해둔다.
+const lastCaretRange=[null,null];
+document.addEventListener('selectionchange',()=>{
+  const sel=getSelection();
+  if(!sel||!sel.rangeCount)return;
+  const node=sel.anchorNode;if(!node)return;
+  for(const i of [0,1]){
+    const ed=$('ed'+i);
+    if(ed&&ed.contains(node)){lastCaretRange[i]=sel.getRangeAt(0).cloneRange();break;}
+  }
+});
+function restoreCaret(i){
+  const ed=$('ed'+i);if(!ed)return;
+  ed.focus();
+  const r=lastCaretRange[i];
+  if(r){
+    try{const sel=getSelection();sel.removeAllRanges();sel.addRange(r);}catch{}
+  }
+}
 function mbFocusEditor(){const ed=$('ed'+activePane);if(ed)ed.focus();}
 // 실행취소/다시 실행이 일어난 위치로 스크롤을 따라가게 해서, 어디가 바뀌었는지 눈으로
 // 바로 확인할 수 있게 한다(3번). 찾기 스크롤과 같은 방식 — 커서(Range)의 화면 좌표를 직접
@@ -6776,7 +6916,7 @@ $('mbInsertImage').addEventListener('click',async()=>{
     const mime=ext==='png'?'image/png':ext==='gif'?'image/gif':ext==='webp'?'image/webp':'image/jpeg';
     const dataUrl='data:'+mime+';base64,'+bytesToBase64(data);
     const i=activePane;
-    mbFocusEditor();
+    restoreCaret(i);
     document.execCommand('insertImage',false,dataUrl);
     clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
   }catch(e){toast('이미지를 불러올 수 없어요: '+e);}
@@ -7615,7 +7755,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.2"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.3"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';

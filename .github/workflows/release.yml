@@ -56,8 +56,8 @@ jobs:
           releaseName: "스토리시드 ${{ github.ref_name }}"
           releaseBody: |
             - 작품 관리 방식 변경(2.2.0부터)
-            - 화면 레이아웃 변경 기능 추가
             - 집중 모드(F11) 개선
+            - 이미지 붙여넣기 기능 개선
             - 일부 아이콘 및 UI/UX 개선
             - 기타 각종 버그 수정
           releaseDraft: false
