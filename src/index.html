@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.3</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.4</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -23,6 +23,8 @@
     --hl-c1:#5a3232; --hl-c2:#5f4a2c; --hl-c3:#5c552d; --hl-c4:#34502e; --hl-c5:#2c554f; --hl-c6:#30496a; --hl-c7:#4a3a5c;
   }
   @font-face{font-family:'RIDIBatang';src:url('fonts/RIDIBatang.otf') format('opentype');font-display:swap;}
+  @font-face{font-family:'NanumMyeongjo';src:url('fonts/NanumMyeongjo.ttf') format('truetype');font-display:swap;}
+  @font-face{font-family:'NanumGothic';src:url('fonts/NanumGothic.ttf') format('truetype');font-display:swap;}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     background:var(--sage-100);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:14px;}
@@ -217,9 +219,6 @@
   .color-pop .cp-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;}
   .color-pop .cp-sw{width:100%;aspect-ratio:1;border-radius:4px;border:1px solid rgba(0,0,0,.12);cursor:pointer;}
   .color-pop .cp-sw.empty{background:repeating-linear-gradient(45deg,var(--sage-100),var(--sage-100) 3px,var(--sage-200) 3px,var(--sage-200) 6px);}
-  .toolbar .split-btn{margin-left:auto;font-size:11.5px;border:1px solid var(--sage-200);
-    background:var(--paper);border-radius:7px;padding:4px 10px;color:var(--ink-soft);cursor:pointer;flex-shrink:0;}
-  .split-btn.active{background:var(--sage-300);color:var(--ink);}
   .split-wrap{flex:1;display:flex;overflow:hidden;padding:8px 10px 10px;}
   .editor-pane{flex:1;background:var(--paper);border:1px solid var(--sage-200);border-radius:var(--radius);
     display:flex;flex-direction:column;min-width:0;overflow:hidden;}
@@ -420,7 +419,7 @@
   .content-grid>#memo{grid-area:right;}
   #treatment.slot-top,#treatment.slot-bottom,#memo.slot-top,#memo.slot-bottom{
     width:auto !important;height:260px;min-height:120px;max-height:55vh;flex-shrink:0;}
-  #treatment.slot-left,#treatment.slot-right,#memo.slot-left,#memo.slot-right{height:auto !important;}
+  #treatment.slot-left,#treatment.slot-right,#memo.slot-left,#memo.slot-right{height:auto !important;max-width:460px;}
   /* 좌/우 배치: 세로 리사이즈 손잡이(폭 드래그) */
   #treatment.slot-left .rh-treatment,#treatment.slot-right .rh-treatment,
   #memo.slot-left .rh-memo,#memo.slot-right .rh-memo{
@@ -910,12 +909,13 @@
 <div class="topbar">
   <div class="logo">스토리시드<span>.</span> <span style="font-size:10px;color:var(--accent);font-weight:600;border:1px solid var(--sage-200);border-radius:8px;padding:1px 6px">beta</span></div>
   <div class="top-divider"></div>
-  <div class="work-switcher" id="workSwitcher"><span id="workIcon">📚</span> <b id="workName">작품 없음</b> <span class="work-arrow">▾</span>
+  <div class="work-switcher" id="workSwitcher"><b id="workName">작품 없음</b> <span class="work-arrow">▾</span>
     <div class="work-menu" id="workMenu"></div>
   </div>
   <div class="spacer"></div>
   <div class="stat-chip" id="workStat">오늘 작업량 <b id="todayChars">작성 0자</b> <span class="del" id="todayDel"></span></div>
   <button class="icon-btn" id="manuscriptOnlyBtn" title="원고만 보기"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></button>
+  <button class="icon-btn" id="splitBtn" title="화면 분할"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></button>
   <button class="icon-btn" id="tbToggle" title="서식 툴바 보이기/숨기기"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14"/><path d="M12 6v12"/><path d="M5 4.7v2.6"/><path d="M19 4.7v2.6"/><path d="M9.3 18h5.4"/></svg></button>
   <button class="icon-btn" id="mobilePreviewBtn" title="모바일 미리보기"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
   <button class="icon-btn" id="focusBtn" title="집중 모드"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg></button>
@@ -1027,7 +1027,6 @@
       <button class="tb-btn tb-align" data-cmd="justifyLeft" title="왼쪽 정렬"><svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"><rect x="2" y="4" width="16" height="2"/><rect x="2" y="9" width="10" height="2"/><rect x="2" y="14" width="13" height="2"/></svg></button>
       <button class="tb-btn tb-align" data-cmd="justifyCenter" title="가운데 정렬"><svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"><rect x="2" y="4" width="16" height="2"/><rect x="5" y="9" width="10" height="2"/><rect x="3.5" y="14" width="13" height="2"/></svg></button>
       <button class="tb-btn tb-align" data-cmd="justifyRight" title="오른쪽 정렬"><svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"><rect x="2" y="4" width="16" height="2"/><rect x="8" y="9" width="10" height="2"/><rect x="5" y="14" width="13" height="2"/></svg></button>
-      <button class="split-btn" id="splitBtn">⫲ 분할</button>
     </div>
     <div class="split-wrap">
       <div class="editor-pane" id="paneEl0" data-pane="0">
@@ -1576,7 +1575,7 @@ function normPath(path){return (path||'').replace(/\\/g,'/').toLowerCase();}
 async function setAppWindowTitle(name){
   try{
     if(T&&T.window&&T.window.getCurrentWindow){
-      await T.window.getCurrentWindow().setTitle(name?(name+' — 스토리시드'):'스토리시드');
+      await T.window.getCurrentWindow().setTitle(name?(name+' — 스토리시드 Beta'):'스토리시드 Beta');
     }
   }catch{}
 }
@@ -1598,6 +1597,18 @@ function setWorkWinGeom(path,g){
     localStorage.setItem('workWinGeom',JSON.stringify(map));
   }catch{}
 }
+// 저장된 창 좌표가 지금 화면(주 모니터 기준) 안에 최소한 일부라도 걸쳐 있는지 대략 검사한다.
+// 완전히 화면 밖으로 나가 있으면(연결 해제된 외부 모니터 좌표, 해상도 변경 후 남은 값 등)
+// 그 좌표를 쓰지 않고 기본 위치로 대체해서, 창이 어디에도 안 보이는 사고를 막는다.
+function posLooksOnScreen(x,y,w,h){
+  try{
+    const sw=window.screen.width||1920,sh=window.screen.height||1080;
+    const margin=80;   // 최소 이 정도는 화면 안에 걸쳐 있어야 "보인다"고 인정
+    if(x+w<margin||y+h<margin)return false;
+    if(x>sw-margin||y>sh-margin)return false;
+    return true;
+  }catch{return true;}
+}
 async function applyWindowGeomFor(path){
   if(!T||!T.window||!T.window.getCurrentWindow)return;
   let appWin;try{appWin=T.window.getCurrentWindow();}catch{return;}
@@ -1610,8 +1621,13 @@ async function applyWindowGeomFor(path){
         else await appWin.setSize({width:Math.round(g.w),height:Math.round(g.h)});
       }
       if(typeof g.x==='number'&&typeof g.y==='number'){
-        if(T.window.PhysicalPosition)await appWin.setPosition(new T.window.PhysicalPosition(Math.round(g.x),Math.round(g.y)));
-        else await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});
+        const w2=g.w>200?g.w:1320,h2=g.h>200?g.h:840;
+        if(posLooksOnScreen(g.x,g.y,w2,h2)){
+          if(T.window.PhysicalPosition)await appWin.setPosition(new T.window.PhysicalPosition(Math.round(g.x),Math.round(g.y)));
+          else await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});
+        }else{
+          await appWin.center().catch(()=>{});
+        }
       }
       if(g.max)await appWin.maximize();
       return;
@@ -1669,7 +1685,8 @@ const BASE_FONTS=[
   ["리디바탕","'RIDIBatang','Noto Serif KR','Apple SD Gothic Neo',serif"],
   ["명조","'Noto Serif KR','Apple SD Gothic Neo',serif"],
   ["고딕","'Pretendard','Apple SD Gothic Neo',sans-serif"],
-  ["나눔고딕","'Nanum Gothic',sans-serif"],
+  ["나눔명조","'NanumMyeongjo','Noto Serif KR','Apple SD Gothic Neo',serif"],
+  ["나눔고딕","'NanumGothic','Apple SD Gothic Neo',sans-serif"],
   ["고정폭","monospace"]
 ];
 let rootPath=null,seojaePath=null,snapsPath=null,trashPath=null;
@@ -1751,7 +1768,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.3";
+const APP_VERSION="beta 2.2.4";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -4548,6 +4565,13 @@ if(T&&T.window&&T.window.getCurrentWindow){
         // (location.reload()는 쓰지 않는다 — 창은 그대로 남은 채 화면만 새로고침돼
         //  "프로젝트만 닫히고 앱은 안 닫히는" 것처럼 보이는 원인이었음)
     });
+    // 창을 닫을 때뿐 아니라 옮기거나 크기를 바꿀 때도 디바운스로 위치를 저장해둔다 —
+    // 비정상 종료(강제 종료 등)로 onCloseRequested가 못 도는 경우에도 마지막 위치를
+    // 최대한 놓치지 않기 위함.
+    let geomSaveTimer=null;
+    const scheduleGeomSave=()=>{clearTimeout(geomSaveTimer);geomSaveTimer=setTimeout(()=>{saveCurrentWinGeom();},800);};
+    try{appWin.onMoved(()=>scheduleGeomSave());}catch{}
+    try{appWin.onResized(()=>scheduleGeomSave());}catch{}
   }
 }
 
@@ -5984,8 +6008,11 @@ function renderLayoutDesigner(){
 }
 $('layoutResetBtn').addEventListener('click',()=>{
   workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
+  $('treatment').style.width='';$('treatment').style.height='';
+  $('memo').style.width='';$('memo').style.height='';
   applyWorkLayout();
   saveWorkLayout();
+  if(typeof scheduleSession==='function')scheduleSession();
 });
 $('ldOrderToggle').addEventListener('change',e=>{
   if(e.target.name!=='ldOrder')return;
@@ -6268,7 +6295,15 @@ document.querySelectorAll('.resize-handle').forEach(h=>h.addEventListener('mouse
     addEventListener('mousemove',move);addEventListener('mouseup',up);
     return;
   }
-  const dir=+h.dataset.dir,startX=e.clientX,startW=panel.offsetWidth;
+  // 좌/우 배치: 시놉시스/메모처럼 slot-left/slot-right 클래스가 붙는 패널은 실제로 어느
+  // 쪽에 있는지에 따라 드래그 방향이 반대여야 한다(위치를 서로 바꾸면 손잡이는 CSS로 잘
+  // 옮겨가는데 방향은 안 바뀌던 버그). 반면 바인더는 slot 클래스가 아예 없는 항상-왼쪽
+  // 고정 패널이라, slot 클래스 유무로 분기해서 바인더는 원래대로 data-dir(항상 1)를 쓰고
+  // 시놉시스/메모만 실제 위치를 보고 방향을 정한다 — 안 그러면 slot-left가 아니라는
+  // 이유만으로 바인더가 항상 -1(반대 방향)로 계산되는 회귀가 생긴다.
+  const hasSlot=panel.classList.contains('slot-left')||panel.classList.contains('slot-right');
+  const dir=hasSlot?(panel.classList.contains('slot-left')?1:-1):+h.dataset.dir;
+  const startX=e.clientX,startW=panel.offsetWidth;
   h.classList.add('dragging');document.body.style.cursor='col-resize';
   const move=ev=>{panel.style.width=Math.max(150,Math.min(460,startW+dir*(ev.clientX-startX)))+'px';};
   const up=()=>{h.classList.remove('dragging');document.body.style.cursor='';
@@ -6282,7 +6317,7 @@ function applySplit(on,quiet){
   document.body.classList.toggle('split',splitOn);
   $('paneEl1').style.display=splitOn?'flex':'none';
   $('splitHandle').style.display=splitOn?'flex':'none';
-  $('splitBtn').classList.toggle('active',splitOn);
+  $('splitBtn').classList.toggle('on',splitOn);
   if(splitOn){
     if(lastSplitPane===1){
       // 분할 해제 때 오른쪽→왼쪽으로 옮겨뒀던 내용을 다시 오른쪽으로 되돌린다
@@ -6897,14 +6932,14 @@ function scrollToCaret(i){
     scroller.scrollTop+=Math.round((rect.top+rect.bottom)/2-(sRect.top+sRect.bottom)/2);
   }
 }
-$('mbUndo').addEventListener('click',()=>{mbFocusEditor();document.execCommand('undo');scrollToCaret(activePane);});
-$('mbRedo').addEventListener('click',()=>{mbFocusEditor();document.execCommand('redo');scrollToCaret(activePane);});
-$('mbCut').addEventListener('click',()=>{mbFocusEditor();document.execCommand('cut');});
-$('mbCopy').addEventListener('click',()=>{mbFocusEditor();document.execCommand('copy');});
-$('mbPaste').addEventListener('click',()=>{mbFocusEditor();document.execCommand('paste');});
-$('mbDelete').addEventListener('click',()=>{mbFocusEditor();document.execCommand('delete');});
-$('mbSelectAll').addEventListener('click',()=>{mbFocusEditor();document.execCommand('selectAll');});
-$('mbClearFormat').addEventListener('click',()=>{mbFocusEditor();document.execCommand('removeFormat');});
+$('mbUndo').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('undo');scrollToCaret(activePane);});
+$('mbRedo').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('redo');scrollToCaret(activePane);});
+$('mbCut').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('cut');});
+$('mbCopy').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('copy');});
+$('mbPaste').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('paste');});
+$('mbDelete').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('delete');});
+$('mbSelectAll').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('selectAll');});
+$('mbClearFormat').addEventListener('click',()=>{mbFocusEditor();restoreSel();document.execCommand('removeFormat');});
 $('mbInsertImage').addEventListener('click',async()=>{
   document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
   try{
@@ -7755,7 +7790,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.3"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.4"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';

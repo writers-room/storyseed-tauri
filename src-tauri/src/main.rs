@@ -105,7 +105,7 @@ async fn open_work_window(
             let mut win_config = tauri::utils::config::WindowConfig::default();
             win_config.label = label_main.clone();
             win_config.url = webview_url;
-            win_config.title = "스토리시드".into();
+            win_config.title = "스토리시드 Beta".into();
             win_config.width = 1320.0;
             win_config.height = 840.0;
             win_config.min_width = Some(400.0);
