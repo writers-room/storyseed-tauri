@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.4</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.5</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -99,7 +99,10 @@
   body.auto-hide-memo .memo,body.auto-hide-memo .rh-memo{display:none !important;}
   .mobile-preview{background:var(--paper);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:92vh;}
   .mp-toolbar{display:flex;align-items:center;gap:6px;}
-  .mp-font{flex:1;min-width:0;font-size:11px;padding:3px 4px;border:1px solid var(--sage-200);border-radius:6px;background:var(--paper);color:var(--ink);}
+  .mp-subtoolbar{display:none;flex-wrap:wrap;row-gap:6px;}
+  .mp-subtoolbar.open{display:flex;}
+  .mp-sublabel{flex-shrink:0;font-size:11px;color:var(--ink-faint);margin-right:-2px;}
+  .mp-font{flex:1;min-width:0;max-width:88px;font-size:11px;padding:3px 4px;border:1px solid var(--sage-200);border-radius:6px;background:var(--paper);color:var(--ink);}
   .mp-btn{flex-shrink:0;width:26px;height:26px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:1px solid var(--sage-200);border-radius:6px;background:var(--paper);color:var(--ink-soft);cursor:pointer;padding:0;font-size:14px;line-height:1;}
   .mp-btn:hover{color:var(--ink);}
   .mp-btn.on{background:var(--sage-300);color:var(--ink);}
@@ -111,8 +114,9 @@
   .mp-screen{width:100%;height:100%;overflow-y:auto;padding:28px 20px;box-sizing:border-box;}
   .mp-screen.paged{overflow:hidden;scroll-behavior:smooth;padding-top:36px;padding-bottom:60px;}
   .mp-text{font-family:var(--mp-font,var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif));
-    font-size:var(--mp-size,16px);line-height:1.9;color:var(--ink);
+    font-size:var(--mp-size,16px);line-height:var(--mp-line,1.9);color:var(--ink);
     text-align:justify;text-justify:inter-character;overflow-wrap:break-word;}
+  .mp-text>div,.mp-text>p{margin-bottom:var(--mp-para,0px);}
   .mp-text.indent div,.mp-text.indent p{text-indent:1em;}
   .mp-pagenav{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:none;gap:10px;align-items:center;background:rgba(0,0,0,.35);border-radius:20px;padding:5px 10px;z-index:5;}
   .mp-phone.paged .mp-pagenav{display:flex;}
@@ -199,6 +203,8 @@
   body.no-toolbar .toolbar{display:none;}
   .toolbar select{border:1px solid var(--sage-200);background:var(--paper);color:var(--ink-soft);
     border-radius:6px;font-size:11.5px;padding:3px 4px;max-width:130px;}
+  #tbFont{max-width:96px;}
+  #tbFormat{max-width:158px;}
   .tb-btn{min-width:26px;height:26px;border:none;border-radius:6px;background:transparent;color:var(--ink-soft);
     cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0 5px;}
   .tb-btn:hover{background:var(--sage-200);}
@@ -362,7 +368,7 @@
   body.focus .ref-pane{display:none !important;}
   body.focus .editor-pane:not(.pane-active){display:none !important;}
   body.focus .main,body.focus .editor-area{background:var(--sage-100);}
-  body.focus .split-wrap{padding:0;background:var(--focus-bg,transparent);}
+  body.focus .split-wrap{padding:0 var(--focus-right-pad,0px) 0 var(--focus-left-pad,0px);background:var(--focus-bg,transparent);}
   body.focus .editor-pane{border:none !important;box-shadow:none !important;border-radius:0;background:transparent;flex:1 !important;}
   body.focus .ed{max-width:var(--focus-w,760px);margin:0;
     margin-left:calc((100% - min(var(--focus-w,760px),100%))*var(--focus-x,0.5));
@@ -536,6 +542,11 @@
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:300;display:none;align-items:center;justify-content:center;}
   .modal-bg.open{display:flex;}
   #csViewBg{z-index:310;}
+  /* confirmBox()는 다른 모달(메모 휴지통 모달 등) 위에서 "정말 지울까요?" 같은 확인창으로
+     쓰이는 경우가 많다 — .modal-bg 기본 z-index(300)만으로는 먼저 열려있던 모달과 같은
+     층이라 DOM 순서상 뒤에 나온 모달에 가려져 화면엔 안 보이는데 뒤에서 계속 떠있는 채로
+     클릭도 안 먹는(=먹통처럼 보이는) 버그가 있었다. 항상 최상단에 뜨게 고정한다. */
+  #confirmBg{z-index:700;}
   .modal{background:var(--paper);border-radius:14px;padding:22px;min-width:min(320px,92vw);
     max-width:94vw;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.2);}
   .modal h3{font-size:14px;margin-bottom:12px;color:var(--ink);}
@@ -984,20 +995,7 @@
   <section class="editor-area">
     <div class="toolbar" id="toolbar">
       <select id="tbFont" title="폰트"></select>
-      <select id="tbSize" title="글자 크기">
-        <option>12</option><option>13</option><option>14</option><option>15</option><option selected>15.5</option>
-        <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
-        <option>22</option><option>24</option><option>26</option><option>28</option>
-        <option value="__custom">직접 입력…</option>
-      </select>
-      <select id="tbLine" title="줄 간격">
-        <option value="1.6">줄 1.6</option><option value="1.8">줄 1.8</option>
-        <option value="2" selected>줄 2.0</option><option value="2.2">줄 2.2</option><option value="2.4">줄 2.4</option>
-      </select>
-      <select id="tbPara" title="문단 간격">
-        <option value="0px" selected>문단 0</option><option value="4px">문단 4</option>
-        <option value="8px">문단 8</option><option value="14px">문단 14</option>
-      </select>
+      <select id="tbFormat" title="글자 서식 (크기·줄간격·문단간격)"></select>
       <select id="tbWidthSel" title="원고 가로폭 (에디터 영역의 몇 %를 사용할지)">
         <option value="100">폭 100%</option><option value="90">폭 90%</option>
         <option value="80">폭 80%</option><option value="75">폭 75%</option>
@@ -1291,7 +1289,7 @@
             <option value="10">10분</option><option value="30">30분</option><option value="60">60분</option></select></div>
         </div>
         <div class="prefs-cat" data-cat="theme" style="display:none">
-          <div style="font-size:12px;color:var(--ink-faint);margin-bottom:4px">색 20종 · 어두운 테마(미드나잇~다크코코아)는 고르면 다크 모드로 전환돼요</div>
+          <div style="font-size:12px;color:var(--ink-faint);margin-bottom:4px">색 35종 · 어두운 테마(미드나잇~다크코코아, 목록 맨 아래 🌙 표시)는 고르면 다크 모드로 전환돼요</div>
           <div class="theme-grid" id="themeGrid"></div>
         </div>
         <div class="prefs-cat" data-cat="goal" style="display:none">
@@ -1477,6 +1475,20 @@
     <div class="btns"><button class="cancel" id="confirmNo">취소</button><button class="ok" id="confirmYes">확인</button></div>
   </div>
 </div>
+<div class="modal-bg" id="formatCustomBg">
+  <div class="modal" style="min-width:280px">
+    <h3 style="margin:0 0 14px">서식 직접 입력</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px">글자 크기(px)
+        <input type="number" id="fcSize" step="0.5" min="8" max="60" style="width:100px;padding:5px 8px;border:1px solid var(--sage-200);border-radius:6px"></label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px">줄 간격
+        <input type="number" id="fcLine" step="0.1" min="1" max="4" style="width:100px;padding:5px 8px;border:1px solid var(--sage-200);border-radius:6px"></label>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:10px">문단 간격(px)
+        <input type="number" id="fcPara" step="1" min="0" max="60" style="width:100px;padding:5px 8px;border:1px solid var(--sage-200);border-radius:6px"></label>
+    </div>
+    <div class="btns" style="margin-top:16px"><button class="cancel" id="fcCancel">취소</button><button class="ok" id="fcOk">적용</button></div>
+  </div>
+</div>
 <div class="modal-bg" id="customTsBg">
   <div class="modal" style="width:min(420px,92vw)">
     <h3>커스텀 타임스탬프</h3>
@@ -1501,7 +1513,7 @@
 <!-- 다른 회차 메모 선택 -->
 <div class="modal-bg" id="memoPickBg">
   <div class="big-modal" style="width:min(620px,92vw)">
-    <h3>다른 회차의 메모 불러오기<span id="memoTrashBtn" title="메모 휴지통" style="cursor:pointer;margin-left:auto;margin-right:10px;font-size:15px">🗑</span><span class="close" id="memoPickClose">✕</span></h3>
+    <h3>다른 회차의 메모 불러오기<button id="memoTrashBtn" title="메모 휴지통" style="cursor:pointer;margin-left:auto;margin-right:10px;font-size:12px;border:1px solid #d8b3a5;border-radius:7px;padding:4px 10px;color:#a4553f;background:var(--paper)">🗑 휴지통 보기</button><span class="close" id="memoPickClose">✕</span></h3>
     <input class="emoji-search" id="memoPickSearch" placeholder="회차 제목 또는 메모 내용 검색" style="margin-bottom:8px">
     <div class="ver-layout" id="memoPickMainLayout">
       <div class="ver-list" id="pickDocs"></div>
@@ -1537,8 +1549,19 @@
       <button class="mp-btn" id="mpSizeDown" title="글자 작게">−</button>
       <span class="mp-sizeval" id="mpSizeVal">16</span>
       <button class="mp-btn" id="mpSizeUp" title="글자 크게">＋</button>
-      <button class="mp-btn" id="mpModeBtn" title="페이지식/스크롤식 전환"><svg viewBox="0 0 16 16"><path d="M3 2h8v11H3z"/><path d="M5 5h11v11H5z"/></svg></button>
+      <button class="mp-btn" id="mpModeBtn" title="페이지식/스크롤식 전환"><svg viewBox="0 0 16 16"><rect x="3" y="2" width="8" height="11" rx="1.2"/><path d="M13 4v9a1 1 0 0 1-1 1H6"/></svg></button>
+      <button class="mp-btn" id="mpViewSettingsBtn" title="보기 설정 (줄간격·문단간격)"><svg viewBox="0 0 16 16"><path d="M2 4h12"/><path d="M2 8h12"/><path d="M2 12h8"/></svg></button>
       <span class="mp-close" id="mpCloseBtn" title="닫기">✕</span>
+    </div>
+    <div class="mp-toolbar mp-subtoolbar" id="mpSubToolbar">
+      <span class="mp-sublabel">줄간격</span>
+      <button class="mp-btn" id="mpLineDown" title="줄간격 좁게">−</button>
+      <span class="mp-sizeval" id="mpLineVal">1.9</span>
+      <button class="mp-btn" id="mpLineUp" title="줄간격 넓게">＋</button>
+      <span class="mp-sublabel">문단간격</span>
+      <button class="mp-btn" id="mpParaDown" title="문단간격 좁게">−</button>
+      <span class="mp-sizeval" id="mpParaVal">0</span>
+      <button class="mp-btn" id="mpParaUp" title="문단간격 넓게">＋</button>
     </div>
     <div class="mp-phone" id="mpPhone">
       <div class="mp-screen" id="mpScreen"><div class="mp-text indent" id="mpText"></div></div>
@@ -1690,11 +1713,39 @@ const BASE_FONTS=[
   ["고정폭","monospace"]
 ];
 let rootPath=null,seojaePath=null,snapsPath=null,trashPath=null;
+const FORMAT_TEMPLATES=[
+  {label:'기본 (15.5/줄2.0/문단0)',size:'15.5',line:'2',para:'0px'},
+  {label:'빽빽하게 (14/줄1.6/문단0)',size:'14',line:'1.6',para:'0px'},
+  {label:'여유있게 (16/줄2.4/문단8)',size:'16',line:'2.4',para:'8px'},
+  {label:'출판용 (15/줄1.8/문단4)',size:'15',line:'1.8',para:'4px'},
+];
+function renderFormatSelect(){
+  const sel=$('tbFormat');if(!sel)return;
+  sel.innerHTML='';
+  FORMAT_TEMPLATES.forEach((t,i)=>{
+    const o=document.createElement('option');o.value='tpl:'+i;o.textContent=t.label;sel.appendChild(o);
+  });
+  (settings.formatHistory||[]).forEach((h,i)=>{
+    const o=document.createElement('option');o.value='hist:'+i;
+    o.textContent=h.size+'/줄'+h.line+'/문단'+parseFloat(h.para);
+    sel.appendChild(o);
+  });
+  const custom=document.createElement('option');custom.value='__custom';custom.textContent='직접 입력…';
+  sel.appendChild(custom);
+  const matchIdx=FORMAT_TEMPLATES.findIndex(t=>t.size===String(settings.size)&&t.line===String(settings.line)&&t.para===String(settings.para));
+  if(matchIdx>=0){sel.value='tpl:'+matchIdx;return;}
+  const histIdx=(settings.formatHistory||[]).findIndex(h=>h.size===String(settings.size)&&h.line===String(settings.line)&&h.para===String(settings.para));
+  if(histIdx>=0){sel.value='hist:'+histIdx;return;}
+  const cur=document.createElement('option');cur.value='__current';
+  cur.textContent='현재: '+settings.size+'/줄'+settings.line+'/문단'+parseFloat(settings.para);
+  sel.insertBefore(cur,custom);
+  sel.value='__current';
+}
 // 6번(모든 설정 기본값으로)에서도 재사용하기 위해, 초기 기본값을 함수로 뽑아뒀다 —
 // 호출할 때마다 새 객체를 반환하니 재설정 시에도 이전 값이 참조로 섞여 남지 않는다.
 function defaultSettings(){
   return {dark:false,resetHour:4,replaceEllipsis:true,replaceQuotes:true,indent:false,
-    toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',
+    toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',formatHistory:[],
     autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',refPaneH:200,
     replaceDash:true,quotePair:false,pasteAsk:true,
     uiScale:100,showWritten:true,showDeleted:false,edPadBottom:0,alignDefault:'justify',
@@ -1768,7 +1819,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.4";
+const APP_VERSION="beta 2.2.5";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -5075,16 +5126,36 @@ $('tbFont').onchange=async e=>{
   rebuildFontSelect();applyEditorStyle();saveMeta();
   toast('에디터 글꼴을 바꿨어요');
 };
-$('tbSize').onchange=async e=>{
-  if(e.target.value==='__custom'){
-    const v=await modal('글자 크기 (px)',settings.size);
-    if(v&&parseFloat(v))settings.size=String(parseFloat(v));
-    applySettings();saveMeta();return;
+$('tbFormat').onchange=async e=>{
+  const v=e.target.value;
+  if(v==='__custom'){
+    $('fcSize').value=settings.size;$('fcLine').value=settings.line;$('fcPara').value=parseFloat(settings.para);
+    $('formatCustomBg').classList.add('open');
+    return;
   }
-  settings.size=e.target.value;applyEditorStyle();saveMeta();
+  if(v.startsWith('tpl:')){
+    const t=FORMAT_TEMPLATES[+v.slice(4)];
+    settings.size=t.size;settings.line=t.line;settings.para=t.para;
+  }else if(v.startsWith('hist:')){
+    const h=(settings.formatHistory||[])[+v.slice(5)];
+    if(h){settings.size=h.size;settings.line=h.line;settings.para=h.para;}
+  }else{
+    return;
+  }
+  applyEditorStyle();saveMeta();renderFormatSelect();
 };
-$('tbLine').onchange=e=>{settings.line=e.target.value;applyEditorStyle();saveMeta();};
-$('tbPara').onchange=e=>{settings.para=e.target.value;applyEditorStyle();saveMeta();};
+$('fcCancel').onclick=()=>{$('formatCustomBg').classList.remove('open');renderFormatSelect();};
+$('fcOk').onclick=()=>{
+  const size=parseFloat($('fcSize').value),line=parseFloat($('fcLine').value),para=parseFloat($('fcPara').value);
+  if(!size||!line||isNaN(para)){toast('값을 올바르게 입력해주세요');return;}
+  settings.size=String(size);settings.line=String(line);settings.para=para+'px';
+  settings.formatHistory=settings.formatHistory||[];
+  settings.formatHistory=settings.formatHistory.filter(h=>!(h.size===settings.size&&h.line===settings.line&&h.para===settings.para));
+  settings.formatHistory.unshift({size:settings.size,line:settings.line,para:settings.para});
+  settings.formatHistory=settings.formatHistory.slice(0,10);
+  applyEditorStyle();saveMeta();renderFormatSelect();
+  $('formatCustomBg').classList.remove('open');
+};
 $('tbWidthSel').addEventListener('change',e=>{
   settings.edW=e.target.value;applyEditorStyle();saveMeta();
 });
@@ -5131,17 +5202,99 @@ $('manuscriptOnlyBtn').onclick=()=>{
   // 발동하지 않으므로, 상태바 psfit* 재계산을 직접 호출해줘야 한다.
   if(typeof fitPaneStatus==='function')fitPaneStatus();
 };
-let mpFontSize=16,mpIndent=true,mpPaged=false;
+let mpFontSize=16,mpIndent=true,mpPaged=false,mpPage=0,mpTotalPages=1,mpSourceHtml='',
+  mpPages=[],mpPageStarts=[],mpAnchorIdx=0,mpLineHeight=1.9,mpParaGap=0;
+// 스크롤 중인 #mpText(전체 원문이 그대로 들어있는 상태)에서, 지금 화면 맨 위에 걸려있는
+// 문단의 인덱스를 찾는다. 스크롤↔페이지 전환 시 위치를 유지하는 데 쓴다.
+function mpAnchorFromScroll(){
+  const screen=$('mpScreen'),text=$('mpText');
+  const nodes=[...text.children];
+  if(!nodes.length)return 0;
+  const screenTop=screen.getBoundingClientRect().top;
+  let idx=0;
+  for(let i=0;i<nodes.length;i++){
+    const top=nodes[i].getBoundingClientRect().top-screenTop+screen.scrollTop;
+    if(top<=screen.scrollTop+4)idx=i;else break;
+  }
+  return idx;
+}
+// 페이지 모드에서 스크롤 모드로 돌아갈 때, 방금 보고 있던 문단(mpAnchorIdx)이 화면 맨
+// 위에 오도록 스크롤 위치를 맞춘다.
+function mpScrollToAnchor(){
+  const screen=$('mpScreen'),text=$('mpText');
+  const n=text.children[mpAnchorIdx];
+  if(!n)return;
+  const screenTop=screen.getBoundingClientRect().top;
+  const nTop=n.getBoundingClientRect().top;
+  screen.scrollTop+=(nTop-screenTop);
+}
+// 컬럼 레이아웃(column-width)으로 텍스트를 나눈 뒤 transform이나 scrollLeft로 옆으로 밀어
+// 페이지를 넘기는 방식을 두 번 시도했는데, 둘 다 웹뷰에서 옆 컬럼(다음/이전 페이지) 일부가
+// overflow:hidden으로 완전히 안 잘리고 화면 좌우 가장자리에 비쳐 보이는 문제가 반복됐다.
+// 컬럼의 오버플로 클리핑에 기대는 방식 자체를 버리고, 원문을 문단(#mpText의 최상위 자식
+// 노드) 단위로 실제 렌더링 높이를 재서 페이지 분량만큼만 아예 별도의 HTML 조각으로 미리
+// 잘라두고, 화면에는 그 페이지 하나의 조각만 통째로 넣는 방식으로 바꿨다. 다른 페이지의
+// DOM 자체가 화면에 존재하지 않으니 곁눈질로도 새어 보일 수가 없다.
+// mpAnchorIdx(직전에 보고 있던 문단)를 기준으로, 다시 나눈 페이지 중 그 문단이 포함된
+// 페이지로 이동한다 — 글꼴/크기/줄간격 등을 바꿔도 항상 1페이지로 안 돌아가게 하기 위함.
+function mpBuildPages(){
+  const screen=$('mpScreen'),text=$('mpText');
+  const cs=getComputedStyle(screen);
+  const padTop=parseFloat(cs.paddingTop)||0,padBottom=parseFloat(cs.paddingBottom)||0;
+  const pageH=screen.clientHeight-padTop-padBottom;
+  const meas=document.createElement('div');
+  meas.className=text.className;
+  meas.style.cssText='position:absolute;visibility:hidden;pointer-events:none;left:-9999px;top:0;height:auto;';
+  meas.style.width=text.clientWidth+'px';
+  meas.innerHTML=mpSourceHtml;
+  document.body.appendChild(meas);
+  const nodes=[...meas.children];
+  mpPages=[];mpPageStarts=[];
+  if(!nodes.length){
+    mpPages=[mpSourceHtml];mpPageStarts=[0];
+  }else{
+    let cur=[],curStart=0,baseTop=null;
+    nodes.forEach((n,i)=>{
+      const top=n.offsetTop,bottom=top+n.offsetHeight;
+      if(baseTop===null){baseTop=top;curStart=i;}
+      if(bottom-baseTop>pageH&&cur.length){
+        mpPages.push(cur.map(x=>x.outerHTML).join(''));
+        mpPageStarts.push(curStart);
+        cur=[];baseTop=top;curStart=i;
+      }
+      cur.push(n);
+    });
+    if(cur.length){mpPages.push(cur.map(x=>x.outerHTML).join(''));mpPageStarts.push(curStart);}
+    if(!mpPages.length){mpPages=[''];mpPageStarts=[0];}
+  }
+  meas.remove();
+  mpTotalPages=mpPages.length;
+  let target=0;
+  for(let i=0;i<mpPageStarts.length;i++){if(mpPageStarts[i]<=mpAnchorIdx)target=i;else break;}
+  mpPage=target;
+  text.innerHTML=mpPages[mpPage]||'';
+  mpAnchorIdx=mpPageStarts[mpPage]||0;
+}
+function mpShowPage(){
+  $('mpText').innerHTML=mpPages[mpPage]||'';
+  mpAnchorIdx=mpPageStarts[mpPage]||0;
+}
 $('mobilePreviewBtn').onclick=()=>{
   const ed=$('ed'+activePane);
-  $('mpText').innerHTML=ed?ed.innerHTML:'';
+  mpSourceHtml=ed?ed.innerHTML:'';
+  mpAnchorIdx=0;
+  $('mpText').innerHTML=mpSourceHtml;
   if(!$('mpFontSel').options.length){
     $('mpFontSel').innerHTML=fontOptionsHtml();
     $('mpFontSel').value=settings.font||'';
   }
   document.documentElement.style.setProperty('--mp-font',fontCss($('mpFontSel').value));
   document.documentElement.style.setProperty('--mp-size',mpFontSize+'px');
+  document.documentElement.style.setProperty('--mp-line',String(mpLineHeight));
+  document.documentElement.style.setProperty('--mp-para',mpParaGap+'px');
   $('mpSizeVal').textContent=mpFontSize;
+  $('mpLineVal').textContent=mpLineHeight.toFixed(1);
+  $('mpParaVal').textContent=mpParaGap;
   $('mpText').classList.toggle('indent',mpIndent);
   $('mpIndentBtn').classList.toggle('on',mpIndent);
   $('mpPhone').classList.toggle('paged',mpPaged);
@@ -5149,13 +5302,18 @@ $('mobilePreviewBtn').onclick=()=>{
   $('mpModeBtn').classList.toggle('on',mpPaged);
   $('mpScreen').scrollTop=0;
   $('mobilePreviewBg').classList.add('open');
+  if(mpPaged)mpBuildPages();
 };
 $('mpCloseBtn').onclick=()=>$('mobilePreviewBg').classList.remove('open');
-$('mpFontSel').onchange=()=>document.documentElement.style.setProperty('--mp-font',fontCss($('mpFontSel').value));
+$('mpFontSel').onchange=()=>{
+  document.documentElement.style.setProperty('--mp-font',fontCss($('mpFontSel').value));
+  if(mpPaged)mpBuildPages();
+};
 function mpSetSize(v){
   mpFontSize=Math.max(11,Math.min(22,v));
   document.documentElement.style.setProperty('--mp-size',mpFontSize+'px');
   $('mpSizeVal').textContent=mpFontSize;
+  if(mpPaged)mpBuildPages();
 }
 $('mpSizeDown').onclick=()=>mpSetSize(mpFontSize-0.5);
 $('mpSizeUp').onclick=()=>mpSetSize(mpFontSize+0.5);
@@ -5163,22 +5321,56 @@ $('mpIndentBtn').onclick=()=>{
   mpIndent=!mpIndent;
   $('mpText').classList.toggle('indent',mpIndent);
   $('mpIndentBtn').classList.toggle('on',mpIndent);
+  if(mpPaged)mpBuildPages();
+};
+function mpSetLine(v){
+  mpLineHeight=Math.max(1.4,Math.min(2.6,+v.toFixed(1)));
+  document.documentElement.style.setProperty('--mp-line',String(mpLineHeight));
+  $('mpLineVal').textContent=mpLineHeight.toFixed(1);
+  if(mpPaged)mpBuildPages();
+}
+function mpSetPara(v){
+  mpParaGap=Math.max(0,Math.min(28,v));
+  document.documentElement.style.setProperty('--mp-para',mpParaGap+'px');
+  $('mpParaVal').textContent=mpParaGap;
+  if(mpPaged)mpBuildPages();
+}
+$('mpLineDown').onclick=()=>mpSetLine(mpLineHeight-0.1);
+$('mpLineUp').onclick=()=>mpSetLine(mpLineHeight+0.1);
+$('mpParaDown').onclick=()=>mpSetPara(mpParaGap-4);
+$('mpParaUp').onclick=()=>mpSetPara(mpParaGap+4);
+$('mpViewSettingsBtn').onclick=()=>{
+  const on=$('mpSubToolbar').classList.toggle('open');
+  $('mpViewSettingsBtn').classList.toggle('on',on);
 };
 $('mpModeBtn').onclick=()=>{
-  mpPaged=!mpPaged;
-  $('mpPhone').classList.toggle('paged',mpPaged);
-  $('mpScreen').classList.toggle('paged',mpPaged);
-  $('mpModeBtn').classList.toggle('on',mpPaged);
-  $('mpScreen').scrollTop=0;
+  if(!mpPaged){
+    // 스크롤 → 페이지: 지금 보고 있던 위치를 앵커로 잡아두고 그 문단이 포함된 페이지로
+    // 바로 진입한다(1페이지로 리셋하지 않는다).
+    mpAnchorIdx=mpAnchorFromScroll();
+    mpPaged=true;
+    $('mpPhone').classList.add('paged');
+    $('mpScreen').classList.add('paged');
+    $('mpModeBtn').classList.add('on');
+    mpBuildPages();
+  }else{
+    mpPaged=false;
+    $('mpPhone').classList.remove('paged');
+    $('mpScreen').classList.remove('paged');
+    $('mpModeBtn').classList.remove('on');
+    $('mpText').innerHTML=mpSourceHtml;
+    mpScrollToAnchor();
+  }
 };
 $('mpPageNext').onclick=()=>{
-  const s=$('mpScreen'),max=s.scrollHeight-s.clientHeight;
-  s.scrollTop=Math.min(max,s.scrollTop+s.clientHeight);
+  if(mpPage<mpTotalPages-1){mpPage++;mpShowPage();}
 };
 $('mpPagePrev').onclick=()=>{
-  const s=$('mpScreen');
-  s.scrollTop=Math.max(0,s.scrollTop-s.clientHeight);
+  if(mpPage>0){mpPage--;mpShowPage();}
 };
+window.addEventListener('resize',()=>{
+  if(mpPaged && $('mobilePreviewBg').classList.contains('open'))mpBuildPages();
+});
 function applyToolbar(){document.body.classList.toggle('no-toolbar',!settings.toolbar);
   $('tbToggle').classList.toggle('on',settings.toolbar);}
 
@@ -5704,12 +5896,8 @@ function applySettings(){
   $('setAlignDefault').value=settings.alignDefault||'justify';
   applyUiScale();applyWorkVisibility();applyEdPadBottom();
   renderUserRepl();
-  if(![...$('tbSize').options].some(o=>o.value===String(settings.size))){
-    const o=document.createElement('option');o.value=String(settings.size);o.textContent=settings.size;
-    $('tbSize').insertBefore(o,$('tbSize').lastElementChild);
-  }
   $('tbWidthSel').value=String(parseInt(settings.edW)||100);
-  $('tbSize').value=settings.size;$('tbLine').value=settings.line;$('tbPara').value=settings.para;
+  renderFormatSelect();
   $('mbAutoSave').value=String(settings.autoSaveSec||2);
   $('mbSnapOn').checked=settings.snapshotOn!==false;
   $('mbSnapMin').value=String(settings.snapshotMin||30);
@@ -5719,7 +5907,7 @@ function applySettings(){
   if(settings.freeH)$('freeArea').style.height=settings.freeH;
   if(settings.freeSize)$('freeTa').style.fontSize=settings.freeSize+'px';
 }
-/* ═══════════ 테마 (기본 10 + 다크 5 + 파스텔 5 = 20종) ═══════════ */
+/* ═══════════ 테마 (총 35종: 밝은/중간톤 30 + 다크 5, 다크는 배열 맨 뒤) ═══════════ */
 const THEMES=[
  {id:'sage',name:'세이지',v:{'--sage-50':'#f6f8f3','--sage-100':'#eef2e9','--sage-150':'#e4eadd','--sage-200':'#d5decb','--sage-300':'#b9c7a9','--sage-400':'#9cb086','--sage-500':'#7f9668','--sage-600':'#65794f','--sage-700':'#4f6040','--ink':'#333c2e','--ink-soft':'#5c6653','--ink-faint':'#8a927f','--paper':'#fbfcf9','--accent':'#c9a86a'}},
  {id:'mist',name:'미스트',v:{'--sage-50':'#f4f7f8','--sage-100':'#eaf0f2','--sage-150':'#dfe8ec','--sage-200':'#ccdadf','--sage-300':'#aac2ca','--sage-400':'#88a6b0','--sage-500':'#6b8b96','--sage-600':'#526e79','--sage-700':'#3f5760','--ink':'#2e3b40','--ink-soft':'#526069','--ink-faint':'#84959c','--paper':'#fafcfd','--accent':'#c99f74'}},
@@ -5731,21 +5919,21 @@ const THEMES=[
  {id:'peach',name:'피치',v:{'--sage-50':'#fbf6f1','--sage-100':'#f6ece3','--sage-150':'#f0e1d3','--sage-200':'#e8ceb8','--sage-300':'#d7ac8c','--sage-400':'#c68e69','--sage-500':'#ac7150','--sage-600':'#8a5a3f','--sage-700':'#6b4631','--ink':'#3e332a','--ink-soft':'#635347','--ink-faint':'#9a8776','--paper':'#fefaf6','--accent':'#8a9a6b'}},
  {id:'slate',name:'슬레이트',v:{'--sage-50':'#f4f6f8','--sage-100':'#e9edf1','--sage-150':'#dee4ea','--sage-200':'#cbd4dd','--sage-300':'#a8b6c4','--sage-400':'#8598ab','--sage-500':'#697d92','--sage-600':'#516474','--sage-700':'#3e4d5a','--ink':'#2d363f','--ink-soft':'#4f5d69','--ink-faint':'#82909c','--paper':'#fafcfd','--accent':'#c7a06f'}},
  {id:'sepia',name:'세피아',v:{'--sage-50':'#f9f5ee','--sage-100':'#f1ebdf','--sage-150':'#e9e0cf','--sage-200':'#dccdb2','--sage-300':'#c6ac84','--sage-400':'#b08f60','--sage-500':'#95744a','--sage-600':'#775c39','--sage-700':'#5c472b','--ink':'#3b3121','--ink-soft':'#5e503a','--ink-faint':'#94856c','--paper':'#fdfaf3','--accent':'#7f9061'}},
- {id:'midnight',name:'미드나잇',dark:true,
-  v:{'--sage-50':'#f5f6f9','--sage-100':'#eceef4','--sage-150':'#e1e5ee','--sage-200':'#ccd3e1','--sage-300':'#a9b4c8','--sage-400':'#8794ad','--sage-500':'#6b7992','--sage-600':'#535f75','--sage-700':'#404a5c','--ink':'#2c333f','--ink-soft':'#4e5768','--ink-faint':'#818b9c','--paper':'#fbfcfe','--accent':'#c9a86a'},
-  dv:{'--sage-50':'#232833','--sage-100':'#1d212b','--sage-150':'#272d38','--sage-200':'#333b48','--sage-300':'#434d5d','--sage-400':'#5d6a7e','--sage-500':'#7b8ba0','--sage-600':'#9aa9bd','--sage-700':'#bccada','--ink':'#dde3ec','--ink-soft':'#b3bcc9','--ink-faint':'#798494','--paper':'#232a35','--accent':'#c9a86a','--postit':'#2e3140','--postit-border':'#3d4152','--postit-ink':'#cfd6e4'}},
- {id:'charcoal',name:'차콜',dark:true,
-  v:{'--sage-50':'#f7f7f7','--sage-100':'#efefef','--sage-150':'#e6e6e6','--sage-200':'#d5d5d5','--sage-300':'#b8b8b8','--sage-400':'#9a9a9a','--sage-500':'#7e7e7e','--sage-600':'#646464','--sage-700':'#4e4e4e','--ink':'#333333','--ink-soft':'#585858','--ink-faint':'#8c8c8c','--paper':'#fcfcfc','--accent':'#c2a06f'},
-  dv:{'--sage-50':'#2a2a2a','--sage-100':'#212121','--sage-150':'#2e2e2e','--sage-200':'#3b3b3b','--sage-300':'#4c4c4c','--sage-400':'#6a6a6a','--sage-500':'#8a8a8a','--sage-600':'#a9a9a9','--sage-700':'#c9c9c9','--ink':'#e6e6e6','--ink-soft':'#bdbdbd','--ink-faint':'#858585','--paper':'#282828','--accent':'#c2a06f','--postit':'#343026','--postit-border':'#454032','--postit-ink':'#d8cfa8'}},
- {id:'pine',name:'딥파인',dark:true,
-  v:{'--sage-50':'#f3f7f6','--sage-100':'#e8f0ee','--sage-150':'#dce7e4','--sage-200':'#c5d7d2','--sage-300':'#a1bfb7','--sage-400':'#7ea79c','--sage-500':'#628b80','--sage-600':'#4b6e64','--sage-700':'#39544d','--ink':'#2b3a35','--ink-soft':'#4d635c','--ink-faint':'#829790','--paper':'#f9fdfc','--accent':'#c7a877'},
-  dv:{'--sage-50':'#1f2a27','--sage-100':'#19221f','--sage-150':'#222d2a','--sage-200':'#2d3b37','--sage-300':'#3b4d47','--sage-400':'#546b63','--sage-500':'#6f8a80','--sage-600':'#8fa89e','--sage-700':'#b0c5bc','--ink':'#dde7e3','--ink-soft':'#b4c2bc','--ink-faint':'#7c8b85','--paper':'#1f2926','--accent':'#c7a877','--postit':'#2f3325','--postit-border':'#3e4331','--postit-ink':'#d3d5a6'}},
- {id:'plum',name:'딥플럼',dark:true,
-  v:{'--sage-50':'#f8f5f9','--sage-100':'#f0ecf3','--sage-150':'#e7e0ec','--sage-200':'#d6cbdf','--sage-300':'#baaac6','--sage-400':'#9e8bad','--sage-500':'#836f93','--sage-600':'#675674','--sage-700':'#504259','--ink':'#342e3a','--ink-soft':'#574e5f','--ink-faint':'#8b8394','--paper':'#fdfaff','--accent':'#c39d6f'},
-  dv:{'--sage-50':'#2b2530','--sage-100':'#231e28','--sage-150':'#302935','--sage-200':'#3d3543','--sage-300':'#4e4455','--sage-400':'#6a5d73','--sage-500':'#8a7c93','--sage-600':'#a99cb1','--sage-700':'#c8bccf','--ink':'#e6e0ea','--ink-soft':'#bfb6c6','--ink-faint':'#8b8292','--paper':'#2a2430','--accent':'#c9a86a','--postit':'#37303f','--postit-border':'#473e50','--postit-ink':'#dcd0e6'}},
- {id:'cocoa',name:'다크코코아',dark:true,
-  v:{'--sage-50':'#f9f6f3','--sage-100':'#f1ece7','--sage-150':'#e8e0d9','--sage-200':'#d8ccc1','--sage-300':'#bfae9e','--sage-400':'#a6917d','--sage-500':'#8b7663','--sage-600':'#6f5d4d','--sage-700':'#57483b','--ink':'#3a322b','--ink-soft':'#5e5347','--ink-faint':'#948878','--paper':'#fdfbf8','--accent':'#8a9a6b'},
-  dv:{'--sage-50':'#2c2622','--sage-100':'#241f1b','--sage-150':'#322b26','--sage-200':'#403731','--sage-300':'#52463d','--sage-400':'#6f5f52','--sage-500':'#8e7c6b','--sage-600':'#ac9a88','--sage-700':'#cabaa8','--ink':'#eae2d8','--ink-soft':'#c1b5a7','--ink-faint':'#8d8275','--paper':'#2b2521','--accent':'#c2a473','--postit':'#39301f','--postit-border':'#4a3f2b','--postit-ink':'#e0d3a6'}},
+ {id:'greige',name:'그레이지',
+  v:{'--sage-50':'#d3d1cb','--sage-100':'#c7c4bd','--sage-150':'#bcb9b0','--sage-200':'#a8a49a','--sage-300':'#8d8879','--sage-400':'#726d5d','--sage-500':'#5c574a','--sage-600':'#48453a','--sage-700':'#38352c','--ink':'#2b2823','--ink-soft':'#4a463d','--ink-faint':'#787365','--paper':'#d9d7d2','--accent':'#a8763f'},
+  dv:{'--sage-50':'#242220','--sage-100':'#1e1c1a','--sage-150':'#2a2725','--sage-200':'#363330','--sage-300':'#4a453e','--sage-400':'#6b6459','--sage-500':'#8c8375','--sage-600':'#ada294','--sage-700':'#cec2b0','--ink':'#e8e2d8','--ink-soft':'#c2b8a8','--ink-faint':'#8f8574','--paper':'#2b2825','--accent':'#c99a5c','--postit':'#332e26','--postit-border':'#453f34','--postit-ink':'#dccba0'}},
+ {id:'smokesage',name:'스모크세이지',
+  v:{'--sage-50':'#d0d6c8','--sage-100':'#c3cab9','--sage-150':'#b6bda9','--sage-200':'#a1a892','--sage-300':'#848c74','--sage-400':'#69705a','--sage-500':'#535944','--sage-600':'#414636','--sage-700':'#33372a','--ink':'#292c22','--ink-soft':'#484c3c','--ink-faint':'#767b63','--paper':'#d6dccf','--accent':'#b98a52'},
+  dv:{'--sage-50':'#1e221b','--sage-100':'#191c15','--sage-150':'#252921','--sage-200':'#31362a','--sage-300':'#454b39','--sage-400':'#5e654e','--sage-500':'#7c836a','--sage-600':'#9ba189','--sage-700':'#bcc1ac','--ink':'#e3e6d8','--ink-soft':'#bcc2ab','--ink-faint':'#868c76','--paper':'#242820','--accent':'#c9a561','--postit':'#2d3020','--postit-border':'#3d4029','--postit-ink':'#d3d5a6'}},
+ {id:'smokypurple',name:'스모키퍼플',
+  v:{'--sage-50':'#d1c9d4','--sage-100':'#c5bbc9','--sage-150':'#b8adbd','--sage-200':'#a394aa','--sage-300':'#87768d','--sage-400':'#6c5c73','--sage-500':'#56495c','--sage-600':'#443a48','--sage-700':'#352d38','--ink':'#2a2530','--ink-soft':'#494050','--ink-faint':'#786d80','--paper':'#d7d0da','--accent':'#b3925a'},
+  dv:{'--sage-50':'#211e28','--sage-100':'#1b1922','--sage-150':'#28242e','--sage-200':'#34303c','--sage-300':'#484151','--sage-400':'#635a6d','--sage-500':'#82778c','--sage-600':'#a196ab','--sage-700':'#c2b8cb','--ink':'#e8e2ec','--ink-soft':'#c0b6c8','--ink-faint':'#8c8294','--paper':'#282430','--accent':'#c9a06a','--postit':'#332c3a','--postit-border':'#453b4d','--postit-ink':'#ded0e6'}},
+ {id:'steelblue',name:'스틸블루',
+  v:{'--sage-50':'#c8d1d7','--sage-100':'#bac4cc','--sage-150':'#acb8c0','--sage-200':'#95a3ac','--sage-300':'#788790','--sage-400':'#5e6c75','--sage-500':'#4a565e','--sage-600':'#3a444b','--sage-700':'#2d353a','--ink':'#242b2f','--ink-soft':'#414b50','--ink-faint':'#6d7a80','--paper':'#cfd7dc','--accent':'#c79a63'},
+  dv:{'--sage-50':'#1a2226','--sage-100':'#151b1e','--sage-150':'#212a2e','--sage-200':'#2c363c','--sage-300':'#3e4a52','--sage-400':'#586a73','--sage-500':'#788c96','--sage-600':'#9aacb7','--sage-700':'#bccdd6','--ink':'#dde6ec','--ink-soft':'#b3c0c8','--ink-faint':'#7d8b93','--paper':'#1e262a','--accent':'#c9a563','--postit':'#28323a','--postit-border':'#38434d','--postit-ink':'#cfd8e0'}},
+ {id:'brownstone',name:'브라운스톤',
+  v:{'--sage-50':'#d6c9bb','--sage-100':'#cbbba9','--sage-150':'#bfad97','--sage-200':'#ab9680','--sage-300':'#8f7a66','--sage-400':'#736051','--sage-500':'#5c4d41','--sage-600':'#493d33','--sage-700':'#392f28','--ink':'#2c2419','--ink-soft':'#4b3f31','--ink-faint':'#7a6c58','--paper':'#dcd0c4','--accent':'#7d8a62'},
+  dv:{'--sage-50':'#1f1a15','--sage-100':'#191510','--sage-150':'#26201a','--sage-200':'#332a22','--sage-300':'#4a3d31','--sage-400':'#6c5c4a','--sage-500':'#8c795f','--sage-600':'#ac9878','--sage-700':'#ccb99a','--ink':'#ece1d0','--ink-soft':'#c4b39b','--ink-faint':'#8d7c65','--paper':'#251f19','--accent':'#a3ac7e','--postit':'#332a1e','--postit-border':'#453a29','--postit-ink':'#e0cfa0'}},
  {id:'cotton',name:'솜사탕',v:{'--sage-50':'#f4fbf9','--sage-100':'#e9f7f3','--sage-150':'#ddf1ec','--sage-200':'#c4e6df','--sage-300':'#9fd6cd','--sage-400':'#7cc4ba','--sage-500':'#5aaaa0','--sage-600':'#438a81','--sage-700':'#356c65','--ink':'#2f4b47','--ink-soft':'#4f6f6a','--ink-faint':'#87a5a0','--paper':'#fbfffe','--accent':'#f0a3bd'}},
  {id:'lemonade',name:'레몬라임',v:{'--sage-50':'#fbfcf0','--sage-100':'#f5f8e3','--sage-150':'#edf3d5','--sage-200':'#dfe9ba','--sage-300':'#c6d894','--sage-400':'#abc470','--sage-500':'#8fab54','--sage-600':'#728a41','--sage-700':'#5a6c33','--ink':'#3b4526','--ink-soft':'#5d6942','--ink-faint':'#93a074','--paper':'#fdfef6','--accent':'#f2c85b'}},
  {id:'skyblue',name:'하늘크림',v:{'--sage-50':'#f3f9fd','--sage-100':'#e7f3fb','--sage-150':'#daecf8','--sage-200':'#c0dff3','--sage-300':'#99c9e9','--sage-400':'#74b1dc','--sage-500':'#5495c4','--sage-600':'#3f769f','--sage-700':'#325c7c','--ink':'#2c4356','--ink-soft':'#4d6579','--ink-faint':'#85a0b5','--paper':'#fbfdff','--accent':'#f5cf7e'}},
@@ -5760,7 +5948,22 @@ const THEMES=[
  {id:'coral',name:'코랄',v:{'--sage-50':'#fff5f2','--sage-100':'#ffe7e0','--sage-150':'#ffd9cd','--sage-200':'#ffbfac','--sage-300':'#ff9c80','--sage-400':'#fa7955','--sage-500':'#e85a35','--sage-600':'#c04326','--sage-700':'#96331d','--ink':'#4a2318','--ink-soft':'#6e4633','--ink-faint':'#a8836f','--paper':'#fffaf8','--accent':'#2ec4b6'}},
  {id:'turquoise',name:'터콰이즈',v:{'--sage-50':'#f0fdfb','--sage-100':'#ddf9f4','--sage-150':'#c8f3ec','--sage-200':'#a0e8dc','--sage-300':'#6dd8c7','--sage-400':'#3cc4ae','--sage-500':'#22a794','--sage-600':'#1a8577','--sage-700':'#16685e','--ink':'#103430','--ink-soft':'#315650','--ink-faint':'#6b8c86','--paper':'#fbfffe','--accent':'#ffb400'}},
  {id:'tangerine',name:'탠저린',v:{'--sage-50':'#fff8ef','--sage-100':'#ffedd6','--sage-150':'#ffe0b8','--sage-200':'#ffc785','--sage-300':'#ffa94f','--sage-400':'#fd8d2b','--sage-500':'#ea7112','--sage-600':'#c25709','--sage-700':'#954309','--ink':'#4a2c0d','--ink-soft':'#714f26','--ink-faint':'#a8875d','--paper':'#fffdf9','--accent':'#3fa7d6'}},
- {id:'limegreen',name:'라임그린',v:{'--sage-50':'#f7fce7','--sage-100':'#eaf8c9','--sage-150':'#dbf0a6','--sage-200':'#c2e474','--sage-300':'#a3d541','--sage-400':'#86bc27','--sage-500':'#6a9e1b','--sage-600':'#517d15','--sage-700':'#3e6011','--ink':'#223311','--ink-soft':'#40551f','--ink-faint':'#7c9463','--paper':'#fbfef4','--accent':'#ff5c8a'}}
+ {id:'limegreen',name:'라임그린',v:{'--sage-50':'#f7fce7','--sage-100':'#eaf8c9','--sage-150':'#dbf0a6','--sage-200':'#c2e474','--sage-300':'#a3d541','--sage-400':'#86bc27','--sage-500':'#6a9e1b','--sage-600':'#517d15','--sage-700':'#3e6011','--ink':'#223311','--ink-soft':'#40551f','--ink-faint':'#7c9463','--paper':'#fbfef4','--accent':'#ff5c8a'}},
+ {id:'midnight',name:'미드나잇',dark:true,
+  v:{'--sage-50':'#f5f6f9','--sage-100':'#eceef4','--sage-150':'#e1e5ee','--sage-200':'#ccd3e1','--sage-300':'#a9b4c8','--sage-400':'#8794ad','--sage-500':'#6b7992','--sage-600':'#535f75','--sage-700':'#404a5c','--ink':'#2c333f','--ink-soft':'#4e5768','--ink-faint':'#818b9c','--paper':'#fbfcfe','--accent':'#c9a86a'},
+  dv:{'--sage-50':'#232833','--sage-100':'#1d212b','--sage-150':'#272d38','--sage-200':'#333b48','--sage-300':'#434d5d','--sage-400':'#5d6a7e','--sage-500':'#7b8ba0','--sage-600':'#9aa9bd','--sage-700':'#bccada','--ink':'#dde3ec','--ink-soft':'#b3bcc9','--ink-faint':'#798494','--paper':'#232a35','--accent':'#c9a86a','--postit':'#2e3140','--postit-border':'#3d4152','--postit-ink':'#cfd6e4'}},
+ {id:'charcoal',name:'차콜',dark:true,
+  v:{'--sage-50':'#f7f7f7','--sage-100':'#efefef','--sage-150':'#e6e6e6','--sage-200':'#d5d5d5','--sage-300':'#b8b8b8','--sage-400':'#9a9a9a','--sage-500':'#7e7e7e','--sage-600':'#646464','--sage-700':'#4e4e4e','--ink':'#333333','--ink-soft':'#585858','--ink-faint':'#8c8c8c','--paper':'#fcfcfc','--accent':'#c2a06f'},
+  dv:{'--sage-50':'#2a2a2a','--sage-100':'#212121','--sage-150':'#2e2e2e','--sage-200':'#3b3b3b','--sage-300':'#4c4c4c','--sage-400':'#6a6a6a','--sage-500':'#8a8a8a','--sage-600':'#a9a9a9','--sage-700':'#c9c9c9','--ink':'#e6e6e6','--ink-soft':'#bdbdbd','--ink-faint':'#858585','--paper':'#282828','--accent':'#c2a06f','--postit':'#343026','--postit-border':'#454032','--postit-ink':'#d8cfa8'}},
+ {id:'pine',name:'딥파인',dark:true,
+  v:{'--sage-50':'#f3f7f6','--sage-100':'#e8f0ee','--sage-150':'#dce7e4','--sage-200':'#c5d7d2','--sage-300':'#a1bfb7','--sage-400':'#7ea79c','--sage-500':'#628b80','--sage-600':'#4b6e64','--sage-700':'#39544d','--ink':'#2b3a35','--ink-soft':'#4d635c','--ink-faint':'#829790','--paper':'#f9fdfc','--accent':'#c7a877'},
+  dv:{'--sage-50':'#1f2a27','--sage-100':'#19221f','--sage-150':'#222d2a','--sage-200':'#2d3b37','--sage-300':'#3b4d47','--sage-400':'#546b63','--sage-500':'#6f8a80','--sage-600':'#8fa89e','--sage-700':'#b0c5bc','--ink':'#dde7e3','--ink-soft':'#b4c2bc','--ink-faint':'#7c8b85','--paper':'#1f2926','--accent':'#c7a877','--postit':'#2f3325','--postit-border':'#3e4331','--postit-ink':'#d3d5a6'}},
+ {id:'plum',name:'딥플럼',dark:true,
+  v:{'--sage-50':'#f8f5f9','--sage-100':'#f0ecf3','--sage-150':'#e7e0ec','--sage-200':'#d6cbdf','--sage-300':'#baaac6','--sage-400':'#9e8bad','--sage-500':'#836f93','--sage-600':'#675674','--sage-700':'#504259','--ink':'#342e3a','--ink-soft':'#574e5f','--ink-faint':'#8b8394','--paper':'#fdfaff','--accent':'#c39d6f'},
+  dv:{'--sage-50':'#2b2530','--sage-100':'#231e28','--sage-150':'#302935','--sage-200':'#3d3543','--sage-300':'#4e4455','--sage-400':'#6a5d73','--sage-500':'#8a7c93','--sage-600':'#a99cb1','--sage-700':'#c8bccf','--ink':'#e6e0ea','--ink-soft':'#bfb6c6','--ink-faint':'#8b8292','--paper':'#2a2430','--accent':'#c9a86a','--postit':'#37303f','--postit-border':'#473e50','--postit-ink':'#dcd0e6'}},
+ {id:'cocoa',name:'다크코코아',dark:true,
+  v:{'--sage-50':'#f9f6f3','--sage-100':'#f1ece7','--sage-150':'#e8e0d9','--sage-200':'#d8ccc1','--sage-300':'#bfae9e','--sage-400':'#a6917d','--sage-500':'#8b7663','--sage-600':'#6f5d4d','--sage-700':'#57483b','--ink':'#3a322b','--ink-soft':'#5e5347','--ink-faint':'#948878','--paper':'#fdfbf8','--accent':'#8a9a6b'},
+  dv:{'--sage-50':'#2c2622','--sage-100':'#241f1b','--sage-150':'#322b26','--sage-200':'#403731','--sage-300':'#52463d','--sage-400':'#6f5f52','--sage-500':'#8e7c6b','--sage-600':'#ac9a88','--sage-700':'#cabaa8','--ink':'#eae2d8','--ink-soft':'#c1b5a7','--ink-faint':'#8d8275','--paper':'#2b2521','--accent':'#c2a473','--postit':'#39301f','--postit-border':'#4a3f2b','--postit-ink':'#e0d3a6'}}
 ];
 function applyTheme(){
   const t=THEMES.find(x=>x.id===settings.theme)||THEMES[0];
@@ -5786,7 +5989,7 @@ function renderThemeGrid(){
       '</div>'+
       '<span class="tsw-dot" style="background:'+pv['--accent']+'"></span>'+
       (t.dark?'<span class="tsw-moon" style="color:'+pv['--ink-soft']+'">☾</span>':'')+
-      '<span class="nm">'+escHtml(t.name)+'</span>';
+      '<span class="nm">'+(t.dark?'🌙 ':'')+escHtml(t.name)+'</span>';
     // 어두운 테마는 다크 모드로, 밝은 테마는 라이트 모드로 함께 전환한다.
     // (전환 후에도 상단 ☀/☾ 버튼으로 언제든 반대 모드로 바꿀 수 있다.)
     d.onclick=()=>{
@@ -5824,6 +6027,10 @@ $('btnResetSettings').addEventListener('click',async()=>{
   ['focusSize','focusBright','focusW','focusPageBg','theme','freeH','freeSize'].forEach(k=>delete settings[k]);
   applySettings();applyFocusOpts();updateTodayChip();renderAllPanes();
   saveMeta();
+  // "레이아웃과 환경설정이 모두 기본값으로 돌아가요"라고 안내하는 만큼, 화면 레이아웃
+  // 배치·패널 폭/높이·펼침 상태·창 크기도 (지금 열려있는 작품이 있다면) 함께 초기화한다 —
+  // 안 그러면 이 버튼으로는 workLayout/panel 크기/창 크기가 전혀 안 돌아가는 문제가 있었다.
+  if(curWork)await resetWorkLayoutFully();
   toast('설정을 기본값으로 되돌렸어요');
 });
 document.querySelectorAll('.pn-item').forEach(b=>b.addEventListener('click',()=>{
@@ -5866,8 +6073,11 @@ const EDITOR_MINW=200;
 function panelReqWidth(key){
   const el=document.getElementById(key);
   if(!el)return 34;
-  if(el.classList.contains('collapsed'))return 34;
-  if(el.style.display==='none'){
+  // 접힌(.collapsed) 패널을 34px로만 계산하면 자동숨김 알고리즘이 "이 정도는 이미 충분히
+  // 작다"고 보고 더 좁아져도 display:none까지 밀어붙이지 않아, 세로 글자 띠(.strip)가
+  // 창을 아무리 줄여도 안 사라지는 버그가 생긴다. display:none인 패널과 동일하게(마지막
+  // 실제 너비 또는 최소 필요 너비를) 요구값으로 취급해 순서대로 완전히 숨겨질 수 있게 한다.
+  if(el.classList.contains('collapsed')||el.style.display==='none'){
     return el.dataset.lastWidth?parseFloat(el.dataset.lastWidth):AUTO_HIDE_MINW[key];
   }
   const w=el.offsetWidth;
@@ -5884,7 +6094,12 @@ function fitPanels(){
     treatment:panelReqWidth('treatment'),
     memo:panelReqWidth('memo')
   };
-  const sumWith=(hideSet)=>AUTO_HIDE_ORDER.reduce((s,k)=>s+(hideSet.has(k)?0:req[k]),0)+EDITOR_MINW;
+  // 화면이 분할(splitOn)돼 있으면 에디터 판이 2개라 필요한 최소 폭도 그만큼 늘어난다 —
+  // 이걸 고정값(EDITOR_MINW) 그대로 쓰면, 분할된 두 판이 실제로는 각 글자마다 줄바꿈될
+  // 정도로 짓눌려 있는데도 "아직 여유 있다"고 오판해서 바인더/시놉시스/노트메모를 하나도
+  // 안 접는 버그가 생긴다.
+  const editorMinNeeded=EDITOR_MINW*(splitOn?2:1);
+  const sumWith=(hideSet)=>AUTO_HIDE_ORDER.reduce((s,k)=>s+(hideSet.has(k)?0:req[k]),0)+editorMinNeeded;
   const prevCount=AUTO_HIDE_ORDER.filter(k=>document.body.classList.contains('auto-hide-'+k)).length;
   // 매 호출마다 상태에 의존하지 않고 처음부터 다시 계산한다: 0개~전체를 순서대로 숨겨보며
   // available에 맞는 최소 숨김 개수를 찾는다. binder/treatment/memo를 완전히 동일한 코드 경로로 처리.
@@ -5902,6 +6117,18 @@ function fitPanels(){
     document.body.classList.toggle('auto-hide-'+k,shouldHide);
     const el=document.getElementById(k);
     if(el)el.style.display=shouldHide?'none':'';
+  });
+  // 상/하 배치인 시놉시스·노트메모는 가로 폭을 안 차지해서 AUTO_HIDE_ORDER 계산에서 아예
+  // 빠져 있지만(바인더/좌우 패널과는 다른 축), 바인더가 접힐 만큼 화면이 좁아졌다는 건
+  // 전반적으로 여유가 없다는 뜻이니 그 순간에 맞춰 같이 접어서 에디터 공간을 확보한다.
+  const binderHidden=hideSet.has('binder');
+  const tbPanels=[['treatment','synopsis'],['memo','memo']];
+  tbPanels.forEach(([elKey,layoutKey])=>{
+    const pos=workLayout[layoutKey];
+    if(pos!=='top'&&pos!=='bottom')return;
+    document.body.classList.toggle('auto-hide-'+elKey,binderHidden);
+    const el=document.getElementById(elKey);
+    if(el)el.style.display=binderHidden?'none':'';
   });
 }
 addEventListener('resize',fitPanels);
@@ -5963,6 +6190,28 @@ function saveWorkLayout(){
   if(!seojaePath)return;
   writeFile(seojaePath+'/layout.json',JSON.stringify(workLayout)).catch(()=>{});
 }
+// 화면 레이아웃 배치뿐 아니라, 유저가 커스텀한 패널 폭/높이·펼침 상태·창 크기까지 전부
+// 초기값으로 되돌린다. 작품별 환경설정의 "레이아웃 초기화" 버튼과, 공통 환경설정의
+// "모든 설정 → 기본값으로" 버튼(현재 열린 작품이 있을 때) 양쪽에서 공통으로 쓴다.
+async function resetWorkLayoutFully(){
+  workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
+  ['binder','treatment','memo'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    el.style.width='';el.style.height='';el.classList.remove('collapsed');
+  });
+  applyWorkLayout();
+  saveWorkLayout();
+  if(typeof scheduleSession==='function')scheduleSession();
+  if(typeof fitPanels==='function')fitPanels();
+  if(curWork&&curWork.path){
+    try{
+      const map=JSON.parse(localStorage.getItem('workWinGeom')||'{}');
+      delete map[normPath(curWork.path)];
+      localStorage.setItem('workWinGeom',JSON.stringify(map));
+    }catch{}
+  }
+  if(typeof applyWindowGeomFor==='function')await applyWindowGeomFor(null);
+}
 function renderLayoutDesigner(){
   const root=$('layoutDesigner');if(!root)return;
   root.classList.toggle('lr-outer',workLayout.order==='lr-outer');
@@ -6006,14 +6255,7 @@ function renderLayoutDesigner(){
     });
   });
 }
-$('layoutResetBtn').addEventListener('click',()=>{
-  workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
-  $('treatment').style.width='';$('treatment').style.height='';
-  $('memo').style.width='';$('memo').style.height='';
-  applyWorkLayout();
-  saveWorkLayout();
-  if(typeof scheduleSession==='function')scheduleSession();
-});
+$('layoutResetBtn').addEventListener('click',()=>{resetWorkLayoutFully();});
 $('ldOrderToggle').addEventListener('change',e=>{
   if(e.target.name!=='ldOrder')return;
   workLayout.order=e.target.value==='lr-outer'?'lr-outer':'tb-outer';
@@ -6104,25 +6346,59 @@ async function setFocusMode(on){
 }
 $('focusBtn').onclick=()=>setFocusMode(true);
 $('focusExit').onclick=()=>setFocusMode(false);
-// 집중 모드에서 시놉시스/메모가 상단(slot-top) 또는 하단(slot-bottom)에 떠 있을 때,
-// 그 패널의 실제 높이(사용자가 드래그로 조절했을 수도 있음)만큼 에디터 padding을 늘려서
-// 본문 텍스트가 패널 밑에 가려지지 않게 한다. 좌/우 배치는 이번 범위 밖(요청에 없음).
+// 집중 모드 가운데 집필 영역이 최소한으로 보장해야 하는 높이/너비. 화면 크기에 비례해서
+// 계산하므로(고정 px가 아님) 모니터를 세로로 피봇해서 쓰는 등 화면이 클수록 여유도 함께 커진다.
+function focusMinEditH(){return Math.max(160,innerHeight*0.12);}
+function focusMinEditW(){return Math.max(240,innerWidth*0.15);}
+// 집중 모드에서 시놉시스/메모가 상/하/좌/우 어느 쪽에 떠 있든, 그 패널의 실제 크기(사용자가
+// 드래그로 조절했을 수도 있음)만큼 에디터 쪽 여백을 늘려서 본문 텍스트가 패널 밑에 가려지지
+// 않게 한다. 상/하는 .ed의 padding으로, 좌/우는 .split-wrap의 padding으로 처리한다(좌/우 패널은
+// 텍스트 옆에 나란히 뜨는 구조라 폭만큼 실제 집필 영역 자체를 좁혀줘야 겹치지 않는다).
+// 두 패널을 양쪽에서 동시에 아주 크게 늘리면 가운데 집필 영역이 아예 없어지거나 패널끼리
+// 겹치는 문제가 있어서, 합계가 화면을 넘어서면 실제 패널 높이/너비 자체를 안전하게 줄인다.
 function applyFocusPad(){
   if(!document.body.classList.contains('focus'))return;
-  let topH=0,botH=0;
   const tr=$('treatment'),mm=$('memo');
   const trOn=document.body.classList.contains('ghost-tr')||document.body.classList.contains('ghost-pin');
   const mmOn=document.body.classList.contains('ghost-memo');
+  const vertPanels=[],horizPanels=[];
+  if(trOn&&tr){
+    if(tr.classList.contains('slot-top')||tr.classList.contains('slot-bottom'))vertPanels.push(tr);
+    else if(tr.classList.contains('slot-left')||tr.classList.contains('slot-right'))horizPanels.push(tr);
+  }
+  if(mmOn&&mm){
+    if(mm.classList.contains('slot-top')||mm.classList.contains('slot-bottom'))vertPanels.push(mm);
+    else if(mm.classList.contains('slot-left')||mm.classList.contains('slot-right'))horizPanels.push(mm);
+  }
+  const vertCap=Math.max(0,innerHeight-focusMinEditH());
+  let vertTotal=vertPanels.reduce((s,el)=>s+el.offsetHeight,0);
+  if(vertTotal>vertCap&&vertTotal>0){
+    const scale=vertCap/vertTotal;
+    vertPanels.forEach(el=>{el.style.height=Math.max(120,Math.floor(el.offsetHeight*scale))+'px';});
+  }
+  const horizCap=Math.max(0,innerWidth-focusMinEditW());
+  let horizTotal=horizPanels.reduce((s,el)=>s+el.offsetWidth,0);
+  if(horizTotal>horizCap&&horizTotal>0){
+    const scale=horizCap/horizTotal;
+    horizPanels.forEach(el=>{el.style.width=Math.max(150,Math.floor(el.offsetWidth*scale))+'px';});
+  }
+  let topH=0,botH=0,leftW=0,rightW=0;
   if(trOn&&tr){
     if(tr.classList.contains('slot-top'))topH+=tr.offsetHeight;
     else if(tr.classList.contains('slot-bottom'))botH+=tr.offsetHeight;
+    else if(tr.classList.contains('slot-left'))leftW+=tr.offsetWidth;
+    else if(tr.classList.contains('slot-right'))rightW+=tr.offsetWidth;
   }
   if(mmOn&&mm){
     if(mm.classList.contains('slot-top'))topH+=mm.offsetHeight;
     else if(mm.classList.contains('slot-bottom'))botH+=mm.offsetHeight;
+    else if(mm.classList.contains('slot-left'))leftW+=mm.offsetWidth;
+    else if(mm.classList.contains('slot-right'))rightW+=mm.offsetWidth;
   }
   document.documentElement.style.setProperty('--focus-top-pad',topH?(topH+16)+'px':'0px');
   document.documentElement.style.setProperty('--focus-bottom-pad',botH?(botH+16)+'px':'0px');
+  document.documentElement.style.setProperty('--focus-left-pad',leftW?(leftW+16)+'px':'0px');
+  document.documentElement.style.setProperty('--focus-right-pad',rightW?(rightW+16)+'px':'0px');
 }
 function applyGhost(){
   document.body.classList.toggle('ghost-pin',$('trShowToggle').checked);
@@ -6131,6 +6407,9 @@ function applyGhost(){
 }
 $('trShowToggle').onchange=applyGhost;
 $('memoShowToggle').onchange=applyGhost;
+// 모니터를 세로로 피봇하는 등 창 크기가 바뀌면 가운데 집필 영역 안전장치 기준(화면 크기 비례)도
+// 다시 계산해야 한다.
+addEventListener('resize',()=>{if(typeof applyFocusPad==='function')applyFocusPad();});
 // 단축키 레지스트리 — 커스텀 지정/비활성화가 가능하도록 SHORTCUT_DEFS 하나로 모아서 관리한다.
 // capture 단계에서 가장 먼저 가로채는 이유: bubble 단계에서 처리하면 간헐적으로 웹뷰/브라우저
 // 자체의 기본 동작(찾기 UI 등)이 먼저 뜨는 문제(1-3번)가 있었다.
@@ -6305,10 +6584,12 @@ document.querySelectorAll('.resize-handle').forEach(h=>h.addEventListener('mouse
   const dir=hasSlot?(panel.classList.contains('slot-left')?1:-1):+h.dataset.dir;
   const startX=e.clientX,startW=panel.offsetWidth;
   h.classList.add('dragging');document.body.style.cursor='col-resize';
-  const move=ev=>{panel.style.width=Math.max(150,Math.min(460,startW+dir*(ev.clientX-startX)))+'px';};
+  const move=ev=>{panel.style.width=Math.max(150,Math.min(460,startW+dir*(ev.clientX-startX)))+'px';
+    if(typeof applyFocusPad==='function')applyFocusPad();};
   const up=()=>{h.classList.remove('dragging');document.body.style.cursor='';
     scheduleSession();
     if(typeof fitPanels==='function')fitPanels();
+    if(typeof applyFocusPad==='function')applyFocusPad();
     removeEventListener('mousemove',move);removeEventListener('mouseup',up);};
   addEventListener('mousemove',move);addEventListener('mouseup',up);}));
 let lastSplitPane=1;   // 직전에 분할 해제할 때 활성이던 쪽 — 다시 분할하면 그 자리로 복원
@@ -6424,6 +6705,19 @@ async function doRename(node,nm){
       await writeFile(node.parentAbs+'/'+fname+'/.이름',nm);
     }
     const oldPath=node.path,newPrefix=node.parentPath+fname+(node.type==='dir'?'/':'');
+    // 폴더 이름을 바꾸면, 그 폴더(혹은 하위 폴더) 안에서 버려진 문서의 휴지통 기록(origPath)도
+    // 옛 경로를 그대로 물고 있어서 휴지통 미리보기에 예전 폴더명이 뜨는 문제가 있었다.
+    // 열려있는 탭 경로를 옮겨주는 것과 같은 방식으로 함께 옮겨준다.
+    if(node.type==='dir'){
+      let trashChanged=false;
+      for(const e of trashMeta){
+        if(e.origPath&&e.origPath.startsWith(oldPath)){
+          e.origPath=newPrefix+e.origPath.slice(oldPath.length);
+          trashChanged=true;
+        }
+      }
+      if(trashChanged)saveTrashMeta();
+    }
     await rescanTree();
     for(const p of panes)for(const t of p.tabs){
       let np=null;
@@ -7790,7 +8084,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.4"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.5"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -8089,9 +8383,14 @@ addEventListener('mousemove',e=>{
 
 /* ═══════════ 타자기 스크롤 ═══════════ */
 function typewriterScroll(){
-  const tw=document.body.classList.contains('focus')&&!!settings.typewriter;
+  const focus=document.body.classList.contains('focus');
+  const tw=focus&&!!settings.typewriter;
   const gap=settings.edPadBottom||0;
-  if(!tw&&!gap)return;
+  // 집중 모드에서 하단에 시놉시스/노트 메모가 떠 있으면(ghost-bottom), 타자기 스크롤이 꺼져
+  // 있어도 그 패널 높이만큼은 커서가 가려지지 않게 최소한으로 밀어 올린다. 상단 패널은
+  // .ed의 padding-top(--focus-top-pad)만으로 이미 자연스럽게 안 가려지므로 여기서는 하단만 다룬다.
+  const ghostBotPad=focus?(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--focus-bottom-pad'))||0):0;
+  if(!tw&&!gap&&!ghostBotPad)return;
   const ed=$('ed'+activePane);
   const sel=getSelection();
   if(!sel||!sel.rangeCount||!ed.contains(sel.anchorNode))return;
@@ -8107,8 +8406,10 @@ function typewriterScroll(){
     if(Math.abs(delta)>4)sc.scrollTop+=delta;
     return;
   }
-  // 원고 아래 여백: 커서가 여백선 아래로 내려갈 때만 밀어 올린다(위쪽 편집 시 화면이 튀지 않게).
-  const limit=scr.bottom-scr.height*gap/100;
+  // 원고 아래 여백 + 하단 고스트 패널 보호: 둘 중 더 큰 쪽을 기준으로, 커서가 그 선
+  // 아래로 내려갈 때만 밀어 올린다(위쪽 편집 시 화면이 튀지 않게).
+  const gapPx=scr.height*gap/100;
+  const limit=scr.bottom-Math.max(gapPx,ghostBotPad);
   const over=rect.bottom-limit;
   if(over>1)sc.scrollTop+=over;
 }

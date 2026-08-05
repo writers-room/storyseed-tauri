@@ -55,6 +55,8 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "스토리시드 ${{ github.ref_name }}"
           releaseBody: |
+            - 모바일 미리보기 기능 개선
+            - 테마 5종 추가
             - 일부 아이콘 및 UI/UX 개선
             - 기타 각종 버그 수정
           releaseDraft: false
