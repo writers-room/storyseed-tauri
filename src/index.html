@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.5</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.6</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -1620,16 +1620,33 @@ function setWorkWinGeom(path,g){
     localStorage.setItem('workWinGeom',JSON.stringify(map));
   }catch{}
 }
-// 저장된 창 좌표가 지금 화면(주 모니터 기준) 안에 최소한 일부라도 걸쳐 있는지 대략 검사한다.
-// 완전히 화면 밖으로 나가 있으면(연결 해제된 외부 모니터 좌표, 해상도 변경 후 남은 값 등)
-// 그 좌표를 쓰지 않고 기본 위치로 대체해서, 창이 어디에도 안 보이는 사고를 막는다.
-function posLooksOnScreen(x,y,w,h){
+// 저장된 창 좌표가 "지금 이 컴퓨터에 연결된 모니터들 중 어느 하나에라도" 최소한 일부
+// 걸쳐 있는지 검사한다. 예전엔 window.screen.width/height(지금 창이 떠 있는 화면 하나)만
+// 기준으로 삼아서, 창을 보조 모니터에 두고 저장했다가 다시 켰을 때(창은 항상 주 모니터
+// 기준으로 새로 뜬다) 보조 모니터 좌표가 "주 모니터 밖으로 나갔다"고 잘못 판정되어 매번
+// 화면 가운데로 강제로 되돌아가던 버그가 있었다 — 다중 모니터 환경에서 위치/모양을 전혀
+// 기억 못 하는 것처럼 보이던 원인이 이것이었다. Tauri의 availableMonitors()로 연결된
+// 모니터 전체 목록을 받아, 그중 하나와라도 margin만큼 겹치면 유효한 위치로 인정한다.
+async function posLooksOnScreen(x,y,w,h){
+  const margin=80;   // 최소 이 정도는 화면 안에 걸쳐 있어야 "보인다"고 인정
   try{
-    const sw=window.screen.width||1920,sh=window.screen.height||1080;
-    const margin=80;   // 최소 이 정도는 화면 안에 걸쳐 있어야 "보인다"고 인정
-    if(x+w<margin||y+h<margin)return false;
-    if(x>sw-margin||y>sh-margin)return false;
-    return true;
+    let monitors=null;
+    if(T&&T.window&&T.window.availableMonitors){
+      monitors=await T.window.availableMonitors().catch(()=>null);
+    }
+    if(!monitors||!monitors.length){
+      // 모니터 목록을 못 가져오면(권한/플랫폼 문제 등) 최소한 지금 창이 떠 있는 화면
+      // 기준으로라도 검사한다(예전 동작으로 안전하게 후퇴).
+      const sw=window.screen.width||1920,sh=window.screen.height||1080;
+      monitors=[{position:{x:0,y:0},size:{width:sw,height:sh}}];
+    }
+    return monitors.some(m=>{
+      const mx=m.position?.x||0,my=m.position?.y||0;
+      const mw=m.size?.width||0,mh=m.size?.height||0;
+      const ix=Math.min(x+w,mx+mw)-Math.max(x,mx);
+      const iy=Math.min(y+h,my+mh)-Math.max(y,my);
+      return ix>=margin&&iy>=margin;
+    });
   }catch{return true;}
 }
 async function applyWindowGeomFor(path){
@@ -1639,13 +1656,20 @@ async function applyWindowGeomFor(path){
   const g=path?getWorkWinGeom(path):null;
   if(g){
     try{
+      // 이전 작품이 최대화 상태였다가 이번 작품은 최대화가 아니라면, 먼저 복원해두지 않으면
+      // 최대화된 채로 setSize/setPosition을 걸어도 OS가 무시해서 "모양"이 하나도 안 바뀌던
+      // 문제가 있었다.
+      if(!g.max){
+        const isMaxNow=await appWin.isMaximized().catch(()=>false);
+        if(isMaxNow)await appWin.unmaximize().catch(()=>{});
+      }
       if(g.w>200&&g.h>200){
         if(T.window.PhysicalSize)await appWin.setSize(new T.window.PhysicalSize(Math.round(g.w),Math.round(g.h)));
         else await appWin.setSize({width:Math.round(g.w),height:Math.round(g.h)});
       }
       if(typeof g.x==='number'&&typeof g.y==='number'){
         const w2=g.w>200?g.w:1320,h2=g.h>200?g.h:840;
-        if(posLooksOnScreen(g.x,g.y,w2,h2)){
+        if(await posLooksOnScreen(g.x,g.y,w2,h2)){
           if(T.window.PhysicalPosition)await appWin.setPosition(new T.window.PhysicalPosition(Math.round(g.x),Math.round(g.y)));
           else await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});
         }else{
@@ -1819,7 +1843,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.5";
+const APP_VERSION="beta 2.2.6";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -6419,12 +6443,12 @@ const SHORTCUT_DEFS=[
   {id:'redo',label:'다시 실행',defaultKey:'Ctrl+Shift+Z',fn:()=>{document.execCommand('redo');scrollToCaret(activePane);}},
   {id:'find',label:'찾기',defaultKey:'Ctrl+F',fn:()=>openFind()},
   {id:'replace',label:'바꾸기',defaultKey:'Ctrl+H',fn:()=>openReplace()},
-  {id:'manuscriptOnly',label:'원고만 보기',defaultKey:'Ctrl+Alt+M',fn:()=>$('manuscriptOnlyBtn').click()},
-  {id:'mobilePreview',label:'모바일 미리보기',defaultKey:'Ctrl+Alt+P',fn:()=>$('mobilePreviewBtn').click()},
-  {id:'toolbarToggle',label:'서식 툴바 보이기/숨기기',defaultKey:'Ctrl+Alt+T',fn:()=>$('tbToggle').click()},
-  {id:'focusMode',label:'집중 모드',defaultKey:'Ctrl+Alt+F',fn:()=>$('focusBtn').click()},
-  {id:'darkMode',label:'다크 모드',defaultKey:'Ctrl+Alt+D',fn:()=>$('darkBtn').click()},
-  {id:'highlightBrowse',label:'형광펜 모아보기',defaultKey:'Ctrl+Alt+H',fn:()=>$('hlListBtn').click()},
+  {id:'manuscriptOnly',label:'원고만 보기',defaultKey:'Ctrl+Shift+M',fn:()=>$('manuscriptOnlyBtn').click()},
+  {id:'mobilePreview',label:'모바일 미리보기',defaultKey:'Ctrl+Shift+P',fn:()=>$('mobilePreviewBtn').click()},
+  {id:'toolbarToggle',label:'서식 툴바 보이기/숨기기',defaultKey:'Ctrl+Shift+T',fn:()=>$('tbToggle').click()},
+  {id:'focusMode',label:'집중 모드',defaultKey:'Ctrl+Shift+F',fn:()=>$('focusBtn').click()},
+  {id:'darkMode',label:'다크 모드',defaultKey:'Ctrl+Shift+D',fn:()=>$('darkBtn').click()},
+  {id:'highlightBrowse',label:'형광펜 모아보기',defaultKey:'Ctrl+Shift+H',fn:()=>$('hlListBtn').click()},
   {id:'newDoc',label:'새 회차 만들기 (바인더)',defaultKey:'Ctrl+N',fn:()=>{if(isEditableActive())return;createNewDoc();}},
   {id:'renameSelected',label:'이름 바꾸기 (바인더에서 선택한 회차/폴더)',defaultKey:'F2',fn:()=>{if(isEditableActive())return;renameSelectedInBinder();}},
   {id:'insertTimestamp',label:'타임스탬프 넣기',defaultKey:'Ctrl+Alt+Shift+D',fn:()=>insertTimestamp()},
@@ -6445,6 +6469,30 @@ function resolvedKey(id){
   if(custom==='')return null;
   return custom||SHORTCUT_DEFS.find(s=>s.id===id).defaultKey;
 }
+// 단축키는 내부적으로 항상 'Ctrl+Alt+Shift+문자' 같은 하나의 표기(index.html 하나만으로
+// 관리)로 저장·비교한다. macOS에서는 Ctrl 대신 Cmd를 쓰는 게 관례라 comboFromEvent에서
+// 이미 metaKey(Cmd)도 'Ctrl'로 인식해 동작 자체는 맥에서도 그대로 먹힌다 — 여기서는 화면에
+// '보여주는' 표기만 macOS 관례(⌘⌥⇧ 기호, 구분기호 없음)로 바꿔서, 데이터는 하나로 유지한
+// 채 표시만 플랫폼별로 달라지게 한다.
+const IS_MAC=/Mac|iPhone|iPad|iPod/i.test(navigator.platform||navigator.userAgent||'');
+const MAC_KEY_SYMBOLS={Ctrl:'⌘',Alt:'⌥',Shift:'⇧'};
+function comboDisplay(combo){
+  if(!combo)return combo;
+  if(!IS_MAC)return combo;
+  return combo.split('+').map(p=>MAC_KEY_SYMBOLS[p]||p).join('');
+}
+// 메뉴바의 <span class="kbd"> 안내 문구, 툴바 버튼 title="...(Ctrl+X)" 같은 정적 표기도
+// 같은 규칙으로 한 번 훑어서 macOS에서는 자동으로 기호 표기로 바뀌게 한다.
+function applyPlatformShortcutDisplay(){
+  if(!IS_MAC)return;
+  document.querySelectorAll('.kbd').forEach(el=>{el.textContent=comboDisplay(el.textContent);});
+  document.querySelectorAll('[title]').forEach(el=>{
+    const t=el.getAttribute('title');
+    const m=t&&t.match(/\(((?:Ctrl|Alt|Shift)\+[A-Za-z0-9+]+)\)/);
+    if(m)el.setAttribute('title',t.replace(m[1],comboDisplay(m[1])));
+  });
+}
+applyPlatformShortcutDisplay();
 function renderShortcutList(){
   const box=$('shortcutList');if(!box)return;
   box.innerHTML='';
@@ -6453,7 +6501,7 @@ function renderShortcutList(){
     const label=document.createElement('div');label.className='sc-label';label.textContent=s.label;
     const key=document.createElement('div');key.className='sc-key';
     const cur=resolvedKey(s.id);
-    key.textContent=cur||'사용 안 함';
+    key.textContent=cur?comboDisplay(cur):'사용 안 함';
     const changeBtn=document.createElement('button');changeBtn.className='ur-add';changeBtn.textContent='변경';
     const disableBtn=document.createElement('button');disableBtn.className='ur-add';disableBtn.textContent='비활성화';
     const resetBtn=document.createElement('button');resetBtn.className='ur-add';resetBtn.textContent='기본값으로';
@@ -6461,9 +6509,29 @@ function renderShortcutList(){
     changeBtn.onclick=()=>{
       const prevText=key.textContent;
       key.textContent='키를 눌러주세요...';key.classList.add('waiting');
+      // Ctrl/Alt/Shift 여러 개를 동시에 누르는 조합은, 손가락이 그 키들을 하나씩 순서대로
+      // 눌러도 브라우저는 그때마다 각각 별도의 keydown을 보낸다(Ctrl 누름 → keydown,
+      // Alt 누름 → keydown, ...). 예전엔 '키 하나만 눌려도 그 즉시 확정'하는 방식이라,
+      // 사람이 Ctrl을 먼저 눌렀을 뿐인데 그 순간 "Ctrl" 하나짜리로 고정돼버리는 문제가
+      // 있었다. Control/Alt/Shift/Meta 자체는 무시하고 계속 기다리다가, 진짜 키(문자·숫자·
+      // 기능키)가 눌리는 순간 그때 함께 눌려 있는 보조키(ctrlKey/altKey/shiftKey)까지
+      // 한꺼번에 읽어서 최종 조합을 확정한다 — 세 개를 동시에 눌러도 정확히 잡힌다.
       const captureHandler=ev=>{
         ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();
-        if(ev.key==='Escape'){key.textContent=prevText;key.classList.remove('waiting');return;}
+        if(ev.key==='Escape'){
+          document.removeEventListener('keydown',captureHandler,{capture:true});
+          key.textContent=prevText;key.classList.remove('waiting');
+          return;
+        }
+        if(['Control','Alt','Shift','Meta'].includes(ev.key)){
+          const mods=[];
+          if(ev.ctrlKey||ev.metaKey)mods.push('Ctrl');
+          if(ev.altKey)mods.push('Alt');
+          if(ev.shiftKey)mods.push('Shift');
+          key.textContent=(mods.length?comboDisplay(mods.join('+')):'키를 눌러주세요...')+' …';
+          return;
+        }
+        document.removeEventListener('keydown',captureHandler,{capture:true});
         const combo=comboFromEvent(ev);
         const dup=SHORTCUT_DEFS.find(o=>o.id!==s.id&&resolvedKey(o.id)===combo);
         if(dup){
@@ -6473,7 +6541,7 @@ function renderShortcutList(){
         }
         settings.shortcuts[s.id]=combo;saveMeta();renderShortcutList();
       };
-      document.addEventListener('keydown',captureHandler,{capture:true,once:true});
+      document.addEventListener('keydown',captureHandler,{capture:true});
     };
     disableBtn.onclick=()=>{settings.shortcuts[s.id]='';saveMeta();renderShortcutList();};
     resetBtn.onclick=()=>{delete settings.shortcuts[s.id];saveMeta();renderShortcutList();};
@@ -8084,7 +8152,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.5"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.6"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
