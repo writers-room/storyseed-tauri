@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    다중 모니터 환경에서, 앱을 보조 모니터에서 전체화면으로 켜둔 채 종료했다가 다시 실행하면
+    macOS가 자체적으로(우리 앱 코드와 무관하게) 창을 "항상 주 모니터"에서 전체화면으로 복원해
+    버리는 문제가 있었다. macOS의 자동 창 상태 복원(Resume) 기능이 우리 앱의 자체 창 위치/크기
+    복원 로직(applyWindowGeomFor, 여러 모니터를 정확히 인식하도록 이미 고쳐둔 로직)과 경쟁하면서
+    엉뚱한 결과를 내는 것으로 보인다. NSQuitAlwaysKeepsWindows를 false로 두면 macOS가 이 자동
+    복원을 하지 않고, 우리 앱의 자체 로직(정확한 모니터를 기억하는)만 창 위치/전체화면 상태를
+    결정하게 된다.
+  -->
+  <key>NSQuitAlwaysKeepsWindows</key>
+  <false/>
+</dict>
+</plist>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.6</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.7</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -257,7 +257,7 @@
     text-align:var(--ed-align-default,justify);text-justify:inter-character;text-align-last:var(--ed-align-last-default,left);
     word-break:normal;line-break:auto;overflow-wrap:normal;}
   .ed.docview-mode{background:var(--sage-50);box-shadow:inset 0 0 0 1px var(--sage-300);
-    outline:1px dashed var(--sage-300);outline-offset:-8px;max-width:none!important;margin:0!important;}
+    outline:1px dashed var(--sage-300);outline-offset:-8px;max-width:var(--ed-maxw,none)!important;margin:0 auto!important;}
   /* 붙여넣기 등으로 글꼴이 개별 지정된 텍스트가 섞여 있어도, 에디터에는 항상 선택한 글꼴 하나만 표시되게 강제 */
   .ed,.ed *{font-family:var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif) !important;}
   .ed div,.ed p{margin-bottom:var(--ed-para,0px);min-height:1em;}
@@ -1647,7 +1647,7 @@ async function posLooksOnScreen(x,y,w,h){
       const iy=Math.min(y+h,my+mh)-Math.max(y,my);
       return ix>=margin&&iy>=margin;
     });
-  }catch{return true;}
+  }catch(e){return true;}
 }
 async function applyWindowGeomFor(path){
   if(!T||!T.window||!T.window.getCurrentWindow)return;
@@ -1667,18 +1667,26 @@ async function applyWindowGeomFor(path){
         if(T.window.PhysicalSize)await appWin.setSize(new T.window.PhysicalSize(Math.round(g.w),Math.round(g.h)));
         else await appWin.setSize({width:Math.round(g.w),height:Math.round(g.h)});
       }
+      let moved=false;
       if(typeof g.x==='number'&&typeof g.y==='number'){
         const w2=g.w>200?g.w:1320,h2=g.h>200?g.h:840;
         if(await posLooksOnScreen(g.x,g.y,w2,h2)){
           if(T.window.PhysicalPosition)await appWin.setPosition(new T.window.PhysicalPosition(Math.round(g.x),Math.round(g.y)));
           else await appWin.setPosition({x:Math.round(g.x),y:Math.round(g.y)});
+          moved=true;
         }else{
           await appWin.center().catch(()=>{});
         }
       }
+      // 최대화는 "지금 창이 놓인 모니터"를 기준으로 켜지는데, Windows에서는 setPosition이
+      // 다른 모니터로 실제로 창을 옮기는 OS 처리(특히 모니터마다 배율이 다른 경우)가
+      // setPosition의 Promise가 끝난 뒤에도 한 프레임 정도 늦게 마무리되는 경우가 있었다.
+      // 그 상태에서 곧바로 최대화를 걸면 옮기기 전 모니터(주 모니터) 기준으로 적용돼버린다
+      // — 아주 짧게 한 박자 쉬어서 이동이 실제로 끝난 뒤에 최대화를 걸도록 했다.
+      if(moved&&g.max)await new Promise(r=>setTimeout(r,80));
       if(g.max)await appWin.maximize();
       return;
-    }catch{}
+    }catch(e){}
   }
   // 기억된 값이 없는(처음 여는) 작품이거나, path가 아예 없는 첫 화면 상태 — 기본 크기로
   // 화면 정가운데에 놓는다.
@@ -1698,16 +1706,32 @@ async function saveCurrentWinGeom(){
   let appWin;try{appWin=T.window.getCurrentWindow();}catch{return;}
   if(!appWin)return;
   try{
+    // 집중 모드(F11)가 켠 실제 OS 전체화면 상태 그대로 종료하는 경우 — 전체화면 자체는
+    // 기억하지 않고, 전체화면을 켜기 직전에 스냅샷해둔 "원래" 위치/크기/최대화 여부만
+    // 기억한다(전체화면 중의 outerPosition/outerSize는 모니터를 꽉 채운 값이라 그대로
+    // 저장하면 다음에 열 때도 타이틀바 없는 전체화면처럼 보이게 된다).
+    const isFs=await appWin.isFullscreen().catch(()=>false);
+    if(isFs&&preFocusWinGeom){
+      setWorkWinGeom(curWork.path,{max:preFocusWinGeom.max,x:preFocusWinGeom.x,y:preFocusWinGeom.y,w:preFocusWinGeom.w,h:preFocusWinGeom.h});
+      return;
+    }
     const isMax=await appWin.isMaximized().catch(()=>false);
     const g={max:isMax};
+    // 최대화 중에도 outerPosition은 지금 그 창이 어느 모니터를 덮고 있는지 알려준다(예:
+    // 보조 모니터가 주 모니터 왼쪽에 있으면 x가 음수로 나오는 식). 예전엔 "최대화 중엔
+    // 어차피 maximize()만 부르면 되니까" 라며 최대화 상태에서는 x/y를 아예 저장하지 않았는데,
+    // 그 바람에 복원할 때 maximize()가 창이 새로 뜬 기본 위치(항상 주 모니터) 그대로에서
+    // 걸려버려서, 보조 모니터에서 최대화해뒀던 창이 다음에 켤 때마다 주 모니터에서 최대화로
+    // 열리는 버그로 이어졌다. 최대화 여부와 무관하게 항상 위치를 같이 기억해서, 복원할 때
+    // 먼저 그 모니터로 옮긴 뒤에 maximize()를 걸도록 한다.
+    const pos=await appWin.outerPosition().catch(()=>null);
+    if(pos)Object.assign(g,{x:pos.x,y:pos.y});
     if(!isMax){
-      const pos=await appWin.outerPosition().catch(()=>null);
       const size=await appWin.outerSize().catch(()=>null);
-      if(pos)Object.assign(g,{x:pos.x,y:pos.y});
       if(size&&size.width>0&&size.height>0)Object.assign(g,{w:size.width,h:size.height});
     }
     setWorkWinGeom(curWork.path,g);
-  }catch{}
+  }catch(e){}
 }
 function setWindowWorkRegistry(path){
   try{
@@ -1843,7 +1867,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.6";
+const APP_VERSION="beta 2.2.7";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -3983,7 +4007,7 @@ function renderDocViewPane(i){
   $('save'+i).textContent=dv.tabs.some(t=>t.dirty)?'수정됨':'저장됨';
   const allTxt=dv.tabs.map(t=>plainTextOf(t.body)).join('');
   const c=countOf(allTxt);
-  $('chars'+i).textContent=fmt(c.all)+'자 / 공백 제외 '+fmt(c.no)+'자';
+  charsBase[i]=fmt(c.all)+'자 / 공백 제외 '+fmt(c.no)+'자';renderCharsLine(i);
   $('goal'+i).style.width='0';$('goalPct'+i).textContent='';
   $('zoomVal'+i).textContent=p.zoom+'%';
   ed.style.zoom=p.zoom/100;
@@ -3992,10 +4016,33 @@ function updateCounts(i){
   const t=panes[i].tab;if(!t)return;
   const txt=plainTextOf(t.body);
   const c=countOf(txt),all=c.all,no=c.no;
-  $('chars'+i).textContent=fmt(all)+'자 / 공백 제외 '+fmt(no)+'자';
+  charsBase[i]=fmt(all)+'자 / 공백 제외 '+fmt(no)+'자';renderCharsLine(i);
   const goal=t.meta.목표글자수||5000,goalBase=(t.meta.목표글자수모드==='all'?all:no),pct=Math.min(100,Math.round(goalBase/goal*100));
   $('goal'+i).style.width=pct+'%';$('goalPct'+i).textContent=pct+'%';
 }
+// 하단 상태 바의 글자수 표시 = 문서 전체 글자수(charsBase) + (선택했을 때만) 선택 글자수(charsSel).
+// 두 값을 따로 관리해서, 선택이 바뀔 때마다(=자주) 전체 글자수까지 매번 다시 셀 필요 없게 한다.
+let charsBase=['',''],charsSel=['',''];
+function renderCharsLine(i){
+  const el=$('chars'+i);if(!el)return;
+  el.textContent=charsBase[i]+(charsSel[i]?' '+charsSel[i]:'');
+}
+// 문서에서 드래그로 블록을 선택하면 하단 글자수 표시 옆에 (선택 n자 / 공백 제외 n자)를
+// 덧붙인다. 선택이 풀리거나 커서만 있을 때(선택 길이 0)는 원래의 전체 글자수만 보이게 한다.
+function updateSelChars(){
+  const sel=getSelection();
+  for(let i=0;i<2;i++){
+    const ed=$('ed'+i);
+    let next='';
+    if(ed&&panes[i]&&(panes[i].tab||panes[i].docView)&&sel&&sel.rangeCount&&!sel.isCollapsed
+       &&ed.contains(sel.anchorNode)&&ed.contains(sel.focusNode)){
+      const txt=sel.toString();
+      if(txt){const c=countOf(txt);next='(선택 '+fmt(c.all)+'자 / 공백 제외 '+fmt(c.no)+'자)';}
+    }
+    if(charsSel[i]!==next){charsSel[i]=next;renderCharsLine(i);}
+  }
+}
+document.addEventListener('selectionchange',updateSelChars);
 
 /* ═══════════ 입력·자동 치환·통계 ═══════════ */
 const saveTimers=[null,null],syncTimers=[null,null];
@@ -4242,11 +4289,11 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
     if(['Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))typewriterScroll();
   });
   ed.addEventListener('paste',e=>{
-    e.preventDefault();
     const cd=(e.clipboardData||window.clipboardData);
     const imgFile=[...(cd.files||[])].find(f=>f.type&&f.type.startsWith('image/'))
       ||(()=>{const it=[...(cd.items||[])].find(x=>x.kind==='file'&&x.type&&x.type.startsWith('image/'));return it?it.getAsFile():null;})();
     if(imgFile){
+      e.preventDefault();
       if(imgFile.size>5*1024*1024){toast('이미지는 5MB 이하로 넣어주세요');return;}
       const savedRange=(()=>{const s=getSelection();return(s&&s.rangeCount&&ed.contains(s.anchorNode))?s.getRangeAt(0).cloneRange():null;})();
       const reader=new FileReader();
@@ -4261,6 +4308,15 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
     }
     const raw=cd.getData('text/plain');
     const rawHtml=cd.getData('text/html');
+    if(!raw&&!rawHtml){
+      // 클립보드에 text/plain·text/html이 둘 다 비어 있으면 우리 쪽에서 직접 삽입할 내용이
+      // 없다 — 한글(HWP)에서 복사한 내용을 Windows에서 Ctrl+V로 붙여넣을 때 이 두 형식이
+      // 비어서 아무것도 안 붙는 제보가 있었다(반면 Ctrl+Shift+V는 우리 핸들러를 거치지 않고
+      // 브라우저가 직접 처리해서 정상 동작했다). 여기서 preventDefault를 걸지 않고 그냥
+      // 두면 브라우저 기본 붙여넣기로 넘어가 같은 방식으로 정상 붙여넣기된다.
+      return;
+    }
+    e.preventDefault();
     doPaste(i,raw,rawHtml);
   });
 });
@@ -4655,12 +4711,17 @@ document.querySelectorAll('.tb-btn').forEach(b=>{
   b.addEventListener('mousedown',e=>e.preventDefault());
   b.addEventListener('click',()=>{
     if(!b.dataset.cmd)return;   // 색상 버튼 등 명령 없는 버튼 제외
-    document.execCommand(b.dataset.cmd,false,null);
-    // justifyLeft/Center/Right/Full은 execCommand의 "이미 그 상태다" 판단 휴리스틱이
-    // .ed의 justify 기본 CSS와 꼬여서 인라인 text-align을 제대로 안 남기는 경우가 있어,
-    // 명시적으로 DOM에 강제 지정해 결정론적으로 만든다(2.1.4).
+    // justifyLeft/Center/Right/Full은 브라우저 기본 execCommand를 아예 쓰지 않는다.
+    // execCommand의 "이미 그 상태다" 판단 휴리스틱이 .ed의 justify 기본 CSS와 꼬여서
+    // 인라인 text-align을 제대로 안 남기는 문제 때문에 예전부터 applyExplicitAlign으로
+    // 덮어써왔는데, 그 전에 먼저 실행되는 execCommand 자체의 DOM 조작(특히 macOS
+    // WKWebView)이 선택 범위를 벗어난 인접 문단까지 하나의 정렬 블록으로 묶어버리는
+    // 부작용이 있어, 선택하지 않은 문단의 정렬까지 함께 바뀌는 버그로 이어졌다. 이제
+    // execCommand를 거치지 않고 applyExplicitAlign이 현재 선택 범위 안의 블록 요소만
+    // 직접 찾아 text-align을 지정한다.
     const alignMap={justifyLeft:'left',justifyCenter:'center',justifyRight:'right',justifyFull:'justify'};
     if(alignMap[b.dataset.cmd])applyExplicitAlign(alignMap[b.dataset.cmd]);
+    else document.execCommand(b.dataset.cmd,false,null);
     if(editTarget.kind==='ref'){
       const p=panes[editTarget.pane];
       if(p.ref){
@@ -6356,6 +6417,11 @@ $('setIndent').onchange=e=>{settings.indent=e.target.checked;applyEditorStyle();
 // 스타일) OS 레벨 전체화면(setFullscreen)도 같이 켜고 끈다. 예전엔 body에 'focus' 클래스만
 // 씌우는 CSS 트릭이라, 창이 최대화 상태가 아니면 그 창 크기만큼만 덮여서 화면 전체를
 // 덮지 못했다.
+// 집중 모드(F11)를 켜면 실제 OS 전체화면도 함께 켜지는데, 이 상태 그대로 앱을 종료하면
+// 다음에 켤 때도 타이틀바 없는 전체화면으로 열려서 불편하다는 피드백이 있었다. 전체화면
+// 자체는 기억하지 않고, 전체화면을 켜기 직전의 "원래" 창 모양(최대화 여부/위치/크기)만
+// 저장해뒀다가 그걸로 복원하도록 preFocusWinGeom에 스냅샷을 남겨둔다.
+let preFocusWinGeom=null;
 async function setFocusMode(on){
   if(on){
     if(!panes[activePane].tab&&!panes[activePane].docView){toast('먼저 문서를 열어주세요.');return;}
@@ -6365,7 +6431,17 @@ async function setFocusMode(on){
     document.body.classList.remove('focus','ghost-tr','ghost-pin','ghost-memo');
   }
   try{
-    if(T&&T.window&&T.window.getCurrentWindow)await T.window.getCurrentWindow().setFullscreen(on);
+    if(T&&T.window&&T.window.getCurrentWindow){
+      const appWin=T.window.getCurrentWindow();
+      if(on&&!preFocusWinGeom){
+        const isMax=await appWin.isMaximized().catch(()=>false);
+        const pos=await appWin.outerPosition().catch(()=>null);
+        const size=await appWin.outerSize().catch(()=>null);
+        preFocusWinGeom={max:isMax,x:pos?pos.x:undefined,y:pos?pos.y:undefined,w:size?size.width:undefined,h:size?size.height:undefined};
+      }
+      await appWin.setFullscreen(on).catch(()=>{});
+      if(!on)preFocusWinGeom=null;
+    }
   }catch{}
 }
 $('focusBtn').onclick=()=>setFocusMode(true);
@@ -6421,8 +6497,26 @@ function applyFocusPad(){
   }
   document.documentElement.style.setProperty('--focus-top-pad',topH?(topH+16)+'px':'0px');
   document.documentElement.style.setProperty('--focus-bottom-pad',botH?(botH+16)+'px':'0px');
-  document.documentElement.style.setProperty('--focus-left-pad',leftW?(leftW+16)+'px':'0px');
-  document.documentElement.style.setProperty('--focus-right-pad',rightW?(rightW+16)+'px':'0px');
+  const leftPad=leftW?leftW+16:0,rightPad=rightW?rightW+16:0;
+  document.documentElement.style.setProperty('--focus-left-pad',leftPad+'px');
+  document.documentElement.style.setProperty('--focus-right-pad',rightPad+'px');
+  syncFocusXSlider(leftPad,rightPad);
+}
+// 좌/우 패널(시놉시스·메모) 크기가 서로 다르면, 그 차이만큼 가운데 집필 영역이 화면
+// 전체 기준으로는 좌우로 밀려 보인다 — '편집 영역 좌우로 옮기기' 슬라이더가 나타내는
+// 값(focus-x)은 패널을 뺀 나머지 공간 안에서의 비율일 뿐이라 이 밀림을 모른다. 슬라이더
+// 값(설정) 자체는 그대로 두고, 지금 화면에 실제로 보이는 위치만 슬라이더 UI에 반영해서
+// "패널 크기 때문에 옮겨졌다"는 걸 사용자가 바로 알 수 있게 한다. 사용자가 슬라이더를
+// 직접 드래그하는 중에는(포커스가 가 있는 동안) 건드리지 않는다.
+function syncFocusXSlider(leftPad,rightPad){
+  const fx=$('focusX');
+  if(!fx||document.activeElement===fx)return;
+  const focusW=parseInt(settings.focusW)||760;
+  const availW=Math.max(1,innerWidth-leftPad-rightPad);
+  const edW=Math.min(focusW,availW);
+  const ratio=(settings.focusX==null?50:settings.focusX)/100;
+  const editorCenterPx=leftPad+(availW-edW)*ratio+edW/2;
+  fx.value=Math.max(0,Math.min(100,Math.round(editorCenterPx/innerWidth*100)));
 }
 function applyGhost(){
   document.body.classList.toggle('ghost-pin',$('trShowToggle').checked);
@@ -8152,7 +8246,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.6"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.7"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';

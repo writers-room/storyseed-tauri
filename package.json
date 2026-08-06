@@ -1,7 +1,7 @@
 {
   "name": "seojae",
   "private": true,
-  "version": "2.2.6",
+  "version": "2.2.7",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
