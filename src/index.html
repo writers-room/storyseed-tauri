@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.8</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.9</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -754,6 +754,31 @@
   .emoji-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(9,1fr);gap:2px;align-content:start;}
   .emoji-cell{font-size:20px;text-align:center;padding:5px 0;border-radius:7px;cursor:pointer;}
   .emoji-cell:hover{background:var(--sage-150);}
+  /* ── 문자표 ── */
+  .chartable-modal{background:var(--paper);border-radius:14px;padding:16px;width:min(560px,92vw);height:min(520px,86vh);
+    display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.2);}
+  .chartable-modal h3{font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .chartable-modal h3 .close{cursor:pointer;color:var(--ink-faint);}
+  .ct-unicode{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:400;color:var(--ink-faint);}
+  .ct-unicode input{width:74px;border:1px solid var(--sage-200);border-radius:6px;padding:3px 6px;font-size:12px;background:var(--sage-50);color:var(--ink);outline:none;}
+  .ct-unicode input:focus{border-color:var(--sage-400);}
+  .chartable-body{flex:1;display:flex;gap:10px;overflow:hidden;min-height:0;}
+  .chartable-cats{width:92px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
+  .chartable-cat{padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chartable-cat:hover{background:var(--sage-100);}
+  .chartable-cat.on{background:var(--sage-150);color:var(--ink);font-weight:600;}
+  .chartable-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;align-content:start;}
+  .chartable-cell{font-size:18px;text-align:center;padding:6px 0;border-radius:7px;cursor:pointer;}
+  .chartable-cell:hover{background:var(--sage-150);}
+  .chartable-cell.on{background:var(--sage-300);}
+  .chartable-recent{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:8px 0 0;border-top:1px solid var(--sage-150);margin-top:8px;overflow-x:auto;}
+  .ct-label{font-size:11px;color:var(--ink-faint);flex-shrink:0;}
+  .ct-recent-row{display:flex;gap:2px;}
+  .ct-recent-row .chartable-cell{padding:4px 6px;font-size:16px;}
+  .chartable-input-row{display:flex;align-items:center;gap:6px;margin-top:8px;flex-shrink:0;}
+  .chartable-input-row input{flex:1;border:1px solid var(--sage-200);border-radius:8px;padding:6px 10px;font-size:13px;background:var(--sage-50);color:var(--ink);outline:none;}
+  .chartable-input-row input:focus{border-color:var(--sage-400);}
+  .chartable-footer{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px;flex-shrink:0;}
   /* ── 서브메뉴 ── */
   .has-sub{position:relative;}
   .has-sub>.sub{display:none;position:absolute;left:100%;top:-6px;min-width:180px;z-index:600;
@@ -907,6 +932,8 @@
       <div class="mb-sep"></div>
       <div class="mb-op" id="mbInsertTimestamp">타임스탬프 넣기 <span class="kbd">Win+Alt+Shift+D</span></div>
       <div class="mb-op" id="mbInsertCustomTimestamp">커스텀 타임스탬프 넣기…</div>
+      <div class="mb-sep"></div>
+      <div class="mb-op" id="mbInsertCharTable">문자표… <span class="kbd">Ctrl+F10</span></div>
     </div>
   </div>
   <div class="mb-item" id="mbSet">설정
@@ -1210,6 +1237,23 @@
     <div class="emoji-tabs" id="emojiTabs"></div>
     <div class="emoji-grid" id="emojiGrid"></div>
     <div class="ver-actions"><button class="plain" id="emojiReset">기본 아이콘으로</button></div>
+  </div>
+</div>
+
+<!-- 문자표 -->
+<div class="modal-bg" id="charTableBg">
+  <div class="chartable-modal">
+    <h3>문자표<span class="ct-unicode">유니코드 <input id="charTableCode" placeholder="-"></span><span class="close" id="charTableClose">✕</span></h3>
+    <div class="chartable-body">
+      <div class="chartable-cats" id="charTableCats"></div>
+      <div class="chartable-grid" id="charTableGrid"></div>
+    </div>
+    <div class="chartable-recent"><span class="ct-label">최근 사용</span><div class="ct-recent-row" id="charTableRecentRow"></div></div>
+    <div class="chartable-input-row"><span class="ct-label">입력 문자</span><input id="charTableInput" placeholder="문자를 더블클릭하면 여기에 모여요"></div>
+    <div class="chartable-footer">
+      <button class="plain" id="charTableCloseBtn">닫기</button>
+      <button class="primary" id="charTableInsertBtn">넣기</button>
+    </div>
   </div>
 </div>
 
@@ -1801,7 +1845,7 @@ function defaultSettings(){
     toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',formatHistory:[],
     autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',refPaneH:200,
     replaceDash:true,quotePair:false,pasteAsk:true,
-    uiScale:100,showWritten:true,showDeleted:false,edPadBottom:0,alignDefault:'justify',
+    uiScale:100,showWritten:true,showDeleted:false,workDisplayMode:'split',edPadBottom:0,alignDefault:'justify',
     pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
     fontSyn:'',fontNote:'',fontMemo:'',
     userRepl:[['->','→'],['<-','←']],
@@ -1872,7 +1916,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.8";
+const APP_VERSION="beta 2.2.9";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -4112,9 +4156,16 @@ function syncFromDOM(i){
   const p=panes[i];if(!p.tab&&p.docView){syncDocViewFromDOM(i);return;}
   const t=panes[i].tab;if(!t)return;
   const ed=$('ed'+i);
-  const prevLen=t.body.replace(/<[^>]+>/g,'').length;
+  // 글자수 증감은 태그만 걷어낸 '원본 HTML 문자열' 길이가 아니라 plainTextOf로 실체
+  // 문자를 뽑아 세야 한다 — 스페이스바를 눌렀을 때 브라우저가 그 자리를 보존하려고
+  // 공백 하나를 "&nbsp;"(6글자짜리 HTML 엔티티)로 인코딩해 넣는 경우가 있는데, 태그만
+  // 지우는 정규식은 이 엔티티를 그대로 문자 6개로 세버려서 스페이스 한 번에 작성
+  // 글자수가 6~10씩(엔티티가 여러 개 겹치는 경우) 랜덤하게 뻥튀기되는 버그가 있었다
+  // (백스페이스 직후 남은 공백이 새로 엔티티화되는 경우도 있어 지울 때도 같은 증상이
+  // 났다). plainTextOf는 HTML을 실제로 디코딩해서 세므로 이 문제가 없다.
+  const prevLen=plainTextOf(t.body).length;
   t.body=ed.innerHTML;
-  const nowLen=t.body.replace(/<[^>]+>/g,'').length;
+  const nowLen=plainTextOf(t.body).length;
   const diff=nowLen-prevLen,s=dayStat();
   if(diff>0){
     let add=diff;
@@ -6014,7 +6065,7 @@ function renameSelectedInBinder(){
 // Esc 처리에서 쓰는 오버레이 id 목록과 동일 — 팝업/모달이 열려 있을 때는 Delete 키가
 // 엉뚱하게 바인더 삭제로 새지 않게 막는다.
 function anyOverlayOpen(){
-  return ['findBar','hlPop','hlListBg','verBg','trashBg','emojiBg','prefsBg','memoPickBg','expBg2','mobilePreviewBg','confirmBg','customTsBg','modalBg'].some(id=>{
+  return ['findBar','hlPop','hlListBg','verBg','trashBg','emojiBg','charTableBg','prefsBg','memoPickBg','expBg2','mobilePreviewBg','confirmBg','customTsBg','modalBg'].some(id=>{
     const el=$(id);return el&&el.classList.contains('open');
   });
 }
@@ -6660,6 +6711,7 @@ const SHORTCUT_DEFS=[
   {id:'newDoc',label:'새 회차 만들기 (바인더)',defaultKey:'Ctrl+N',fn:()=>{if(isEditableActive())return;createNewDoc();}},
   {id:'renameSelected',label:'이름 바꾸기 (바인더에서 선택한 회차/폴더)',defaultKey:'F2',fn:()=>{if(isEditableActive())return;renameSelectedInBinder();}},
   {id:'insertTimestamp',label:'타임스탬프 넣기',defaultKey:'Ctrl+Alt+Shift+D',fn:()=>insertTimestamp()},
+  {id:'insertCharTable',label:'문자표',defaultKey:'Ctrl+F10',fn:()=>openCharTable()},
 ];
 function comboFromEvent(e){
   const parts=[];
@@ -6786,6 +6838,7 @@ addEventListener('keydown',e=>{
     if($('verBg').classList.contains('open')){$('verBg').classList.remove('open');return;}
     if($('trashBg').classList.contains('open')){$('trashBg').classList.remove('open');return;}
     if($('emojiBg').classList.contains('open')){$('emojiBg').classList.remove('open');return;}
+    if($('charTableBg').classList.contains('open')){$('charTableBg').classList.remove('open');return;}
     if($('prefsBg').classList.contains('open')){$('prefsBg').classList.remove('open');return;}
     if($('memoPickBg').classList.contains('open')){$('memoPickBg').classList.remove('open');return;}
     if($('expBg2').classList.contains('open')){$('expBg2').classList.remove('open');return;}
@@ -7770,7 +7823,8 @@ function plainTextOf(body){
   let s=body.replace(/<br[^>]*>\s*(?=<\/(div|p)>)/gi,'')
             .replace(/<\/(div|p)>/gi,'\n').replace(/<br[^>]*>/gi,'\n').replace(/<[^>]+>/g,'');
   const ta=document.createElement('textarea');ta.innerHTML=s;s=ta.value;
-  return s.replace(/\u200b/g,'').replace(/\n{3,}/g,'\n\n').replace(/^\n+/,'').trimEnd();}
+  // trailing-space fix: only trim trailing blank-paragraph newlines, keep a real trailing space on the last line.
+  return s.replace(/\u200b/g,'').replace(/\n{3,}/g,'\n\n').replace(/^\n+/,'').replace(/\n+$/,'');}
 function toRTF(text){
   let out='{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Batang;}}\\f0\\fs22 ';
   for(const ch of text){
@@ -8360,7 +8414,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.8"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.9"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -8635,6 +8689,113 @@ $('emojiReset').onclick=async()=>{
   }
   renderTree();toast('기본 아이콘으로 되돌렸어요');
 };
+
+/* ═══════════ 문자표(특수문자) 삽입 — 한컴오피스 한글 문자표 참고 ═══════════ */
+const CHARTABLE_CATS={
+ '기호1':[...'‘’“”·‥…¨〃′″‐‑‒–—―∥＼∼〓≪≫「」『』〔〕｛｝〈〉《》【】±×÷≠≤≥∞∴∵∠⊥⌒∂∇≒≡§¶＃＆＊＠※☆★○●◎◇◆□■△▲▽▼▶◀▷◁→←↑↓↔↕↗↘↙↖⇒⇔⇑⇓⇐⇖⇗⇘⇙∀∃♠♣♥♦♤♧♡〝〟'],
+ '기호2':[...'$£¥￠₩￦€%℃℉㎡㎥㎜㎝㎞㎏㏊№㏇™®©@+-÷=<>±√∫∬∮∑∏∝∀∃∅∈∋⊂⊃⊆⊇∧∨¬♩♪♬♭♮♯☎☏✆✉☜☞☝☟✍✌☂☔☀☁☃⚡'],
+ '영어·숫자':[...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅰⅱⅲⅳⅴⅵⅶⅷⅸⅹ'],
+ '한글자모':[...'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㄲㄸㅃㅆㅉㅏㅑㅓㅕㅗㅛㅜㅠㅡㅣㅐㅔㅒㅖㅘㅙㅚㅝㅞㅟㅢㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄ'],
+ '그리스어':[...'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρστυφχψω'],
+ '선문자':[...'─│┌┐└┘├┬┤┴┼━┃┏┓┗┛┣┳┫┻╋╌╍╎╏═║╔╗╚╝╠╣╦╩╬'],
+ '단위기호':[...'㎜㎝㎞㎟㎠㎡㎢㎥㎦㎎㎏㎉㏄㎈℃℉㏊㎧㎨㎰㎱㎲㎳㎍㏈㏙㎊㎋㎌㏖㏅㎭'],
+ '원문자':[...'①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏ㉠㉡㉢㉣㉤㉥㉦㉧㉨㉩㉪㉫㉬㉭'],
+ '괄호문자':[...'⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂㈎㈏㈐㈑㈒㈓㈔㈕㈖㈗㈘㈙㈚㈛㈀㈁㈂㈃㈄㈅㈆㈇㈈㈉'],
+ '히라가나':[...'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽゃゅょっー'],
+ '가타카나':[...'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポャュョッー'],
+ '러시아어':[...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'],
+};
+// 문자를 클릭하면 선택(미리보기)만, 더블클릭하면 하단 '입력 문자' 필드에 모아뒀다가
+// '넣기'를 눌렀을 때 그 필드에 있는 내용 전체를 한 번에 커서 위치에 넣는다(한컴오피스
+// 한글 문자표와 동일한 방식) — 문자 하나 볼 때마다 바로바로 본문에 꽂히는 게 아니라
+// 여러 개를 모아서 한 번에 넣고 싶다는 요청 반영.
+let charTableCat=Object.keys(CHARTABLE_CATS)[0],charTableSel=null;
+function getCharTableRecent(){try{return JSON.parse(localStorage.getItem('charTableRecent')||'[]');}catch{return [];}}
+function addCharTableRecent(ch){
+  let list=getCharTableRecent().filter(c=>c!==ch);
+  list.unshift(ch);
+  if(list.length>16)list.length=16;
+  localStorage.setItem('charTableRecent',JSON.stringify(list));
+  renderCharTableRecent();
+}
+function renderCharTableRecent(){
+  const row=$('charTableRecentRow');row.innerHTML='';
+  getCharTableRecent().forEach(ch=>{
+    const d=document.createElement('div');d.className='chartable-cell';d.textContent=ch;
+    d.onclick=()=>selectCharTableChar(ch);
+    d.ondblclick=()=>{selectCharTableChar(ch);appendCharTableInput(ch);};
+    row.appendChild(d);
+  });
+}
+function openCharTable(){
+  if(!panes[activePane].tab){toast('먼저 문서를 열어주세요.');return;}
+  rememberSel();
+  charTableSel=null;
+  renderCharTableCats();renderCharTableGrid();renderCharTableRecent();
+  $('charTableCode').value='';
+  $('charTableInput').value='';
+  $('charTableBg').classList.add('open');
+}
+function renderCharTableCats(){
+  const c=$('charTableCats');c.innerHTML='';
+  Object.keys(CHARTABLE_CATS).forEach(cat=>{
+    const d=document.createElement('div');d.className='chartable-cat'+(cat===charTableCat?' on':'');
+    d.textContent=cat;
+    d.onclick=()=>{charTableCat=cat;renderCharTableCats();renderCharTableGrid();};
+    c.appendChild(d);
+  });
+}
+function renderCharTableGrid(){
+  const g=$('charTableGrid');g.innerHTML='';
+  [...new Set(CHARTABLE_CATS[charTableCat])].forEach(ch=>{
+    const d=document.createElement('div');d.className='chartable-cell'+(ch===charTableSel?' on':'');d.textContent=ch;
+    d.onclick=()=>selectCharTableChar(ch);
+    d.ondblclick=()=>{selectCharTableChar(ch);appendCharTableInput(ch);};
+    g.appendChild(d);
+  });
+}
+// 문자를 고르면(클릭) 그 문자의 유니코드 값만 우상단 필드에 보여준다 — 예전처럼 숫자/코드가
+// 아니라 실제 문자가 눈에 보여야 하는 곳은 그리드·최근 사용·입력 문자 필드 쪽이고,
+// 이 필드는 참고용 유니코드 표시 전용이다.
+function selectCharTableChar(ch){
+  charTableSel=ch;
+  $('charTableCode').value=ch.codePointAt(0).toString(16).toUpperCase();
+  renderCharTableGrid();
+}
+function appendCharTableInput(ch){
+  $('charTableInput').value+=ch;
+}
+// 유니코드 필드에 직접 코드나 문자를 입력하고 Enter를 치면, 그 문자를 선택 상태로 만든
+// 뒤 입력 문자 필드에 추가한다(그리드를 더블클릭하는 것과 동일한 효과).
+$('charTableCode').addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  const v=$('charTableCode').value.trim();
+  if(!v)return;
+  let ch=null;
+  if([...v].length===1)ch=v;
+  else if(/^[0-9a-fA-F]+$/.test(v)){try{ch=String.fromCodePoint(parseInt(v,16));}catch{ch=null;}}
+  if(!ch)return;
+  selectCharTableChar(ch);
+  appendCharTableInput(ch);
+});
+function insertCharTableInput(){
+  const text=$('charTableInput').value;
+  if(!text)return;
+  [...new Set([...text])].forEach(ch=>addCharTableRecent(ch));
+  mbFocusEditor();restoreSel();
+  document.execCommand('insertText',false,text);
+  const i=activePane;clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
+  $('charTableInput').value='';
+}
+$('mbInsertCharTable').addEventListener('click',()=>{
+  document.querySelectorAll('.mb-item').forEach(x=>x.classList.remove('open'));
+  openCharTable();
+});
+$('charTableClose').onclick=()=>$('charTableBg').classList.remove('open');
+$('charTableCloseBtn').onclick=()=>$('charTableBg').classList.remove('open');
+$('charTableInsertBtn').onclick=()=>{insertCharTableInput();};
+$('charTableInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();insertCharTableInput();}});
 
 /* ═══════════ 집중 모드: 마우스가 화면 위/아래 가장자리에 갈 때만 그쪽 UI 표시 ═══════════ */
 // 예전엔 화면 아무 데서나 마우스만 움직여도(스크롤하며 읽을 때 포함) 위/아래 호버 메뉴가
