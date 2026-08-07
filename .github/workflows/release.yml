@@ -55,9 +55,9 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "스토리시드 ${{ github.ref_name }}"
           releaseBody: |
-            - 문서에서 블록을 선택하면 하단에 선택 글자수를 함께 표시
-            - 다중 모니터 환경에서 창 위치·크기를 기억하지 못하던 문제 수정
-            - 일부 UI/UX 개선
+            - 작성/지운 글자수를 더 정확하게 집계 (직접 타이핑·백스페이스/Delete만 집계)
+            - 오늘 작업량 표시를 '작성/지운 글자수' 또는 '오늘 총 작업량' 중 고를 수 있게 개선
+            - 한글(HWP) 등에서 서식 유지로 붙여넣을 때 CSS 코드 조각이 텍스트로 섞여 들어가던 문제 수정
             - 기타 각종 버그 수정
           releaseDraft: false
           prerelease: false

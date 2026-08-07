@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.7</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.8</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -1243,9 +1243,14 @@
           <div class="set-row">원고 아래 여백 <span><input type="range" id="setEdPadB" min="0" max="50" step="5" style="width:110px"> <b id="setEdPadBV" style="min-width:34px;display:inline-block;text-align:right">끔</b></span></div>
           <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.7;margin:-2px 0 8px">
             에디터 아래쪽을 설정한 만큼 비워 둬요. 마지막 줄을 쓸 때도 커서가 그 여백 위로 올라와서, 시선이 화면 바닥에 붙지 않아요. <b>0%</b>면 꺼져요.</div>
-          <div class="set-row" style="border:none;padding-bottom:0;color:var(--ink-faint);font-size:12px">오늘 작업량 표시 (하나라도 켜면 표시돼요)</div>
-          <div class="set-row">작성 글자수 <input type="checkbox" id="setShowWritten"></div>
-          <div class="set-row">지운 글자수 <input type="checkbox" id="setShowDeleted"></div>
+          <div class="set-row" style="border:none;padding-bottom:0;color:var(--ink-faint);font-size:12px">오늘 작업량 표시</div>
+          <div class="set-row">표시 방식 <div class="seg" id="setWorkModeSeg">
+            <button type="button" data-mode="split">작성/지운 글자수</button>
+            <button type="button" data-mode="total">오늘 총 작업량</button></div></div>
+          <div id="setWorkSplitRows">
+            <div class="set-row">작성 글자수 <input type="checkbox" id="setShowWritten"></div>
+            <div class="set-row">지운 글자수 <input type="checkbox" id="setShowDeleted"></div>
+          </div>
         </div>
         <div class="prefs-cat" data-cat="fonts" style="display:none">
           <div style="font-size:12px;color:var(--ink-faint);margin-bottom:6px">영역별 기본 글꼴</div>
@@ -1867,7 +1872,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.7";
+const APP_VERSION="beta 2.2.8";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -1904,6 +1909,19 @@ function modal(title,defVal=''){return new Promise(res=>{
   $('modalOk').addEventListener('click',ok);$('modalCancel').addEventListener('click',cancel);
   $('modalInput').addEventListener('keydown',key);});}
 async function readFile(p){return await FS.readTextFile(p);}
+// macOS(APFS)는 디렉터리 목록을 유니코드 NFD(자모 분해형)로 돌려주는 경우가 있다 — 한글처럼
+// 조합형(NFC)으로 들어있는 문자열(문서 안 메타데이터의 표시 이름, Windows에서 만들어
+// Dropbox 등으로 동기화된 뒤 이미 메모리에 남아있던 경로 기록 등)과 화면에는 완전히
+// 똑같아 보여도 문자열로는 서로 달라서, 이후 경로를 그대로 비교(===)하는 모든 곳에서
+// "같은 파일인데 다르다"고 오판하는 문제가 있었다(예: macOS에서 문서 내용이 전부 빈
+// 것처럼 보이거나, 폴더 이름이 표시 이름과 똑같은데도 다르다는 팝업이 뜨는 버그). 파일
+// 이름이 파일시스템에서 처음 들어오는 이 지점에서 항상 NFC로 통일해두면, 그 뒤로 앱
+// 안 어디서 문자열로 비교하든 안전하다(macOS 자체의 파일 열기/저장은 NFC·NFD를 같은
+// 파일로 인식하므로, 여기서 NFC로 바꿔도 실제 파일 접근에는 영향이 없다).
+async function readDirN(path){
+  const entries=await FS.readDir(path);
+  return entries.map(e=>({...e,name:e.name.normalize('NFC')}));
+}
 async function writeFile(p,text){await FS.writeTextFile(p,text);}
 async function readJson(p,fallback){try{return JSON.parse(await FS.readTextFile(p));}catch{return fallback;}}
 /* CS(고객지원) 대비 진단 로그: 앱 데이터 폴더 안에 최근 작품 목록/이력/오류를 남겨
@@ -2285,7 +2303,7 @@ function updateWorkIcon(){
    이관된 경우 null. */
 async function migrateOldProject(oldRootPath){
   let entries;
-  try{entries=await FS.readDir(oldRootPath);}
+  try{entries=await readDirN(oldRootPath);}
   catch(e){console.warn('마이그레이션: 프로젝트 폴더를 읽을 수 없음',e);return null;}
   // 이관 완료 여부는 .서재-이관백업-* 폴더뿐 아니라, 지우기 쉬운 백업 폴더가 혹시
   // 사라지더라도(유저가 실수로 삭제하는 등) 안전하도록 별도의 완료 표시 파일
@@ -2371,7 +2389,7 @@ async function migrateOldProject(oldRootPath){
       // 스냅샷: 파일명이 '작품이름__상대경로__타임스탬프[~라벨].md' 형태(snapSafe 참고)이므로
       // '작품이름__'로 시작하는 것만 그 작품 것으로 판별해 복사(원본은 그대로 둠).
       try{
-        const snapEntries=await FS.readDir(oldSeojae+'/snapshots');
+        const snapEntries=await readDirN(oldSeojae+'/snapshots');
         const newSnaps=newSeojae+'/snapshots';
         await FS.mkdir(newSnaps,{recursive:true});
         const prefix=w.name+'__';
@@ -2503,7 +2521,7 @@ async function openWorkAt(path,dispHint){
         const folderDisp=path.replace(/[\\/]+$/,'').split(/[\\/]/).pop();
         const candidates=[];
         try{
-          const entries=await FS.readDir(path);
+          const entries=await readDirN(path);
           for(const en of entries){
             if(!en.isDirectory||en.name.startsWith('.'))continue;
             if(await FS.exists(path+'/'+en.name+'/.hidden'))continue;
@@ -2598,7 +2616,10 @@ async function openWorkAt(path,dispHint){
       const curBase=curWork.path.replace(/[\\/]+$/,'').split(/[\\/]/).pop();
       // safeFileBase로 비교해야 한다 — 원래 이미 폴더명으로 못 쓰는 문자 때문에 100%
       // 일치가 불가능한 경우(예: 특수문자가 든 제목)까지 매번 물어보면 안 되므로.
-      if(safeFileBase(curWork.disp)!==curBase){
+      // normalize('NFC')도 함께 걸어야 한다 — macOS(APFS)가 폴더 경로를 유니코드 NFD로
+      // 돌려주는 경우가 있어서, 눈에는 똑같은 한글 이름인데도 문자열로는 다르다고 오판해
+      // 이름이 일치하는데도 "폴더 이름을 맞출까요?" 팝업이 떴던 문제가 있었다.
+      if(safeFileBase(curWork.disp).normalize('NFC')!==curBase.normalize('NFC')){
         const ok=await confirmBox(
           '작품 이름은 『'+curWork.disp+'』인데, 실제 폴더 이름은 아직 『'+curBase+'』예요.\n'+
           '지금 폴더 이름도 표시 이름에 맞출까요?\n(다른 폴더와 이름이 겹치는 등 문제가 있으면 자동으로 그대로 둬요.)',
@@ -2623,7 +2644,7 @@ async function openWorkAt(path,dispHint){
 // 읽어둔 FS.readDir 결과가 있으면 재사용하고, 없으면 새로 읽는다.
 async function looksFullyMigrated(rootPath,entries){
   try{
-    const list=entries||await FS.readDir(rootPath);
+    const list=entries||await readDirN(rootPath);
     const dirs=list.filter(en=>en.isDirectory&&!en.name.startsWith('.'));
     let valid=0;
     for(const en of dirs){
@@ -2651,7 +2672,7 @@ async function isWorkRoot(p){
     return false;
   }
   try{
-    const entries=await FS.readDir(p);
+    const entries=await readDirN(p);
     if(entries.some(en=>en.isDirectory&&en.name.startsWith('.서재-이관백업-'))){
       // 백업 폴더만 있고 완료 표시 파일이 아직 없는 경우(이 안전판을 추가하기 전에 이미
       // 이관됐던 폴더) — 다음부터는 파일 쪽도 같이 있도록 지금 만들어둔다(굳이 기다릴
@@ -2807,7 +2828,7 @@ async function openWork(mode){
         // 이름을 바꾼 작품이어도 사용자가 알아볼 수 있게).
         const foundWorks=[];
         try{
-          const entries=await FS.readDir(normP);
+          const entries=await readDirN(normP);
           for(const en of entries){
             if(!en.isDirectory||en.name.startsWith('.'))continue;
             const sub=normP+'/'+en.name;
@@ -2937,7 +2958,7 @@ async function hideInternalFiles(rootPath){
       if(await FS.exists(p))await hidePath(p);
     }
     // 이름이 매번 달라지는(타임스탬프 접미사) 이관 백업 폴더도 찾아서 숨긴다
-    let rootEntries=[];try{rootEntries=await FS.readDir(rootPath);}catch{}
+    let rootEntries=[];try{rootEntries=await readDirN(rootPath);}catch{}
     for(const en of rootEntries){
       if(en.name.startsWith('.서재-이관백업-')){
         const p=rootPath+'/'+en.name;
@@ -2946,7 +2967,7 @@ async function hideInternalFiles(rootPath){
     }
     // 2) 모든 하위 폴더를 재귀적으로 순회하며 폴더별 내부 관리 파일을 숨긴다
     const walkDir=async(absDir)=>{
-      let entries=[];try{entries=await FS.readDir(absDir);}catch{return;}
+      let entries=[];try{entries=await readDirN(absDir);}catch{return;}
       for(const en of entries){
         if(en.isDirectory){
           for(const name of ['.이름','.hidden','.시놉시스.md']){
@@ -2967,7 +2988,7 @@ async function rescanTree(){
 }
 async function scanDir(absDir,relPath){
   const nodes=[];
-  let entries=[];try{entries=await FS.readDir(absDir);}catch{return nodes;}
+  let entries=[];try{entries=await readDirN(absDir);}catch{return nodes;}
   for(const en of entries){
     const name=en.name;
     if(name.startsWith('.'))continue;
@@ -3397,7 +3418,7 @@ async function moveMany(nodes,destAbs,destPath,seps,anchor,before){
 
 async function copyDir(srcAbs,destAbs){
   await FS.mkdir(destAbs,{recursive:true});
-  let entries=[];try{entries=await FS.readDir(srcAbs);}catch{return;}
+  let entries=[];try{entries=await readDirN(srcAbs);}catch{return;}
   for(const en of entries){
     if(en.isDirectory)await copyDir(srcAbs+'/'+en.name,destAbs+'/'+en.name);
     else{try{await writeFile(destAbs+'/'+en.name,await readFile(srcAbs+'/'+en.name));}catch{}}
@@ -4047,6 +4068,23 @@ document.addEventListener('selectionchange',updateSelChars);
 /* ═══════════ 입력·자동 치환·통계 ═══════════ */
 const saveTimers=[null,null],syncTimers=[null,null];
 let pasteSuppressChars=0;   // 붙여넣은 글자 수 — 작업량 집계에서 제외
+// '지운 글자수'는 백스페이스·Delete 키로 커서 위치에서 한 글자씩 지운 경우만 센다 —
+// 블록으로 선택한 뒤 그 선택 범위를 한꺼번에 지우거나(백스페이스/Delete여도) 잘라내기
+// (Ctrl+X)한 경우는 '한꺼번에 지운 것'이지 '하나하나 지운 것'이 아니므로 절대 포함하지
+// 않는다. beforeinput의 inputType으로 삭제 종류를, 그 시점의 선택 상태(collapsed 여부)로
+// "커서 위치에서 한 글자씩"인지 "선택 범위째"인지를 판별해서 다음 input 이벤트(=실제 DOM
+// 반영) 때 syncFromDOM이 이 플래그를 보고서만 지운 글자수에 반영하게 한다.
+let soloDeleteArmed=[false,false];
+// '작성 글자수'도 마찬가지로 "직접 타이핑한 것"만 세야 한다 — 블록 삭제를 Ctrl+Z로
+// 되돌리면 글자수가 늘어나지만 그건 되돌리기지 타이핑이 아니고, Ctrl+V로 붙여넣은 것도
+// 타이핑이 아니다. beforeinput의 inputType이 "붙여넣기·드롭·되돌리기/다시 실행" 등
+// 타이핑이 아닌 것으로 확인되면 이번 입력은 작성 글자수에서 제외한다(반대로 알려지지
+// 않은 새 inputType이 나와도 일반 타이핑으로 보고 세는 쪽이 안전하므로 화이트리스트가
+// 아니라 블랙리스트로 판단한다). 붙여넣기는 이 판별과는 별도로 기존 pasteSuppressChars
+// 메커니즘으로도 한 번 더 정확히 제외된다 — 붙여넣기 삽입에 쓰는 execCommand가 브라우저별로
+// 어떤 inputType을 보고하는지 제각각이라, 어느 한쪽만으로는 완전히 믿을 수 없기 때문이다.
+const NON_TYPING_INPUT_TYPES=new Set(['insertFromPaste','insertFromPasteAsQuotation','insertFromDrop','insertFromYank','historyUndo','historyRedo','insertTranspose']);
+let writeArmed=[false,false];
 // 같은 문서(t)를 동시에 보여주고 있을 수 있는 모든 화면(다른 화면의 일반 탭, 참고창,
 // 그리고 다른 화면에서 지금 실제로 보이고 있는 문서 보기 안의 해당 문서 래퍼)에
 // 방금 바뀐 t.body를 즉시 반영한다. 어느 화면에서 편집이 일어났든(일반 탭/참고창/문서
@@ -4080,10 +4118,15 @@ function syncFromDOM(i){
   const diff=nowLen-prevLen,s=dayStat();
   if(diff>0){
     let add=diff;
-    // 붙여넣은 분량은 '직접 타이핑'이 아니므로 작업량에서 제외
+    // 붙여넣은 분량은 '직접 타이핑'이 아니므로 작업량에서 제외(길이를 정확히 아는 우리
+    // 자신의 붙여넣기 삽입 경로에 대한 결정론적 제외 — pasteSuppressChars는 항상 정확히
+    // 소비해둬야 남은 값이 나중의 무관한 타이핑에 잘못 걸리지 않는다)
     if(pasteSuppressChars>0){const cut=Math.min(add,pasteSuppressChars);add-=cut;pasteSuppressChars-=cut;}
-    if(add>0)s.w+=add;
-  }else if(diff<0)s.d+=-diff;
+    // 그 외에도 되돌리기/다시 실행이나(붙여넣기 삽입 경로를 못 거친) 브라우저 기본 붙여넣기
+    // 등 '직접 타이핑'이 아닌 것으로 확인된 입력이면 작성 글자수에 더하지 않는다
+    if(add>0&&writeArmed[i])s.w+=add;
+  }else if(diff<0&&soloDeleteArmed[i])s.d+=-diff;
+  soloDeleteArmed[i]=false;writeArmed[i]=false;
   updateTodayChip();
   t.dirty=true;$('save'+i).textContent='수정됨';
   if(t.node){
@@ -4210,6 +4253,22 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
       }
     }
   });
+  // '지운 글자수' 정밀 집계: deleteContentBackward/Forward(백스페이스/Delete)이면서 그
+  // 시점의 선택이 collapsed(=커서만 있고 선택 범위 없음)일 때만 "한 글자씩 지운 것"으로
+  // 표시해둔다. 선택 범위가 있는 상태로 백스페이스/Delete를 누르거나, 잘라내기(Cut) 등
+  // 다른 종류의 입력이면 표시하지 않는다 — 이 표시는 바로 다음 input 이벤트 한 번에만
+  // 쓰이고 매번 새로 갱신된다.
+  ed.addEventListener('beforeinput',e=>{
+    const it=e.inputType||'';
+    if(it==='deleteContentBackward'||it==='deleteContentForward'){
+      const sel=getSelection();
+      soloDeleteArmed[i]=!!(sel&&sel.isCollapsed);
+      writeArmed[i]=false;
+    }else{
+      soloDeleteArmed[i]=false;
+      writeArmed[i]=!NON_TYPING_INPUT_TYPES.has(it);
+    }
+  });
   // 3) 최후의 안전망: 위 beforeinput 차단을 어떤 경로로든(브라우저별 병합 동작, 드래그,
   //    실행취소 등 getTargetRanges가 못 잡아내는 경우) 뚫고 구분선이나 문서 래퍼가 DOM에서
   //    사라지면, ed의 직계 자식 구성이 바뀔 때만 반응하는 이 옵저버가 즉시 감지해서 살릴 수
@@ -4278,6 +4337,7 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
     if(selLen<20000)return;          // 선택이 작으면 기본 처리
     e.preventDefault();
     snapshotIfDue(t,true);           // 되돌리기용 스냅샷
+    soloDeleteArmed[i]=false;   // 큰 블록 삭제는 '하나하나 지운 것'이 아니므로 지운 글자수에서 제외
     if(selLen>=totLen-2){ed.innerHTML='<div><br></div>';}   // 전체 선택 → 통째로 비우기(즉시)
     else{r.deleteContents();if(!ed.firstChild||!ed.textContent)ed.innerHTML='<div><br></div>';}
     const nr=document.createRange();nr.selectNodeContents(ed.firstChild||ed);nr.collapse(true);
@@ -4363,12 +4423,26 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
 });
 /* ═══ 붙여넣기: 대용량 고속 삽입 + 줄바꿈/서식 선택 상자 ═══ */
 let pasteState=null; // {pane, raw, rawHtml, mode, format}
+// 한글(HWP) 등에서 복사한 텍스트를 "서식 유지"로 붙여넣으면, 클립보드의 CF_HTML 포맷이
+// 담고 있는 <style> 블록(v\:* {behavior:url(#default#vml);} 같은 MS오피스/VML 호환용 CSS)이
+// 그대로 새어 들어오는 제보가 있었다. 보통은 아래 sanitizePastedHtml의 <style> 태그 제거로
+// 걸러지는데, 원인을 보니 CF_HTML의 시작 위치 계산이 어긋나서(한글처럼 비ASCII 문자가
+// 많으면 바이트 수/문자 수를 혼동하는 경우가 흔하다) <style> 여는 태그 없이 그 안의 CSS
+// 텍스트 중간부터 잘려서 넘어오는 경우가 있었다 — 태그가 아예 없으니 태그 제거로는 못
+// 걸러지고 순수 텍스트로 그대로 삽입/내보내기까지 이어졌다. 이 VML 전용 CSS 선택자
+// 패턴은 실제 글에서는 나올 일이 없는 아주 특정적인 신호라, 태그 유무와 무관하게 문자열
+// 단계에서 먼저 걷어낸다(붙어 있는 "-->"·"</style>" 잔여물도 함께 제거).
+const STRAY_VML_CSS_RE=/(?:[.\w\\:*#-]+(?:,\s*[.\w\\:*#-]+)*\s*\{\s*behavior\s*:\s*url\(#default#vml\)\s*;?\s*\}\s*)+(?:-->\s*)?(?:<\/style>\s*)?/gi;
 // 붙여넣기 서식 유지용: 안전한 인라인 서식만 남기고 나머지는 텍스트로 풀어냄
 function sanitizePastedHtml(html){
-  const root=document.createElement('div');root.innerHTML=html||'';
+  const root=document.createElement('div');root.innerHTML=(html||'').replace(STRAY_VML_CSS_RE,'');
   root.querySelectorAll('script,style,meta,link,title,head,noscript,iframe,object,embed,img,svg').forEach(e=>e.remove());
   const allowed={B:1,STRONG:1,I:1,EM:1,U:1,S:1,STRIKE:1,DEL:1,SPAN:1,DIV:1,P:1,BR:1,FONT:1,SUP:1,SUB:1};
-  const props=['color','background-color','font-weight','font-style','text-decoration','text-decoration-line','font-family','font-size','text-align','vertical-align'];
+  // text-align은 일부러 허용 목록에서 뺐다 — 다른 프로그램에서 복사해온 문단 정렬을
+  // 그대로 들여오면(특히 macOS WKWebView에서) 붙여넣는 자리 근처의 원래 있던 문단까지
+  // 정렬이 함께 바뀌어버리는 문제가 있었다. 정렬은 늘 지금 문서에 맞게 사용자가 직접
+  // 정하는 게 안전하다.
+  const props=['color','background-color','font-weight','font-style','text-decoration','text-decoration-line','font-family','font-size','vertical-align'];
   (function walk(node){
     [...node.children].forEach(el=>{
       walk(el);
@@ -4414,8 +4488,28 @@ function insertBigText(ed,text){
     sel.removeAllRanges();sel.addRange(r);
   }
 }
+// 붙여넣기 직전에 지금 선택(커서)이 이 에디터 안에 있는지 확인한다. macOS에서 드물게
+// 탭을 전환한 직후 등에 커서가 에디터 영역 밖(화면 왼쪽 위)에 남아있는 것처럼 보이는
+// 상태로 붙여넣기를 하면, 엉뚱한 위치에 삽입되는 문제가 있었다는 제보가 있었다. 선택이
+// 에디터 밖에 있으면 안전하게 에디터 맨 끝으로 커서를 되돌린 뒤 붙여넣는다. (참고: 실제
+// 삽입은 execCommand로 그대로 유지한다 — Range.insertNode로 직접 삽입하도록 바꿔봤더니
+// 붙여넣기 직후 "형식 바꾸기" 팝업이 execCommand('undo')로 직전 붙여넣기를 취소하고
+// 다시 끼우는 방식에 기대고 있어서, 그 되돌리기가 더는 안 먹는 회귀가 생겼다. 정렬이
+// 통으로 바뀌던 원래 버그는 붙여넣은 서식에서 text-align 자체를 빼는 쪽으로 고쳤다.)
+function ensureSelectionInEditor(ed){
+  const sel=getSelection();
+  if(sel&&sel.rangeCount){
+    const r=sel.getRangeAt(0);
+    if(ed.contains(r.startContainer)&&ed.contains(r.endContainer))return;
+  }
+  ed.focus();
+  const r=document.createRange();
+  r.selectNodeContents(ed);r.collapse(false);
+  const s=getSelection();s.removeAllRanges();s.addRange(r);
+}
 function pasteInsert(i,raw,rawHtml,format){
   const ed=$('ed'+i);
+  ensureSelectionInEditor(ed);
   if(format==='keep'&&rawHtml){
     const clean=sanitizePastedHtml(rawHtml);
     pasteSuppressChars+=(raw||ed.textContent||'').replace(/\n/g,'').length;
@@ -4569,6 +4663,13 @@ function autoReplaceCE(){
   }
 }
 function updateTodayChip(){const s=dayStat();
+  if(settings.workDisplayMode==='total'){
+    // '오늘 총 작업량' 모드: 작성·지운 글자수를 따로 보여주지 않고 합쳐서 하나로 표시
+    $('todayChars').textContent=fmt(s.w+s.d)+'자';
+    $('todayDel').textContent='';
+    if(typeof fitTopbar==='function')fitTopbar();
+    return;
+  }
   $('todayChars').textContent=settings.showWritten!==false?('작성 '+fmt(s.w)+'자'):'';
   const wOn=settings.showWritten!==false;
   $('todayDel').textContent=(settings.showDeleted===true&&s.d)?((wOn?'· ':'')+'지우기 '+fmt(s.d)+'자'):'';
@@ -4631,7 +4732,7 @@ async function snapshotIfDue(t,force){
     const safe=snapSafe(t);
     const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     await writeFile(snapsPath+'/'+safe+'__'+ts+'.md',serializeDoc(t));
-    const entries=await FS.readDir(snapsPath);
+    const entries=await readDirN(snapsPath);
     const mine=entries.map(e=>e.name).filter(n=>snapMatchesTab(n,t)&&!n.includes('~'));
     mine.sort();
     while(mine.length>20)await FS.remove(snapsPath+'/'+mine.shift());
@@ -5977,6 +6078,7 @@ function applySettings(){
   $('setUiScale').value=String(settings.uiScale||100);
   $('setShowWritten').checked=settings.showWritten!==false;
   $('setShowDeleted').checked=settings.showDeleted===true;
+  renderWorkModeSeg();
   $('setEdPadB').value=String(settings.edPadBottom||0);
   $('setAlignDefault').value=settings.alignDefault||'justify';
   applyUiScale();applyWorkVisibility();applyEdPadBottom();
@@ -6375,10 +6477,22 @@ $('tbMoreMenu').addEventListener('click',e=>{
 });
 addEventListener('click',()=>{const m=$('tbMoreMenu');if(m)m.classList.remove('open');});
 function applyWorkVisibility(){
-  const on=(settings.showWritten!==false)||(settings.showDeleted===true);
+  // '오늘 총 작업량' 모드는 항상 하나로 합쳐서 보여주므로 개별 체크박스 상태와 무관하게 켠다
+  const on=settings.workDisplayMode==='total'||(settings.showWritten!==false)||(settings.showDeleted===true);
   const el=$('workStat');if(el)el.style.display=on?'':'none';
   fitTopbar();
 }
+// 작성/지운 글자수를 따로 보여줄지, '오늘 총 작업량' 하나로 합쳐 보여줄지 고르는 토글.
+// 총 작업량 쪽을 고르면 그 아래 두 체크박스는 고를 게 없어지므로 아예 숨긴다.
+function renderWorkModeSeg(){
+  const mode=settings.workDisplayMode==='total'?'total':'split';
+  document.querySelectorAll('#setWorkModeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  const rows=$('setWorkSplitRows');if(rows)rows.style.display=mode==='total'?'none':'';
+}
+document.querySelectorAll('#setWorkModeSeg button').forEach(b=>b.addEventListener('click',()=>{
+  settings.workDisplayMode=b.dataset.mode;
+  renderWorkModeSeg();updateTodayChip();applyWorkVisibility();saveMeta();
+}));
 $('setUiScale').onchange=e=>{settings.uiScale=+e.target.value||100;applyUiScale();saveMeta();};
 $('setAlignDefault').onchange=e=>{settings.alignDefault=e.target.value;applyEditorStyle();saveMeta();};
 $('setShowWritten').onchange=e=>{settings.showWritten=e.target.checked;updateTodayChip();applyWorkVisibility();saveMeta();};
@@ -7075,7 +7189,7 @@ async function openVersions(i){
   const t=panes[i].tab;if(!t)return;
   verPane=i;verSel=null;
   await saveTab(t);
-  const entries=await FS.readDir(snapsPath);
+  const entries=await readDirN(snapsPath);
   verFiles=entries.map(e=>e.name).filter(n=>snapMatchesTab(n,t))
     .sort((a,b)=>b.localeCompare(a)).map(name=>({name,abs:snapsPath+'/'+name}));
   $('verDocName').textContent=t.name;
@@ -8246,7 +8360,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.7"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.8"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
