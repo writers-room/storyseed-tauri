@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.2.9</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.3.0</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -97,6 +97,9 @@
   body.auto-hide-binder .binder,body.auto-hide-binder .rh-binder{display:none !important;}
   body.auto-hide-treatment .treatment,body.auto-hide-treatment .rh-treatment{display:none !important;}
   body.auto-hide-memo .memo,body.auto-hide-memo .rh-memo{display:none !important;}
+  /* 폭을 폰 크기에 맞춰 자유롭게 늘어나게 둔다(4K 등 초고해상도 사용자는 폰을 훨씬 크게
+     쓰고 싶어한다) — 대신 닫기(✕)는 margin-left:auto로 툴바(=모달과 같은 폭으로 늘어나는
+     stretch 자식) 오른쪽 끝에 고정해서, 폰 크기가 얼마든 항상 모달의 우측 상단에 있다. */
   .mobile-preview{background:var(--paper);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:92vh;}
   .mp-toolbar{display:flex;align-items:center;gap:6px;}
   .mp-subtoolbar{display:none;flex-wrap:wrap;row-gap:6px;}
@@ -108,9 +111,28 @@
   .mp-btn.on{background:var(--sage-300);color:var(--ink);}
   .mp-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;}
   .mp-sizeval{flex-shrink:0;font-size:11px;color:var(--ink-soft);min-width:20px;text-align:center;}
-  .mp-close{cursor:pointer;color:var(--ink-faint);font-size:14px;padding:2px 4px;flex-shrink:0;}
+  .mp-close{cursor:pointer;color:var(--ink-faint);font-size:14px;padding:2px 4px;flex-shrink:0;margin-left:auto;}
   .mp-close:hover{color:var(--ink);}
-  .mp-phone{position:relative;width:min(320px,80vw,calc(80vh*9/16));aspect-ratio:9/16;max-height:80vh;margin:0 auto;border:10px solid var(--ink);border-radius:36px;overflow:hidden;background:var(--paper);box-shadow:0 8px 30px rgba(0,0,0,.25);}
+  /* .mp-phone 자체엔 더 이상 margin:0 auto를 안 둔다 — 리사이즈 핸들을 폰 "바깥" 우하단에
+     놓으려면 핸들과 폰을 함께 감싸는 래퍼가 필요하다. 래퍼는 폰 크기만큼만 차지하고
+     (width:fit-content) 그 래퍼를 가운데 정렬한다. */
+  .mp-phone-wrap{position:relative;width:fit-content;margin:0 auto;}
+  .mp-phone{position:relative;width:min(320px,80vw,calc(80vh*9/16));aspect-ratio:9/16;max-height:85vh;border:10px solid var(--ink);border-radius:36px;overflow:hidden;background:var(--paper);box-shadow:0 8px 30px rgba(0,0,0,.25);}
+  /* 우하단 드래그 리사이즈 핸들. .mp-phone은 overflow:hidden이라 안에 두면 늘 잘려 보이므로,
+     .mp-phone-wrap(래퍼) 기준으로 폰 테두리 바깥쪽에 살짝 걸치게 배치한다. 대각선 두 줄
+     아이콘이라 "여기를 끌면 크기가 바뀐다"는 게 한눈에 보인다. */
+  .mp-resize-handle{position:absolute;right:-11px;bottom:-11px;width:26px;height:26px;z-index:9;cursor:nwse-resize;
+    border-radius:8px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
+  .mp-resize-handle:hover{background:var(--ink-soft);}
+  .mp-resize-handle svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;}
+  /* 폰 상단 가운데에 걸쳐 놓는 이동 손잡이. "여기를 잡아서 옮긴다"가 직관적으로 보이도록
+     리사이즈 핸들과 짝을 맞춰 폰 테두리 바깥쪽에 배치하고, 사방 화살표(이동) 아이콘과
+     grab 커서로 잡을 수 있는 느낌을 준다. */
+  .mp-drag-handle{position:absolute;left:50%;top:-13px;transform:translateX(-50%);width:30px;height:26px;z-index:9;cursor:grab;
+    border-radius:8px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
+  .mp-drag-handle:hover{background:var(--ink-soft);}
+  .mp-drag-handle:active{cursor:grabbing;}
+  .mp-drag-handle svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;}
   .mp-screen{width:100%;height:100%;overflow-y:auto;padding:28px 20px;box-sizing:border-box;}
   .mp-screen.paged{overflow:hidden;scroll-behavior:smooth;padding-top:36px;padding-bottom:60px;}
   .mp-text{font-family:var(--mp-font,var(--ed-font,'Noto Serif KR','Apple SD Gothic Neo',serif));
@@ -755,7 +777,7 @@
   .emoji-cell{font-size:20px;text-align:center;padding:5px 0;border-radius:7px;cursor:pointer;}
   .emoji-cell:hover{background:var(--sage-150);}
   /* ── 문자표 ── */
-  .chartable-modal{background:var(--paper);border-radius:14px;padding:16px;width:min(560px,92vw);height:min(520px,86vh);
+  .chartable-modal{background:var(--paper);border-radius:14px;padding:16px;width:min(600px,92vw);height:min(520px,86vh);
     display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.2);}
   .chartable-modal h3{font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
   .chartable-modal h3 .close{cursor:pointer;color:var(--ink-faint);}
@@ -763,8 +785,12 @@
   .ct-unicode input{width:74px;border:1px solid var(--sage-200);border-radius:6px;padding:3px 6px;font-size:12px;background:var(--sage-50);color:var(--ink);outline:none;}
   .ct-unicode input:focus{border-color:var(--sage-400);}
   .chartable-body{flex:1;display:flex;gap:10px;overflow:hidden;min-height:0;}
-  .chartable-cats{width:92px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
-  .chartable-cat{padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chartable-cats{width:128px;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+  /* flex-shrink:0가 핵심이다 — 세로 flex 컨테이너(.chartable-cats)에서 기본값(flex-shrink:1)
+     그대로 두면, 카테고리 19개의 전체 높이가 모달보다 커질 때 스크롤되는 대신 각 행이
+     억지로 눌려 찌그러지면서 overflow:hidden에 걸려 글씨 아래쪽이 잘려 보였다. 안 눌리게
+     고정해야 대신 스크롤이 뜬다. */
+  .chartable-cat{flex-shrink:0;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12px;line-height:1.6;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .chartable-cat:hover{background:var(--sage-100);}
   .chartable-cat.on{background:var(--sage-150);color:var(--ink);font-weight:600;}
   .chartable-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;align-content:start;}
@@ -775,10 +801,14 @@
   .ct-label{font-size:11px;color:var(--ink-faint);flex-shrink:0;}
   .ct-recent-row{display:flex;gap:2px;}
   .ct-recent-row .chartable-cell{padding:4px 6px;font-size:16px;}
-  .chartable-input-row{display:flex;align-items:center;gap:6px;margin-top:8px;flex-shrink:0;}
-  .chartable-input-row input{flex:1;border:1px solid var(--sage-200);border-radius:8px;padding:6px 10px;font-size:13px;background:var(--sage-50);color:var(--ink);outline:none;}
+  .chartable-input-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-shrink:0;}
+  .chartable-input-row input{flex:1;border:1px solid var(--sage-200);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--sage-50);color:var(--ink);outline:none;}
   .chartable-input-row input:focus{border-color:var(--sage-400);}
-  .chartable-footer{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px;flex-shrink:0;}
+  .ct-insert-btn{flex-shrink:0;background:var(--sage-500);color:#fff;border:none;border-radius:10px;
+    padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);
+    transition:background .15s,transform .1s;}
+  .ct-insert-btn:hover{background:var(--sage-600);}
+  .ct-insert-btn:active{transform:scale(.96);}
   /* ── 서브메뉴 ── */
   .has-sub{position:relative;}
   .has-sub>.sub{display:none;position:absolute;left:100%;top:-6px;min-width:180px;z-index:600;
@@ -1249,10 +1279,10 @@
       <div class="chartable-grid" id="charTableGrid"></div>
     </div>
     <div class="chartable-recent"><span class="ct-label">최근 사용</span><div class="ct-recent-row" id="charTableRecentRow"></div></div>
-    <div class="chartable-input-row"><span class="ct-label">입력 문자</span><input id="charTableInput" placeholder="문자를 더블클릭하면 여기에 모여요"></div>
-    <div class="chartable-footer">
-      <button class="plain" id="charTableCloseBtn">닫기</button>
-      <button class="primary" id="charTableInsertBtn">넣기</button>
+    <div class="chartable-input-row">
+      <span class="ct-label">입력 문자</span>
+      <input id="charTableInput" placeholder="문자를 더블클릭하면 여기에 모여요">
+      <button class="ct-insert-btn" id="charTableInsertBtn">＋ 넣기</button>
     </div>
   </div>
 </div>
@@ -1591,8 +1621,8 @@
 </div>
 
 <div class="modal-bg" id="mobilePreviewBg">
-  <div class="mobile-preview">
-    <div class="mp-toolbar">
+  <div class="mobile-preview" id="mpBox">
+    <div class="mp-toolbar" id="mpToolbar">
       <button class="mp-btn on" id="mpIndentBtn" title="들여쓰기 켬/끔"><svg viewBox="0 0 16 16"><path d="M6 3h8M2 6.5h12M2 10h12M2 13.5h12"/></svg></button>
       <select class="mp-font" id="mpFontSel" title="폰트"></select>
       <button class="mp-btn" id="mpSizeDown" title="글자 작게">−</button>
@@ -1612,11 +1642,19 @@
       <span class="mp-sizeval" id="mpParaVal">0</span>
       <button class="mp-btn" id="mpParaUp" title="문단간격 넓게">＋</button>
     </div>
-    <div class="mp-phone" id="mpPhone">
-      <div class="mp-screen" id="mpScreen"><div class="mp-text indent" id="mpText"></div></div>
-      <div class="mp-pagenav">
-        <button id="mpPagePrev" title="이전 페이지">‹</button>
-        <button id="mpPageNext" title="다음 페이지">›</button>
+    <div class="mp-phone-wrap" id="mpPhoneWrap">
+      <div class="mp-drag-handle" id="mpDragHandle" title="드래그해서 옮기기">
+        <svg viewBox="0 0 16 16"><path d="M8 1v14M1 8h14M8 1 5.7 3.3M8 1l2.3 2.3M8 15l-2.3-2.3M8 15l2.3-2.3M1 8l2.3-2.3M1 8l2.3 2.3M15 8l-2.3-2.3M15 8l-2.3 2.3"/></svg>
+      </div>
+      <div class="mp-phone" id="mpPhone">
+        <div class="mp-screen" id="mpScreen"><div class="mp-text indent" id="mpText"></div></div>
+        <div class="mp-pagenav">
+          <button id="mpPagePrev" title="이전 페이지">‹</button>
+          <button id="mpPageNext" title="다음 페이지">›</button>
+        </div>
+      </div>
+      <div class="mp-resize-handle" id="mpResizeHandle" title="드래그해서 폰 크기 조절">
+        <svg viewBox="0 0 16 16"><path d="M13 3 3 13"/><path d="M13 8 8 13"/></svg>
       </div>
     </div>
   </div>
@@ -1843,7 +1881,7 @@ function renderFormatSelect(){
 function defaultSettings(){
   return {dark:false,resetHour:4,replaceEllipsis:true,replaceQuotes:true,indent:false,
     toolbar:true,font:BASE_FONTS[0][1],customFonts:[],size:'15.5',line:'2',para:'0px',formatHistory:[],
-    autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',refPaneH:200,
+    autoSaveSec:2,snapshotOn:true,snapshotMin:30,defaultGoal:5000,edW:'0',focusX:50,focusBg:'',refPaneH:200,mpPhoneW:0,
     replaceDash:true,quotePair:false,pasteAsk:true,
     uiScale:100,showWritten:true,showDeleted:false,workDisplayMode:'split',edPadBottom:0,alignDefault:'justify',
     pasteGaps:{jj:1,dj:1,dd:1},pasteFormat:'plain',recentColors:[],favColors:[],
@@ -1875,7 +1913,7 @@ let activePane=0,splitOn=false;
 let editTarget={pane:0,kind:'tab'}; // kind: 'tab'(메인 에디터) | 'ref'(참고창)
 function edSurfaceEl(){ return editTarget.kind==='ref' ? $('refPaneBody'+editTarget.pane) : $('ed'+editTarget.pane); }
 let trMode='doc',workTreatment='',workTreatmentDirty=false;
-let dragNode=null,dragNodes=[],dragSep=null,dragSeps=[],ctxSepInfo=null,ctxNode=null,orders={},trashMeta=[],icons={},folderOpen={},dragTrashEntry=null;
+let dragNode=null,dragNodes=[],dragSep=null,dragSeps=[],ctxSepInfo=null,ctxNode=null,orders={},trashMeta=[],icons={},folderOpen={},dragTrashEntry=null,dropHoverDepth=0;
 let lockedPaths={},unlockedOverrides={};   // 바인더 폴더/문서 잠금(3번)
 // 화면 레이아웃(작품 단위): 시놉시스·메모를 에디터 기준 상/하/좌/우 어디에 둘지
 let workLayout={synopsis:'left',memo:'right',order:'tb-outer'};
@@ -1916,7 +1954,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.2.9";
+const APP_VERSION="beta 2.3.0";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -3265,35 +3303,56 @@ function renderTree(){
         else if(y>r.height*.72)d.classList.add('drag-after');
         else d.classList.add('drag-over');
       }else d.classList.add(y<r.height/2?'drag-before':'drag-after');
+      // 들여쓰기 단(x좌표)로 "커서가 몇 번째 깊이 위에 있는지"를 기록해 둔다 — drop 시
+      // 열린 폴더의 자식 뒤에 놓였더라도 커서가 그 폴더 자신의 들여쓰기만큼 얕으면
+      // "자식 뒤"가 아니라 "폴더 전체 뒤"로 해석하기 위함(아래 drop 핸들러 참고).
+      let hd=Math.floor((e.clientX-r.left-6)/15);
+      if(hd<0)hd=0;if(hd>depth)hd=depth;
+      dropHoverDepth=hd;
     });
     d.addEventListener('dragleave',()=>d.classList.remove('drag-over','drag-before','drag-after'));
     d.addEventListener('drop',async e=>{
       e.preventDefault();e.stopPropagation();
-      const before=d.classList.contains('drag-before');
+      let before=d.classList.contains('drag-before');
       const into=d.classList.contains('drag-over');
       d.classList.remove('drag-over','drag-before','drag-after');
+      // 열린 폴더는 자식들이 바로 아래에 나란히 렌더링되기 때문에, 폴더 뒤(형제 위치)로
+      // 두려고 아래로 끌어도 실제로는 마지막 자식의 "뒤" 존에 들어가 버려서 항상 그
+      // 폴더의 자식으로만 들어가던 문제가 있었다. 자식의 "뒤" 존이면서 커서가 그 자식보다
+      // 얕은 들여쓰기(=조상 폴더 쪽)에 있으면, 그 얕은 깊이의 조상을 대상으로 삼아
+      // "조상 전체의 뒤"에 놓는 것으로 재해석한다.
+      let targetNode=n;
+      if(!into&&!before&&depth>0){
+        let t2=targetNode,d2=depth;
+        while(d2>dropHoverDepth){
+          const p=findNodeByPath(t2.parentPath);
+          if(!p)break;
+          t2=p;d2--;
+        }
+        if(t2!==targetNode){targetNode=t2;before=false;}
+      }
       if(dragTrashEntry){
-        const destPath=(into&&n.type==='dir')?n.path:n.parentPath;
+        const destPath=(into&&n.type==='dir')?n.path:targetNode.parentPath;
         restoreTrash(dragTrashEntry,destPath);
         dragTrashEntry=null;
         return;
       }
-      if(dragSep){moveSep(dragSep,n,before);dragSep=null;return;}
+      if(dragSep){moveSep(dragSep,targetNode,before);dragSep=null;return;}
       // 여러 개(문서/폴더, 그리고 함께 선택된 구분선까지)를 드래그한 경우:
       // 대상 폴더(또는 대상의 부모)로 전부 이동. 구분선이 시작점이었을 수도 있으므로
       // dragNode가 비어 있어도(dragNodes/dragSeps만 있어도) 처리해야 한다.
       if(dragNodes.length>1||dragSeps.length){
-        const destPath=(into&&n.type==='dir')?n.path:n.parentPath;
-        const destAbs=(into&&n.type==='dir')?n.abs:n.parentAbs;
-        const anchor=(into&&n.type==='dir')?null:n;
+        const destPath=(into&&n.type==='dir')?n.path:targetNode.parentPath;
+        const destAbs=(into&&n.type==='dir')?n.abs:targetNode.parentAbs;
+        const anchor=(into&&n.type==='dir')?null:targetNode;
         await moveMany(dragNodes,destAbs,destPath,dragSeps,anchor,before);
         dragSeps=[];
         return;
       }
       if(!dragNode)return;
-      if(dragNode===n)return;
-      if(into&&n.type==='dir'){moveNode(dragNode,n.abs,n.path);return;}
-      await reorderDrop(dragNode,n,before);
+      if(dragNode===targetNode)return;
+      if(into&&n.type==='dir'){await moveOrReorderToEnd(dragNode,n.abs,n.path);return;}
+      await reorderDrop(dragNode,targetNode,before);
     });
     d.addEventListener('dragstart',e=>{
       dragNode=n;
@@ -3378,11 +3437,17 @@ $('tree').addEventListener('click',e=>{
   selectedNode=null;selectedFolder=null;
   renderTree();
 });
+// 트리의 "빈 공간"(항목/구분선 위가 아닌 곳) 판정. 예전엔 e.target===$('tree')로 엄격하게
+// 비교했는데, 실제로 e.target은 거의 항상 #tree의 자식(예: 항목 사이의 여백을 채우는
+// .tree-gap 같은 장식용 div)이라서 이 조건이 사실상 절대 참이 되지 않았다 — 그 결과
+// 마지막 항목과 휴지통 사이 빈 공간에 드롭해도 아무 일도 안 일어나던 버그로 이어졌다.
+// 항목/구분선 위가 아니면 전부 "빈 공간"으로 본다.
+const isTreeEmptySpace=e=>!(e.target.closest&&e.target.closest('.tree-item,.tree-sep'));
 $('tree').addEventListener('dragover',e=>{e.preventDefault();
-  if(e.target===$('tree'))$('tree').classList.add('drag-root');});
-$('tree').addEventListener('dragleave',e=>{if(e.target===$('tree'))$('tree').classList.remove('drag-root');});
+  if(isTreeEmptySpace(e))$('tree').classList.add('drag-root');});
+$('tree').addEventListener('dragleave',e=>{if(isTreeEmptySpace(e))$('tree').classList.remove('drag-root');});
 $('tree').addEventListener('drop',async e=>{e.preventDefault();$('tree').classList.remove('drag-root');
-  if(e.target!==$('tree')||!curWork)return;
+  if(!isTreeEmptySpace(e)||!curWork)return;
   if(dragTrashEntry){
     restoreTrash(dragTrashEntry,'');
     dragTrashEntry=null;
@@ -3393,7 +3458,38 @@ $('tree').addEventListener('drop',async e=>{e.preventDefault();$('tree').classLi
     dragSeps=[];
     return;
   }
-  if(dragNode)moveNode(dragNode,curWork.path,'');});
+  if(dragNode)await moveOrReorderToEnd(dragNode,curWork.path,'');});
+// 문서/폴더 하나를 destFolderPath 맨 끝(순서상 마지막)에 명시적으로 자리매김한다.
+// moveNode 자체는 파일시스템 이동만 하고 orders[]는 건드리지 않기 때문에, 빈 공간에
+// 드롭하거나 폴더 안으로(into) 드롭한 뒤에도 그냥 두면 다음 렌더에서 순서 미지정 항목이
+// rescanTree()가 돌려준 원본 순서(알파벳 등)로 끼어들어 엉뚱한 위치에 나타난다.
+// 이동 직후 이 함수로 orders[]에 "맨 끝" 위치를 직접 기록해서 그 문제를 막는다.
+function appendOrderEnd(folderPath,name){
+  if(!name)return;
+  const key=orderKey(folderPath);
+  const sibs=(folderPath===''?treeData:(findNodeByPath(folderPath)||{}).children||[]);
+  let ord=orders[key]?[...orders[key]]:[];
+  sibs.forEach(n=>{if(!ord.includes(n.name)&&n.name!==name)ord.push(n.name);});
+  ord=ord.filter(nm=>nm!==name);
+  ord.push(name);
+  orders[key]=ord;
+  saveOrders();
+}
+// "빈 공간에 맨 끝으로" 드롭 처리 공용 함수. moveNode는 node.parentPath===destPath면
+// (이미 그 폴더 안에 있으면) 옮길 파일이 없다고 보고 조용히 아무 것도 안 하는데, 이 경우는
+// 실제로는 "같은 폴더 안에서 맨 끝으로 재정렬"이라는 유효한 요청이라 파일 이동 없이
+// orders[]만 갱신하면 된다. 이미 최상위에 있는 문서를 바인더 맨 아래로 끌어도 반응이
+// 없던 버그의 원인이 이것이었다.
+async function moveOrReorderToEnd(node,destAbs,destPath){
+  if(node.parentPath===destPath){
+    appendOrderEnd(destPath,node.name);
+    renderTree();
+    return node.name;
+  }
+  const destName=await moveNode(node,destAbs,destPath);
+  if(destName){appendOrderEnd(destPath,destName);renderTree();}
+  return destName;
+}
 // 구분선을 특정 폴더(destFolderPath) 맨 끝으로 옮긴다 — 여러 문서/폴더와 함께
 // 그룹 드래그될 때 쓰인다(4번 요청: 구분선이 선택에 포함돼 있으면 함께 이동).
 function moveSepToFolder(sep,destFolderPath){
@@ -4396,6 +4492,36 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
     clearTimeout(syncTimers[i]);syncTimers[i]=setTimeout(()=>syncFromDOM(i),0);
     typewriterScroll();
   });
+  // 잘라내기(Ctrl+X)도 위 큰 선택 삭제와 똑같이 느려질 수 있다 — 브라우저 기본 cut은
+  // "복사 후 삭제"를 내부적으로 처리하는데, 그 삭제 쪽이 대용량 contenteditable에서 위와
+  // 같은 프리징을 일으킨다. preventDefault로 기본 동작을 막고, 클립보드는 우리가 직접
+  // 채운 뒤(text/plain·text/html) 위와 동일한 "DOM 통째로 비우기" 방식으로 지운다.
+  ed.addEventListener('cut',e=>{
+    const t=panes[i].tab;if(!t)return;
+    if(panes[i].docView)return;
+    const sel=getSelection();
+    if(!sel||sel.isCollapsed||!sel.rangeCount||!ed.contains(sel.anchorNode))return;
+    if(t.body.length<40000)return;   // 작은 문서는 브라우저 기본 처리로 충분
+    const r=sel.getRangeAt(0);
+    const selLen=r.toString().length, totLen=ed.textContent.length;
+    if(selLen<20000)return;          // 선택이 작으면 기본 처리
+    const cd=e.clipboardData||window.clipboardData;
+    if(!cd)return;   // 클립보드 API를 못 쓰면 안전하게 기본 동작에 맡긴다
+    e.preventDefault();
+    const selText=r.toString();
+    const frag=r.cloneContents();
+    const tmpDiv=document.createElement('div');tmpDiv.appendChild(frag);
+    cd.setData('text/plain',selText);
+    cd.setData('text/html',tmpDiv.innerHTML);
+    snapshotIfDue(t,true);           // 되돌리기용 스냅샷
+    soloDeleteArmed[i]=false;
+    if(selLen>=totLen-2){ed.innerHTML='<div><br></div>';}
+    else{r.deleteContents();if(!ed.firstChild||!ed.textContent)ed.innerHTML='<div><br></div>';}
+    const nr=document.createRange();nr.selectNodeContents(ed.firstChild||ed);nr.collapse(true);
+    sel.removeAllRanges();sel.addRange(nr);
+    clearTimeout(syncTimers[i]);syncTimers[i]=setTimeout(()=>syncFromDOM(i),0);
+    typewriterScroll();
+  });
   ed.addEventListener('keyup',e=>{
     if(['Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))typewriterScroll();
   });
@@ -4473,7 +4599,7 @@ function syncAllNow(){[0,1].forEach(i=>{if((panes[i].tab||panes[i].docView)&&$('
   });
 });
 /* ═══ 붙여넣기: 대용량 고속 삽입 + 줄바꿈/서식 선택 상자 ═══ */
-let pasteState=null; // {pane, raw, rawHtml, mode, format}
+let pasteState=null; // {pane, raw, rawHtml, format, startMark, endMark, suppressLen}
 // 한글(HWP) 등에서 복사한 텍스트를 "서식 유지"로 붙여넣으면, 클립보드의 CF_HTML 포맷이
 // 담고 있는 <style> 블록(v\:* {behavior:url(#default#vml);} 같은 MS오피스/VML 호환용 CSS)이
 // 그대로 새어 들어오는 제보가 있었다. 보통은 아래 sanitizePastedHtml의 <style> 태그 제거로
@@ -4489,11 +4615,17 @@ function sanitizePastedHtml(html){
   const root=document.createElement('div');root.innerHTML=(html||'').replace(STRAY_VML_CSS_RE,'');
   root.querySelectorAll('script,style,meta,link,title,head,noscript,iframe,object,embed,img,svg').forEach(e=>e.remove());
   const allowed={B:1,STRONG:1,I:1,EM:1,U:1,S:1,STRIKE:1,DEL:1,SPAN:1,DIV:1,P:1,BR:1,FONT:1,SUP:1,SUB:1};
-  // text-align은 일부러 허용 목록에서 뺐다 — 다른 프로그램에서 복사해온 문단 정렬을
-  // 그대로 들여오면(특히 macOS WKWebView에서) 붙여넣는 자리 근처의 원래 있던 문단까지
-  // 정렬이 함께 바뀌어버리는 문제가 있었다. 정렬은 늘 지금 문서에 맞게 사용자가 직접
-  // 정하는 게 안전하다.
-  const props=['color','background-color','font-weight','font-style','text-decoration','text-decoration-line','font-family','font-size','vertical-align'];
+  // text-align을 다시 허용 목록에 넣었다 — 예전엔 "정렬이 엉뚱한 문단까지 함께 바뀐다"는
+  // 버그 때문에 아예 뺐었는데, 진짜 원인은 이 스타일 자체가 아니라 아래 flattenPastedBlocks가
+  // 고치는 '문단 DIV 중첩' 구조였다. <div>문단1<div>문단2</div></div>처럼 중첩된 채로
+  // execCommand('insertHTML')에 넘기면, 에디터가 "직계 자식 DIV 하나 = 문단 하나"로 다루는
+  // 내부 모델이 깨져서 정렬 버튼이 커서가 속한 바깥쪽 래퍼 DIV(=여러 문단을 한꺼번에 감싼
+  // 덩어리) 전체에 적용돼버렸다. 이제 문단마다 최상위 형제 DIV 하나로 미리 평탄화하고
+  // 나서 넘기므로, text-align도 문단별로 안전하게 유지·적용된다.
+  // font-family는 일부러 뺐다 — 내보내기가 항상 기본 글꼴로 통일해서 내보내는 것과
+  // 마찬가지로, 붙여넣기도 다른 프로그램에서 온 폰트 이름을 그대로 들여오지 않고 항상
+  // 스토리시드 에디터의 기본 글꼴을 따르게 한다.
+  const props=['color','background-color','font-weight','font-style','text-decoration','text-decoration-line','font-size','vertical-align','text-align'];
   (function walk(node){
     [...node.children].forEach(el=>{
       walk(el);
@@ -4502,13 +4634,95 @@ function sanitizePastedHtml(html){
       }
       const keep=[];const s=el.style;
       props.forEach(p=>{const v=s&&s.getPropertyValue(p);if(v)keep.push(p+':'+v);});
-      const face=el.getAttribute('face'),colorAttr=el.getAttribute('color');
+      // 한글(HWP) 등 일부 프로그램은 정렬을 CSS style이 아니라 옛날식 align="center" 같은
+      // HTML 속성으로 클립보드에 내보낸다 — style에 text-align이 없을 때는 이 속성도
+      // 대신 확인해서 정렬이 아예 안 들어오는 문제를 막는다.
+      if(!s.getPropertyValue('text-align')){
+        const alignAttr=(el.getAttribute('align')||'').toLowerCase();
+        if(['left','center','right','justify'].includes(alignAttr))keep.push('text-align:'+alignAttr);
+      }
+      const colorAttr=el.getAttribute('color'); // face(폰트)는 일부러 안 챙긴다 — font-family와 같은 이유
       [...el.attributes].forEach(a=>el.removeAttribute(a.name));
       if(keep.length)el.setAttribute('style',keep.join(';'));
-      if(el.tagName==='FONT'){if(face)el.setAttribute('face',face);if(colorAttr)el.setAttribute('color',colorAttr);}
+      if(el.tagName==='FONT'){if(colorAttr)el.setAttribute('color',colorAttr);}
     });
   })(root);
-  return root.innerHTML;
+  return flattenPastedBlocks(root);
+}
+// 붙여넣은 HTML의 문단 DIV/P가 중첩돼 있으면(예: 바깥 래퍼 하나가 여러 문단을 통째로
+// 감싼 구조) 문단마다 최상위 형제 DIV 하나가 되도록 미리 펴준다 — 그래야 삽입 후에도
+// "직계 자식 DIV 하나 = 문단 하나"라는 에디터 내부 모델이 깨지지 않는다. 문단 경계(DIV·P·BR)가
+// 전혀 없는 순수 인라인 붙여넣기(문장 중간에 이어붙이는 경우)는 그대로 둬서 기존 동작을
+// 그대로 유지한다.
+function flattenPastedBlocks(root){
+  if(!root.querySelector('div,p,br'))return root.innerHTML;
+  const out=[];
+  let cur=document.createElement('div');
+  // 문단 사이의 '빈 줄'(두 번 이상 줄바꿈)은 진짜로 보존해야 한다 — 처음엔 내용 없는
+  // cur를 그냥 버렸는데, 그러면 문단과 문단 사이에 있던 빈 줄까지 전부 사라져서 두 번 이상
+  // 줄바꿈한 게 한 번만 줄바꿈한 것처럼 보이는 문제가 있었다. anyContentSeen은 "지금까지
+  // 실제 글자가 하나라도 나온 적 있는지"를 기억해서, 아직 아무 내용도 안 나온 맨 앞의
+  // '구조적으로만 비어있는' cur(예: 래퍼 DIV에 처음 들어갈 때)는 빈 줄로 오인하지 않게 한다.
+  let anyContentSeen=false;
+  const flush=()=>{ if(cur.childNodes.length){out.push(cur);anyContentSeen=true;} cur=document.createElement('div'); };
+  const pushBlank=()=>{ const e=document.createElement('div');e.innerHTML='<br>';out.push(e); };
+  function walk(node,inlineStack){
+    node.childNodes.forEach(ch=>{
+      if(ch.nodeType===3){
+        if(!ch.textContent)return;
+        const target=inlineStack.length?inlineStack[inlineStack.length-1]:cur;
+        if(!inlineStack.length&&!target.childNodes.length&&!ch.textContent.trim())return; // 문단 경계 사이 들여쓰기 공백 무시
+        target.appendChild(ch.cloneNode(true));
+        return;
+      }
+      if(ch.nodeType!==1)return;
+      if(ch.tagName==='BR'){
+        if(cur.childNodes.length)flush();
+        else if(anyContentSeen)pushBlank(); // 이미 뭔가 나온 뒤에 또 br이 비어있는 채로 왔다 = 빈 줄
+        return;
+      }
+      if(ch.tagName==='DIV'||ch.tagName==='P'){
+        flush();
+        if(!ch.textContent.trim()){
+          // 이 문단 자체가 통째로 비어있음(HWP 등이 빈 줄을 <div><br></div>나 &nbsp;로
+          // 표현하는 경우) — 빈 문단으로 그대로 보존한다. 노션 등 일부 프로그램은 빈 줄
+          // 여러 개를 문단을 따로따로 나누지 않고 <div><br><br><br></div>처럼 <br> 여러
+          // 개를 한 문단 안에 몰아서 표현하기도 한다 — 이걸 무조건 빈 문단 1개로만 치면
+          // 실제로는 3줄 띄웠는데 1줄만 띄운 것처럼 줄어드는 버그가 난다. 그 안의 <br>
+          // 개수만큼 빈 문단을 만들어 정확한 빈 줄 개수를 보존한다.
+          if(anyContentSeen){
+            const n=Math.max(1,ch.querySelectorAll('br').length);
+            for(let k=0;k<n;k++)pushBlank();
+          }
+        }else{
+          const styleAttr=ch.getAttribute('style'); // text-align 등 문단 자체의 style은 새 cur로 옮겨 담아야 유지된다
+          if(styleAttr){
+            cur.setAttribute('style',styleAttr);
+            // text-align이 있는 문단은 삽입 직후 pasteInsert에서 다시 찾아서 화면에도 확실히
+            // 반영해줘야 하므로(아래 normalizePastedAlignment 참고) 표시해둔다.
+            if(styleAttr.indexOf('text-align')!==-1)cur.setAttribute('data-cs-align','1');
+          }
+          walk(ch,[]);flush();
+        }
+        return;
+      }
+      const clone=ch.cloneNode(false);
+      const target=inlineStack.length?inlineStack[inlineStack.length-1]:cur;
+      target.appendChild(clone);
+      walk(ch,[...inlineStack,clone]);
+    });
+  }
+  walk(root,[]);
+  flush();
+  // 중간에 있는 빈 줄은 몇 개가 연속되든 개수 그대로 보존한다(원본에 3줄 띄움이 있었으면
+  // 붙여넣은 결과도 3줄 띄움이어야 한다 — 예전엔 plainTextOf의 '빈 줄 3개 이상은 1개로
+  // 압축'하는 규칙을 그대로 가져다 썼는데, 그건 총 글자수처럼 화면에 숫자 하나로 보여줄 때
+  // 필요한 규칙이지 붙여넣기 결과물에는 맞지 않았다). 문서 맨 앞/맨 뒤에 남는 빈 문단만
+  // 정리한다(붙여넣은 자리 앞뒤로 의미 없는 빈 줄이 붙는 것만 방지).
+  const collapsed=out.slice();
+  while(collapsed.length&&!collapsed[0].textContent.trim())collapsed.shift();
+  while(collapsed.length&&!collapsed[collapsed.length-1].textContent.trim())collapsed.pop();
+  return collapsed.map(d=>d.outerHTML).join('');
 }
 function pasteTransform(raw,mode){
   let s=raw.replace(/\r/g,'');
@@ -4520,24 +4734,71 @@ function pasteTransform(raw,mode){
   }
   return s;
 }
-function insertBigText(ed,text){
-  const sel=getSelection();if(!sel.rangeCount)return;
+// withMarkers를 true로 주면 시작/끝에 빈 <span data-paste-mark> 마커를 본문과 같은
+// DocumentFragment에 넣어서 range.insertNode() 한 번으로 마커+본문을 동시에 삽입한다.
+// 대용량 콘텐츠(수만~10만자, 줄바꿈마다 div 하나) 앞뒤로 Range 삽입/커서 이동을 여러 번
+// 나눠서 하면, 그때마다 브라우저가 캐럿·레이아웃을 다시 계산해 붙여넣기가 눈에 띄게
+// 느려지는 문제가 있었다 — 반드시 삽입을 한 번에 끝낸다. 성공 시 마커 참조를 돌려준다.
+function insertBigText(ed,text,withMarkers){
+  const sel=getSelection();if(!sel.rangeCount)return null;
   const range=sel.getRangeAt(0);
   range.deleteContents();
-  const lines=text.split('\n');
   const frag=document.createDocumentFragment();
+  let startMark=null,endMark=null;
+  if(withMarkers){
+    startMark=document.createElement('span');
+    startMark.setAttribute('data-paste-mark','s');
+    frag.appendChild(startMark);
+  }
+  const lines=text.split('\n');
   let lastDiv=null;
   lines.forEach(l=>{
     const d=document.createElement('div');
     if(l)d.textContent=l;else d.innerHTML='<br>';
     frag.appendChild(d);lastDiv=d;
   });
-  range.insertNode(frag);
-  if(lastDiv){
-    const r=document.createRange();
-    r.selectNodeContents(lastDiv);r.collapse(false);
-    sel.removeAllRanges();sel.addRange(r);
+  if(withMarkers){
+    endMark=document.createElement('span');
+    endMark.setAttribute('data-paste-mark','e');
+    frag.appendChild(endMark);
   }
+  range.insertNode(frag);
+  const r=document.createRange();
+  if(endMark){r.setStartAfter(endMark);r.collapse(true);}
+  else if(lastDiv){r.selectNodeContents(lastDiv);r.collapse(false);}
+  sel.removeAllRanges();sel.addRange(r);
+  return {startMark,endMark};
+}
+// insertBigText의 "서식 유지" 버전. execCommand('insertHTML')는 대용량 HTML(수만자 이상)을
+// 넣을 때 contenteditable 특유의 무거운 편집 파이프라인(undo 기록·스타일 정규화 등)을 거쳐
+// 눈에 띄게 느려진다 — 예전엔 reapplyPaste가 execCommand('undo')로 되돌리는 데 기대고 있어서
+// 어쩔 수 없이 execCommand로 넣었지만, 이제 그 되돌리기가 마커 기반이라 execCommand에 의존하지
+// 않는다. 그래서 대용량일 때는 이쪽도 순수 Range.insertNode로 한 번에 삽입한다.
+function insertBigHtml(ed,html,withMarkers){
+  const sel=getSelection();if(!sel.rangeCount)return null;
+  const range=sel.getRangeAt(0);
+  range.deleteContents();
+  const tmp=document.createElement('div');tmp.innerHTML=html;
+  const frag=document.createDocumentFragment();
+  let startMark=null,endMark=null;
+  if(withMarkers){
+    startMark=document.createElement('span');
+    startMark.setAttribute('data-paste-mark','s');
+    frag.appendChild(startMark);
+  }
+  let lastNode=null;
+  while(tmp.firstChild){lastNode=tmp.firstChild;frag.appendChild(lastNode);}
+  if(withMarkers){
+    endMark=document.createElement('span');
+    endMark.setAttribute('data-paste-mark','e');
+    frag.appendChild(endMark);
+  }
+  range.insertNode(frag);
+  const r=document.createRange();
+  if(endMark){r.setStartAfter(endMark);r.collapse(true);}
+  else if(lastNode){r.setStartAfter(lastNode);r.collapse(true);}
+  sel.removeAllRanges();sel.addRange(r);
+  return {startMark,endMark};
 }
 // 붙여넣기 직전에 지금 선택(커서)이 이 에디터 안에 있는지 확인한다. macOS에서 드물게
 // 탭을 전환한 직후 등에 커서가 에디터 영역 밖(화면 왼쪽 위)에 남아있는 것처럼 보이는
@@ -4558,21 +4819,86 @@ function ensureSelectionInEditor(ed){
   r.selectNodeContents(ed);r.collapse(false);
   const s=getSelection();s.removeAllRanges();s.addRange(r);
 }
+// 서식 유지 붙여넣기로 들어온 문단에 정렬(text-align)이 있으면, 삽입 직후 이 문단들만
+// 다시 찾아서 정렬을 확실하게 화면에 반영한다. execCommand('insertHTML')로 넣고 나면
+// 커서 쪽 툴바(정렬 버튼 활성 표시)는 정렬값을 제대로 읽어오는데도 정작 화면에는 그
+// 정렬이 반영되지 않는 제보가 있었다 — 원인이 무엇이든(브라우저의 붙여넣기 병합
+// 과정에서 스타일이 온전히 안 붙었을 가능성 등) 툴바로 직접 정렬을 바꿀 때 쓰는 것과
+// 완전히 같은 처리(text-align과 함께 text-justify·text-align-last도 명시)를 붙여넣은
+// 문단에 그대로 한 번 더 적용해주면, 원인과 무관하게 화면과 툴바 상태가 항상 일치하게
+// 된다. flattenPastedBlocks가 표시해둔 data-cs-align 마커로 대상만 정확히 찾는다.
+function normalizePastedAlignment(ed){
+  ed.querySelectorAll('[data-cs-align]').forEach(el=>{
+    const align=el.style.textAlign;
+    el.removeAttribute('data-cs-align');
+    if(!align)return;
+    if(align==='justify'){el.style.textJustify='inter-character';el.style.textAlignLast='left';}
+    else{el.style.textJustify='auto';el.style.textAlignLast=align;}
+  });
+}
 function pasteInsert(i,raw,rawHtml,format){
   const ed=$('ed'+i);
   ensureSelectionInEditor(ed);
+  // reapplyPaste가 execCommand('undo')에 기대지 않고도 "방금 이 삽입이 정확히 어디부터
+  // 어디까지인지"를 알 수 있도록, 삽입 시작 지점에 빈 마커를 하나 심어둔다(끝 마커는
+  // 삽입이 끝난 뒤 커서가 옮겨간 자리에 심는다). 빈 인라인 span이라 문단 구조나
+  // 글자수 집계(plainTextOf)에는 영향을 주지 않는다.
+  // 단, 대용량(10000자 초과) 경로는 여기서 마커를 따로 심지 않는다 — insertBigText가
+  // 마커까지 같은 프래그먼트에 넣어 삽입을 한 번에 끝내야 붙여넣기가 느려지지 않는다.
+  const text=pasteTransform(raw||'','유지');   // 줄바꿈은 항상 원본 그대로(다른 프로그램 붙여넣기 대비)
+  const rawLen=(raw||ed.textContent||'').replace(/\n/g,'').length;
+  // 서식 유지(keep)도 대용량이면 execCommand를 피한다 — execCommand('insertHTML')는
+  // contenteditable의 무거운 편집 파이프라인을 거쳐서 수만자 이상에서 눈에 띄게 느리다.
+  // (예전엔 reapplyPaste가 execCommand('undo')로 되돌리는 데 기대고 있어서 어쩔 수 없이
+  // execCommand로만 넣었지만, 이제 마커 기반으로 되돌리므로 그 제약이 없다.)
+  const isBig=(format==='keep'&&rawHtml?rawLen:text.length)>10000;
+  let startMark=null;
+  if(!isBig){
+    const sel0=getSelection();
+    if(sel0&&sel0.rangeCount){
+      const r0=sel0.getRangeAt(0);
+      if(!r0.collapsed)r0.deleteContents();   // 선택 상태로 붙여넣은 경우 실제 삽입 로직과 동일하게 선택 영역부터 지운다
+      startMark=document.createElement('span');
+      startMark.setAttribute('data-paste-mark','s');
+      r0.insertNode(startMark);
+      const rs=document.createRange();
+      rs.setStartAfter(startMark);rs.collapse(true);
+      sel0.removeAllRanges();sel0.addRange(rs);
+    }
+  }
+  let suppressLen=0,endMark=null;
   if(format==='keep'&&rawHtml){
     const clean=sanitizePastedHtml(rawHtml);
-    pasteSuppressChars+=(raw||ed.textContent||'').replace(/\n/g,'').length;
-    document.execCommand('insertHTML',false,clean);
+    suppressLen=rawLen;
+    pasteSuppressChars+=suppressLen;
+    if(isBig){
+      const marks=insertBigHtml(ed,clean,true);
+      if(marks){startMark=marks.startMark;endMark=marks.endMark;}
+    }else document.execCommand('insertHTML',false,clean);
+    normalizePastedAlignment(ed);
   }else{
-    const text=pasteTransform(raw||'','유지');   // 줄바꿈은 항상 원본 그대로(다른 프로그램 붙여넣기 대비)
-    pasteSuppressChars+=text.replace(/\n/g,'').length;
-    if(text.length>10000)insertBigText(ed,text);
-    else document.execCommand('insertText',false,text);
+    suppressLen=text.replace(/\n/g,'').length;
+    pasteSuppressChars+=suppressLen;
+    if(isBig){
+      const marks=insertBigText(ed,text,true);
+      if(marks){startMark=marks.startMark;endMark=marks.endMark;}
+    }else document.execCommand('insertText',false,text);
+  }
+  if(!isBig){
+    const sel1=getSelection();
+    if(sel1&&sel1.rangeCount){
+      const r1=sel1.getRangeAt(0);
+      r1.collapse(false);   // 삽입이 끝난 뒤 커서는 항상 삽입 내용의 맨 끝에 있다
+      endMark=document.createElement('span');
+      endMark.setAttribute('data-paste-mark','e');
+      r1.insertNode(endMark);
+      const re=document.createRange();
+      re.setStartAfter(endMark);re.collapse(true);
+      sel1.removeAllRanges();sel1.addRange(re);
+    }
   }
   clearTimeout(syncTimers[i]);setTimeout(()=>syncFromDOM(i),50);
-  pasteState={pane:i,raw,rawHtml,format};
+  pasteState={pane:i,raw,rawHtml,format,startMark,endMark,suppressLen};
 }
 function doPaste(i,raw,rawHtml){
   let format=settings.pasteFormat||'plain';
@@ -4580,6 +4906,7 @@ function doPaste(i,raw,rawHtml){
   $('ed'+i).focus();
   pasteInsert(i,raw,rawHtml,format);
   if(settings.pasteAsk!==false)showPasteBox(i,format);
+  else hidePasteBox();   // 위젯을 안 띄우는 설정이면 재적용도 없으니 추적용 마커를 바로 정리한다
 }
 function showPasteBox(i,format){
   const box=$('pasteBox');
@@ -4600,21 +4927,45 @@ function showPasteBox(i,format){
   box.classList.add('show');
   clearTimeout(box._tm);box._tm=setTimeout(hidePasteBox,7000);
 }
-function hidePasteBox(){const b=$('pasteBox');if(b)b.classList.remove('show');}
+function hidePasteBox(){
+  const b=$('pasteBox');if(b)b.classList.remove('show');
+  // 위젯이 닫히면 더는 재적용(reapplyPaste)할 방법이 없으므로, 삽입 범위 추적용으로
+  // 심어둔 마커도 여기서 같이 정리한다 — 안 지우면 빈 태그로 문서에 영구히 남는다.
+  if(pasteState){
+    if(pasteState.startMark&&pasteState.startMark.parentNode)pasteState.startMark.remove();
+    if(pasteState.endMark&&pasteState.endMark.parentNode)pasteState.endMark.remove();
+    pasteState=null;
+  }
+}
 function reapplyPaste(format){
   if(!pasteState)return;
   const i=pasteState.pane,ed=$('ed'+i);
   if(format==='keep'&&!pasteState.rawHtml)format='plain';
   ed.focus();
-  document.execCommand('undo');   // 직전 붙여넣기 취소
+  // execCommand('undo')는 대용량 붙여넣기(insertBigText 경로, execCommand 기록에 안
+  // 잡힘)에서 직전 삽입을 못 지워버려 내용이 중복되는 버그가 있었다 — pasteInsert가
+  // 남겨둔 시작/끝 마커 사이만 정확히 지우고 다시 삽입하는 방식으로 대체한다.
+  const sm=pasteState.startMark,em=pasteState.endMark;
+  if(sm&&em&&ed.contains(sm)&&ed.contains(em)){
+    // 이전 삽입분만큼 미리 잡아둔 작업량 제외 수치를 되돌린다(그 내용을 지금 지우니까) —
+    // 그래야 새로 삽입할 분량만큼만 다시 정확히 제외된다.
+    pasteSuppressChars=Math.max(0,pasteSuppressChars-(pasteState.suppressLen||0));
+    const r=document.createRange();
+    r.setStartAfter(sm);r.setEndBefore(em);
+    r.deleteContents();
+    const pos=document.createRange();
+    pos.setStartBefore(sm);pos.collapse(true);
+    sm.remove();em.remove();
+    const sel=getSelection();sel.removeAllRanges();sel.addRange(pos);
+  }
   pasteInsert(i,pasteState.raw,pasteState.rawHtml,format);
-  showPasteBox(i,format);
 }
 document.querySelectorAll('#pasteBox [data-pf]').forEach(b=>{
   b.addEventListener('mousedown',e=>e.preventDefault());
   b.addEventListener('click',()=>{
     if(!pasteState)return;
     reapplyPaste(b.dataset.pf);
+    hidePasteBox();   // 서식을 확정했으니 위젯을 닫는다 — 열어둔 채로 여러 번 눌러 중복 삽입되는 걸 막는다
   });
 });
 addEventListener('mousedown',e=>{if(!e.target.closest('#pasteBox'))hidePasteBox();});
@@ -4913,7 +5264,19 @@ function applyExplicitAlign(align){
   // 커서가 속한 .scriv-doc 래퍼가 있으면 그 안에서, 없으면(일반 탭) ed 자체에서 문단을 찾는다.
   const anchorEl=sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
   const scope=(anchorEl&&anchorEl.closest&&anchorEl.closest('.scriv-doc'))||ed;
-  const blockKids=Array.from(scope.children).filter(c=>c.nodeType===1&&!c.classList.contains('scriv-divider'));
+  // 원래는 scope의 '직계 자식'만 문단으로 보고 그 중 range와 겹치는 것에 정렬을 걸었는데,
+  // 다른 프로그램(특히 HWP)에서 서식 유지로 붙여넣은 내용은 문단 DIV가 서로 중첩된 채로
+  // (예: <div>문단1<div>문단2</div></div>) 들어오는 경우가 있다. 이러면 직계 자식이 문단2가
+  // 아니라 문단1·문단2를 통째로 감싼 바깥쪽 DIV가 되어버리고, range가 그 안 어딘가에만
+  // 있어도 intersectsNode는 바깥쪽 DIV까지 '겹친다'고 보기 때문에 상관없는 문단까지 정렬이
+  // 함께 바뀌는 치명적인 버그로 이어졌다. 붙여넣기 쪽에서 구조를 평탄화하는 것만으로는
+  // 클립보드 소스가 다양해서 완전히 막기 어려우므로, 여기서도 안전장치를 건다 — 직계
+  // 자식이 아니라 '더 이상 안쪽에 DIV/P를 갖지 않는 가장 안쪽(leaf) 문단'을 찾아서 그
+  // leaf 문단에만 정렬을 건다. 중첩이 없는 보통의 경우(직접 타이핑)에는 leaf 문단이 곧
+  // 직계 자식과 똑같으므로 기존 동작과 차이가 없다.
+  const allBlocks=Array.from(scope.querySelectorAll('div,p')).filter(c=>!c.classList.contains('scriv-divider'));
+  const leafBlocks=allBlocks.filter(c=>!c.querySelector('div,p'));
+  const blockKids=leafBlocks.length?leafBlocks:Array.from(scope.children).filter(c=>c.nodeType===1&&!c.classList.contains('scriv-divider'));
   let matched=false;
   blockKids.forEach(child=>{
     if(range.intersectsNode(child)){setAlign(child);matched=true;}
@@ -5440,7 +5803,34 @@ $('manuscriptOnlyBtn').onclick=()=>{
   if(typeof fitPaneStatus==='function')fitPaneStatus();
 };
 let mpFontSize=16,mpIndent=true,mpPaged=false,mpPage=0,mpTotalPages=1,mpSourceHtml='',
-  mpPages=[],mpPageStarts=[],mpAnchorIdx=0,mpLineHeight=1.9,mpParaGap=0;
+  mpPages=[],mpPageStarts=[],mpAnchorIdx=0,mpLineHeight=1.9,mpParaGap=0,mpPhoneW=0;
+// 서식 유지 붙여넣기(HWP 등) 시 execCommand('insertHTML')가 여러 문단을 통째로 감싸는
+// 바깥쪽 wrapper DIV를 하나 더 만들어 끼워 넣는 경우가 있다. ed.innerHTML을 가공 없이
+// 그대로 쓰면 이 wrapper 때문에 (1) '.mp-text>div'처럼 직계 자식만 보는 문단간격 CSS가
+// wrapper 하나에만 적용돼 문단 사이 간격이 전혀 안 보이고, (2) mpBuildPages가 페이지
+// 분할 단위로 쓰는 meas.children(직계 자식)도 wrapper 하나로 뭉쳐버려 페이지가 1개로
+// 고정되는(다음 페이지로 못 넘어가는) 버그로 이어진다. htmlLinesOf/applyExplicitAlign에서
+// 쓴 것과 같은 방식으로, 더 이상 안쪽에 DIV/P가 없는 leaf 문단만 뽑아 평탄화한다.
+// (다른 기능에 영향 주지 않도록 모바일 미리보기 전용으로 별도 함수를 둔다.)
+function mpFlattenHtml(html){
+  const tmp=document.createElement('div');tmp.innerHTML=html||'';
+  const out=[];
+  (function walk(node){
+    for(const child of node.childNodes){
+      if(child.nodeType===3){
+        if(child.data.replace(/​/g,'').length)out.push('<div>'+escHtml(child.data)+'</div>');
+      }else if(child.nodeType===1){
+        if(/^(DIV|P)$/.test(child.tagName)){
+          if(child.querySelector('div,p'))walk(child);
+          else out.push(child.outerHTML);
+        }else{
+          out.push(child.outerHTML);
+        }
+      }
+    }
+  })(tmp);
+  return out.join('');
+}
 // 스크롤 중인 #mpText(전체 원문이 그대로 들어있는 상태)에서, 지금 화면 맨 위에 걸려있는
 // 문단의 인덱스를 찾는다. 스크롤↔페이지 전환 시 위치를 유지하는 데 쓴다.
 function mpAnchorFromScroll(){
@@ -5484,7 +5874,10 @@ function mpBuildPages(){
   meas.style.cssText='position:absolute;visibility:hidden;pointer-events:none;left:-9999px;top:0;height:auto;';
   meas.style.width=text.clientWidth+'px';
   meas.innerHTML=mpSourceHtml;
-  document.body.appendChild(meas);
+  // meas를 document.body가 아니라 #mpPhone(리사이즈로 폭이 바뀌는 요소) 안에 붙여야
+  // text.clientWidth 등 폰 크기 기준 좌표계에서 잰 값과 meas의 실제 렌더링 좌표계가
+  // 어긋나지 않는다.
+  $('mpPhone').appendChild(meas);
   const nodes=[...meas.children];
   mpPages=[];mpPageStarts=[];
   if(!nodes.length){
@@ -5518,7 +5911,8 @@ function mpShowPage(){
 }
 $('mobilePreviewBtn').onclick=()=>{
   const ed=$('ed'+activePane);
-  mpSourceHtml=ed?ed.innerHTML:'';
+  $('mpBox').style.transform='';   // 열 때마다 항상 가운데에서 시작(직전에 드래그로 옮긴 위치는 안 남긴다)
+  mpSourceHtml=mpFlattenHtml(ed?ed.innerHTML:'');
   mpAnchorIdx=0;
   $('mpText').innerHTML=mpSourceHtml;
   if(!$('mpFontSel').options.length){
@@ -5537,6 +5931,7 @@ $('mobilePreviewBtn').onclick=()=>{
   $('mpPhone').classList.toggle('paged',mpPaged);
   $('mpScreen').classList.toggle('paged',mpPaged);
   $('mpModeBtn').classList.toggle('on',mpPaged);
+  mpApplyPhoneSize(settings.mpPhoneW||mpPhoneDefaultW());
   $('mpScreen').scrollTop=0;
   $('mobilePreviewBg').classList.add('open');
   if(mpPaged)mpBuildPages();
@@ -5547,7 +5942,7 @@ $('mpFontSel').onchange=()=>{
   if(mpPaged)mpBuildPages();
 };
 function mpSetSize(v){
-  mpFontSize=Math.max(11,Math.min(22,v));
+  mpFontSize=Math.max(10,Math.min(28,v));
   document.documentElement.style.setProperty('--mp-size',mpFontSize+'px');
   $('mpSizeVal').textContent=mpFontSize;
   if(mpPaged)mpBuildPages();
@@ -5561,13 +5956,13 @@ $('mpIndentBtn').onclick=()=>{
   if(mpPaged)mpBuildPages();
 };
 function mpSetLine(v){
-  mpLineHeight=Math.max(1.4,Math.min(2.6,+v.toFixed(1)));
+  mpLineHeight=Math.max(1.2,Math.min(3.0,+v.toFixed(1)));
   document.documentElement.style.setProperty('--mp-line',String(mpLineHeight));
   $('mpLineVal').textContent=mpLineHeight.toFixed(1);
   if(mpPaged)mpBuildPages();
 }
 function mpSetPara(v){
-  mpParaGap=Math.max(0,Math.min(28,v));
+  mpParaGap=Math.max(0,Math.min(40,v));
   document.documentElement.style.setProperty('--mp-para',mpParaGap+'px');
   $('mpParaVal').textContent=mpParaGap;
   if(mpPaged)mpBuildPages();
@@ -5576,6 +5971,78 @@ $('mpLineDown').onclick=()=>mpSetLine(mpLineHeight-0.1);
 $('mpLineUp').onclick=()=>mpSetLine(mpLineHeight+0.1);
 $('mpParaDown').onclick=()=>mpSetPara(mpParaGap-4);
 $('mpParaUp').onclick=()=>mpSetPara(mpParaGap+4);
+// 폰 크기: 버튼+zoom 방식 대신 우하단 핸들 드래그로 실제 width/height를 조절한다(9:16 고정).
+// 기본값은 원래 코드의 고정 기본 크기(320px)를 그대로 쓰고, 최대치는 4K 등 초고해상도
+// 모니터 사용자도 충분히 크게 키울 수 있도록 넉넉히 잡는다(닫기 버튼은 이제 모달 폭과
+// 무관하게 margin-left:auto로 항상 우측 상단에 고정되므로, 폰이 커져도 안 밀린다).
+function mpPhoneMaxW(){return Math.min(900,window.innerWidth*0.92,window.innerHeight*0.85*9/16);}
+function mpPhoneDefaultW(){return Math.min(320,window.innerWidth*0.8,window.innerHeight*0.8*9/16);}
+function mpApplyPhoneSize(w){
+  w=Math.max(220,Math.min(mpPhoneMaxW(),w));
+  mpPhoneW=w;
+  $('mpPhone').style.width=w+'px';
+  $('mpPhone').style.height=(w*16/9)+'px';
+}
+(function(){
+  let dragging=false,startX=0,startY=0,startW=0;
+  function onMove(e){
+    if(!dragging)return;
+    // 우하단 핸들: 오른쪽/아래로 끌수록 커진다. 수평 이동량을 기본으로 삼고, 수직 이동량은
+    // 세로가 가로의 16/9이므로 9/16을 곱해 가로 기준값으로 환산해 평균낸다(대각선 드래그가
+    // 자연스럽게 느껴지도록).
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    mpApplyPhoneSize(startW+(dx+dy*9/16)/2);
+  }
+  function onUp(){
+    if(!dragging)return;
+    dragging=false;
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    // 드래그 중에는 크기만 반영하고, 끝났을 때 한 번만 저장 + 페이지 재분할(무거운 연산이라).
+    settings.mpPhoneW=mpPhoneW;
+    saveMeta();
+    if(mpPaged)mpBuildPages();
+  }
+  $('mpResizeHandle').onmousedown=(e)=>{
+    e.preventDefault();
+    dragging=true;
+    startX=e.clientX;startY=e.clientY;
+    startW=$('mpPhone').getBoundingClientRect().width;
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  };
+})();
+// 모달 위치 드래그 이동: 리사이즈 핸들(우하단)과 짝을 이루는 전용 손잡이(폰 상단 가운데,
+// 사방 화살표 아이콘)를 잡아 끌면 옮겨진다. 처음엔 "툴바 빈 배경을 아무 데나 끌면 된다"는
+// 방식이었는데 눈에 보이는 단서가 없어 알아채기 어렵다는 피드백을 받아, 리사이즈 핸들처럼
+// 명확한 손잡이 UI로 바꿨다. transform:translate로만 옮기므로 #mpBox 자체의 레이아웃
+// (리사이즈 계산 등)에는 영향이 없다. 모달을 다시 열면 항상 가운데로 리셋된다.
+(function(){
+  let dragging=false,startX=0,startY=0,baseX=0,baseY=0;
+  const box=$('mpBox');
+  function curOffset(){
+    const m=/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(box.style.transform||'');
+    return m?{x:parseFloat(m[1]),y:parseFloat(m[2])}:{x:0,y:0};
+  }
+  function onMove(e){
+    if(!dragging)return;
+    box.style.transform='translate('+(baseX+e.clientX-startX)+'px,'+(baseY+e.clientY-startY)+'px)';
+  }
+  function onUp(){
+    if(!dragging)return;
+    dragging=false;
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+  $('mpDragHandle').onmousedown=(e)=>{
+    e.preventDefault();
+    dragging=true;
+    startX=e.clientX;startY=e.clientY;
+    const o=curOffset();baseX=o.x;baseY=o.y;
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  };
+})();
 $('mpViewSettingsBtn').onclick=()=>{
   const on=$('mpSubToolbar').classList.toggle('open');
   $('mpViewSettingsBtn').classList.toggle('on',on);
@@ -5606,7 +6073,9 @@ $('mpPagePrev').onclick=()=>{
   if(mpPage>0){mpPage--;mpShowPage();}
 };
 window.addEventListener('resize',()=>{
-  if(mpPaged && $('mobilePreviewBg').classList.contains('open'))mpBuildPages();
+  if(!$('mobilePreviewBg').classList.contains('open'))return;
+  mpApplyPhoneSize(mpPhoneW||mpPhoneDefaultW());
+  if(mpPaged)mpBuildPages();
 });
 function applyToolbar(){document.body.classList.toggle('no-toolbar',!settings.toolbar);
   $('tbToggle').classList.toggle('on',settings.toolbar);}
@@ -8061,15 +8530,16 @@ function buildExportItems(src,o){
   items.forEach((it,i)=>{
     if(i===0){it.br=0;return;}
     const prev=items[i-1];
-    let br;
+    let br,keepExact=false;
     if(it.kind==='scene'||prev.kind==='scene')br=o.sceneBr;
     else{
       const key=(prev.kind==='d'&&it.kind==='d')?'dd':(prev.kind==='j'&&it.kind==='j')?'jj':'dj';
       const mode=o[key]||'유지';
       // '추가'는 기존에 유저가 넣은 줄바꿈과 상관없이 규칙값으로 '정규화'
       br=mode==='유지'?it.gap:mode==='제거'?0:o[key+'N'];
+      keepExact=(mode==='유지'); // '유지'는 말 그대로 원본 그대로 둬야 하므로 3줄 캡을 걸면 안 된다
     }
-    it.br=Math.max(0,Math.min(3,br));
+    it.br=keepExact?Math.max(0,br):Math.max(0,Math.min(3,br));
   });
   return items;
 }
@@ -8172,14 +8642,30 @@ function htmlLinesOf(body){
     }else lines.push({text:el.textContent,html:el.innerHTML,align});
   };
   let any=false;
-  for(const node of tmp.childNodes){
-    if(node.nodeType===3){if(node.data.replace(/​/g,'').length){lines.push({text:node.data,html:escHtml(node.data),align:''});any=true;}}
-    else if(node.nodeType===1){
-      any=true;
-      if(/^(DIV|P)$/.test(node.tagName))pushEl(node);
-      else lines.push({text:node.textContent,html:node.outerHTML,align:''});
+  // 문단 DIV/P가 중첩돼 있어도(예: 서식 유지 붙여넣기 시 execCommand('insertHTML')가
+  // 여러 문단을 통째로 감싼 바깥쪽 DIV 하나를 만들어 끼워 넣는 경우 — 실제로 이런 문서가
+  // 보고됐다) 항상 '더 이상 안쪽에 DIV/P가 없는 가장 안쪽(leaf) 문단' 단위로 처리한다.
+  // 예전엔 body의 직계 자식만 문단으로 봐서, 래퍼에 감싸여 있으면 문서 전체가 통째로
+  // 한 덩어리 취급됐다 — 그 결과 (1) 정렬은 래퍼 자신의(비어있는) style만 읽어서 전부
+  // 사라지고, (2) <br> 분리 로직이 래퍼 안의 모든 <br>(문단 사이 빈 줄 표시용까지 포함)을
+  // 한꺼번에 잘못 쪼개면서 서로 다른 문단의 글자가 "안녕하세요***"처럼 한 줄로 뒤섞이는
+  // 버그로 이어졌다. applyExplicitAlign에 적용했던 것과 같은 방식으로, DIV/P를 만나면
+  // 그 안에 또 DIV/P가 있는지 먼저 확인해서 있으면 더 안쪽까지 파고들고, 없으면(leaf
+  // 문단) 그 자체를 한 줄로 처리한다.
+  (function walk(node){
+    for(const child of node.childNodes){
+      if(child.nodeType===3){
+        if(child.data.replace(/​/g,'').length){lines.push({text:child.data,html:escHtml(child.data),align:''});any=true;}
+      }else if(child.nodeType===1){
+        if(/^(DIV|P)$/.test(child.tagName)){
+          if(child.querySelector('div,p'))walk(child);
+          else{any=true;pushEl(child);}
+        }else{
+          any=true;lines.push({text:child.textContent,html:child.outerHTML,align:''});
+        }
+      }
     }
-  }
+  })(tmp);
   if(!any)lines.push({text:'',html:''});
   return lines;
 }
@@ -8414,7 +8900,7 @@ function makeHwpx(items,title,o){
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.2.9"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.3.0"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -8692,8 +9178,15 @@ $('emojiReset').onclick=async()=>{
 
 /* ═══════════ 문자표(특수문자) 삽입 — 한컴오피스 한글 문자표 참고 ═══════════ */
 const CHARTABLE_CATS={
- '기호1':[...'‘’“”·‥…¨〃′″‐‑‒–—―∥＼∼〓≪≫「」『』〔〕｛｝〈〉《》【】±×÷≠≤≥∞∴∵∠⊥⌒∂∇≒≡§¶＃＆＊＠※☆★○●◎◇◆□■△▲▽▼▶◀▷◁→←↑↓↔↕↗↘↙↖⇒⇔⇑⇓⇐⇖⇗⇘⇙∀∃♠♣♥♦♤♧♡〝〟'],
- '기호2':[...'$£¥￠₩￦€%℃℉㎡㎥㎜㎝㎞㎏㏊№㏇™®©@+-÷=<>±√∫∬∮∑∏∝∀∃∅∈∋⊂⊃⊆⊇∧∨¬♩♪♬♭♮♯☎☏✆✉☜☞☝☟✍✌☂☔☀☁☃⚡'],
+ '기호1':[...'‘’“”·‥…¨〃′″‐‑‒–—―∥＼∼〓「」『』〈〉《》≒§¶＃＆＊＠※☆★○●◎◇◆□■△▲▽▼♠♣♥♦♤♧♡〝〟'],
+ '화살표':[...'→←↑↓↔↕↗↘↙↖⇒⇔⇑⇓⇐⇖⇗⇘⇙⇉⇇⇈⇊➔➜➙➛➝➞➟➠➡➢➣➤↰↱↲↳↴↵↩↪⤴⤵⇋⇌↶↷⟲⟳'],
+ '괄호':[...'()[]{}〈〉《》「」『』【】〔〕｛｝〘〙〖〗⟨⟩❨❩❪❫❬❭❮❯'],
+ '수학연산자':[...'+-±×÷=≠≒≡≤≥<>≪≫∞∴∵∝√∛∫∬∮∑∏∂∇∆∈∋⊂⊃⊆⊇∧∨¬∀∃∅∪∩∥⊥∠⌒%‰'],
+ '문장부호':[...',.·:;!?‘’“”…‥、。〃‧※¶§〆〇'],
+ '화폐기호':[...'$￠£¥€₩￦￡¢₣₤₨₹₽₺₴₦'],
+ '첨자':[...'⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓ½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞'],
+ '딩벳기호':[...'✓✔✗✘☑☒☎☏✆✉☜☞☝☟✍✌☂☔☀☁☃⚡♩♪♬♭♮♯✿❀❁✼✽❃❋'],
+ '기술기호':[...'℃℉№㏇™®©℗℅‰㏂㏘℮'],
  '영어·숫자':[...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅰⅱⅲⅳⅴⅵⅶⅷⅸⅹ'],
  '한글자모':[...'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㄲㄸㅃㅆㅉㅏㅑㅓㅕㅗㅛㅜㅠㅡㅣㅐㅔㅒㅖㅘㅙㅚㅝㅞㅟㅢㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄ'],
  '그리스어':[...'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρστυφχψω'],
@@ -8793,7 +9286,6 @@ $('mbInsertCharTable').addEventListener('click',()=>{
   openCharTable();
 });
 $('charTableClose').onclick=()=>$('charTableBg').classList.remove('open');
-$('charTableCloseBtn').onclick=()=>$('charTableBg').classList.remove('open');
 $('charTableInsertBtn').onclick=()=>{insertCharTableInput();};
 $('charTableInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();insertCharTableInput();}});
 
