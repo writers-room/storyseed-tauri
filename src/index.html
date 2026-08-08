@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스토리시드 — 웹소설 집필 프로그램 beta 2.3.0</title>
+<title>스토리시드 — 웹소설 집필 프로그램 beta 2.3.1</title>
 <style>
   :root{
     --sage-50:#f6f8f3; --sage-100:#eef2e9; --sage-150:#e4eadd; --sage-200:#d5decb;
@@ -117,7 +117,10 @@
      놓으려면 핸들과 폰을 함께 감싸는 래퍼가 필요하다. 래퍼는 폰 크기만큼만 차지하고
      (width:fit-content) 그 래퍼를 가운데 정렬한다. */
   .mp-phone-wrap{position:relative;width:fit-content;margin:0 auto;}
-  .mp-phone{position:relative;width:min(320px,80vw,calc(80vh*9/16));aspect-ratio:9/16;max-height:85vh;border:10px solid var(--ink);border-radius:36px;overflow:hidden;background:var(--paper);box-shadow:0 8px 30px rgba(0,0,0,.25);}
+  .mp-phone{position:relative;width:min(320px,80vw,calc(80vh*9/16));aspect-ratio:9/16;max-height:85vh;border:10px solid var(--ink);border-radius:36px;overflow:hidden;background:var(--paper);box-shadow:0 8px 30px rgba(0,0,0,.25);transition:border-color .12s;}
+  /* 창 경계에 막혀 더 이상 확대할 수 없을 때: 테두리 색을 잠깐 경고색으로 바꿔서
+     "이 방향으론 더 안 커진다, 옮겨야 커진다"를 알려준다. */
+  .mp-phone.mp-blocked{border-color:#e0a030;}
   /* 우하단 드래그 리사이즈 핸들. .mp-phone은 overflow:hidden이라 안에 두면 늘 잘려 보이므로,
      .mp-phone-wrap(래퍼) 기준으로 폰 테두리 바깥쪽에 살짝 걸치게 배치한다. 대각선 두 줄
      아이콘이라 "여기를 끌면 크기가 바뀐다"는 게 한눈에 보인다. */
@@ -1436,6 +1439,16 @@
           <option value="binder">바인더 순서대로</option>
           <option value="asc">제목 오름차순 (1,2,3…)</option>
           <option value="desc">제목 내림차순</option></select></div>
+        <div id="expChapterOpts" style="display:none">
+          <div class="set-row">회차 제목 넣기 <input type="checkbox" id="expChapterTitle"></div>
+          <div class="set-row" id="expChapterTitleBoldRow" style="display:none">제목 굵게 <input type="checkbox" id="expChapterTitleBold" checked></div>
+          <div class="set-row" id="expChapterTitleCenterRow" style="display:none">제목 가운데 정렬 <input type="checkbox" id="expChapterTitleCenter"></div>
+          <div class="set-row" id="expChapterPageBreakRow" style="display:none">다음 회차부터 새 페이지로 시작 <input type="checkbox" id="expChapterPageBreak"></div>
+          <div class="set-row" id="expChapterBrRow">회차 사이 줄바꿈 개수 <span><input type="range" id="expChapterBr" min="0" max="5" style="width:60px"> <b id="expChapterBrV">1</b></span></div>
+          <div id="expChapterTitleBrLabel" style="font-size:12px;color:var(--ink-faint);margin:4px 0 2px;display:none"></div>
+          <div class="set-row" id="expChapterBrBeforeRow" style="display:none">제목 앞 <span><input type="range" id="expChapterBrBefore" min="0" max="5" style="width:60px"> <b id="expChapterBrBeforeV">1</b></span></div>
+          <div class="set-row" id="expChapterBrAfterRow" style="display:none">제목 뒤 <span><input type="range" id="expChapterBrAfter" min="0" max="5" style="width:60px"> <b id="expChapterBrAfterV">1</b></span></div>
+        </div>
         <div style="border-top:1px solid var(--sage-150);margin:8px 0 6px"></div>
         <div style="font-size:12px;color:var(--ink-faint);margin-bottom:4px">줄바꿈</div>
         <div class="exp-brk"><span>지문 사이</span>
@@ -1630,6 +1643,7 @@
       <button class="mp-btn" id="mpSizeUp" title="글자 크게">＋</button>
       <button class="mp-btn" id="mpModeBtn" title="페이지식/스크롤식 전환"><svg viewBox="0 0 16 16"><rect x="3" y="2" width="8" height="11" rx="1.2"/><path d="M13 4v9a1 1 0 0 1-1 1H6"/></svg></button>
       <button class="mp-btn" id="mpViewSettingsBtn" title="보기 설정 (줄간격·문단간격)"><svg viewBox="0 0 16 16"><path d="M2 4h12"/><path d="M2 8h12"/><path d="M2 12h8"/></svg></button>
+      <button class="mp-btn" id="mpResetBtn" title="크기·위치 기본값으로"><svg viewBox="0 0 16 16"><path d="M2 8a6 6 0 1 1 1.76 4.24"/><path d="M2 13v-4h4"/></svg></button>
       <span class="mp-close" id="mpCloseBtn" title="닫기">✕</span>
     </div>
     <div class="mp-toolbar mp-subtoolbar" id="mpSubToolbar">
@@ -1954,7 +1968,7 @@ let sessions={},sessionTimer=null,restoring=false;
 let openingWorkAt=false;
 const scrollMem={};      // path -> 에디터 스크롤 위치(세션 기억)
 const refScrollMem={};   // path -> 참고창 스크롤 위치(세션 기억, 본문 스크롤 기억과는 별도)
-const APP_VERSION="beta 2.3.0";
+const APP_VERSION="beta 2.3.1";
 const $=id=>document.getElementById(id);
 
 /* ═══════════ 유틸 ═══════════ */
@@ -4093,6 +4107,7 @@ function renderPane(i){
     ed.classList.toggle('locked',locked);
     ed.classList.remove('docview-mode');
     p._lastDocViewPath=null;
+    $('ver'+i).style.display='';
     if(ed.innerHTML!==t.body)ed.innerHTML=t.body;
     $('title'+i).textContent=curWork.name+' › '+t.path.replace(/\//g,' › ').replace(/\.md$/,'');
     const scroller=ed.closest('.ed-scroll');
@@ -4131,6 +4146,9 @@ function renderDocViewPane(i){
   ed.contentEditable='true';
   ed.classList.remove('locked');
   ed.classList.add('docview-mode');
+  // '문서 보기'(전체보기)는 여러 회차를 한 화면에 이어붙여 보여주는 읽기용 모드라 스냅샷
+  // (이전 버전 보기/보관)이 애초에 동작하지 않는다 — 버튼을 가려서 헷갈리지 않게 한다.
+  $('ver'+i).style.display='none';
   const scroller=ed.closest('.ed-scroll');
   scroller.classList.remove('locked');
   const banner=scroller.querySelector('.lock-topbar');if(banner)banner.remove();
@@ -5066,8 +5084,11 @@ function autoReplaceCE(){
 }
 function updateTodayChip(){const s=dayStat();
   if(settings.workDisplayMode==='total'){
-    // '오늘 총 작업량' 모드: 작성·지운 글자수를 따로 보여주지 않고 합쳐서 하나로 표시
-    $('todayChars').textContent=fmt(s.w+s.d)+'자';
+    // '오늘 총 작업량' 모드: 작성·지운 글자수를 단순히 더한 값(=오늘 하루 손을 움직인 총량)이
+    // 아니라, 쓰고 지우기를 반복한 끝에 최종적으로 오늘 순수하게 남긴 글자량(작성-지운)을
+    // 보여준다. 지운 게 더 많은 날도 있을 수 있어 음수도 그대로 부호를 붙여 보여준다.
+    const net=s.w-s.d;
+    $('todayChars').textContent=(net<0?'-':'')+fmt(Math.abs(net))+'자';
     $('todayDel').textContent='';
     if(typeof fitTopbar==='function')fitTopbar();
     return;
@@ -5975,7 +5996,24 @@ $('mpParaUp').onclick=()=>mpSetPara(mpParaGap+4);
 // 기본값은 원래 코드의 고정 기본 크기(320px)를 그대로 쓰고, 최대치는 4K 등 초고해상도
 // 모니터 사용자도 충분히 크게 키울 수 있도록 넉넉히 잡는다(닫기 버튼은 이제 모달 폭과
 // 무관하게 margin-left:auto로 항상 우측 상단에 고정되므로, 폰이 커져도 안 밀린다).
-function mpPhoneMaxW(){return Math.min(900,window.innerWidth*0.92,window.innerHeight*0.85*9/16);}
+function mpPhoneMaxW(){
+  const base=Math.min(900,window.innerWidth*0.92,window.innerHeight*0.85*9/16);
+  // 모달이 드래그로 옮겨져 있는 상태라면, 화면 정중앙 기준의 위 계산만으론 부족하다 —
+  // 리사이즈는(모달이 항상 가운데 정렬되는 flex 구조 특성상) 지금 위치를 중심으로 사방
+  // 대칭으로 커지므로, 창 경계까지 실제로 남은 여유를 지금 위치 기준으로 다시 구해서
+  // 그 이상은 못 커지게 한다. 이러면 모서리 하나가 창에 닿는 순간 그 방향으로는 더 이상
+  // 안 커지고, 폰을 안쪽으로 옮겨야(드래그 손잡이) 다시 키울 수 있다.
+  if(!$('mobilePreviewBg').classList.contains('open'))return base;
+  const bg=$('mobilePreviewBg').getBoundingClientRect();
+  const boxRect=$('mpBox').getBoundingClientRect();
+  const phoneRect=$('mpPhone').getBoundingClientRect();
+  if(!phoneRect.width||!phoneRect.height)return base;
+  const cx=(phoneRect.left+phoneRect.right)/2, cy=(phoneRect.top+phoneRect.bottom)/2;
+  const chromeW=boxRect.width-phoneRect.width, chromeH=boxRect.height-phoneRect.height;
+  const roomX=2*Math.min(cx-bg.left,bg.right-cx)-chromeW;
+  const roomY=(2*Math.min(cy-bg.top,bg.bottom-cy)-chromeH)*9/16;
+  return Math.max(220,Math.min(base,roomX,roomY));
+}
 function mpPhoneDefaultW(){return Math.min(320,window.innerWidth*0.8,window.innerHeight*0.8*9/16);}
 function mpApplyPhoneSize(w){
   w=Math.max(220,Math.min(mpPhoneMaxW(),w));
@@ -5991,13 +6029,18 @@ function mpApplyPhoneSize(w){
     // 세로가 가로의 16/9이므로 9/16을 곱해 가로 기준값으로 환산해 평균낸다(대각선 드래그가
     // 자연스럽게 느껴지도록).
     const dx=e.clientX-startX, dy=e.clientY-startY;
-    mpApplyPhoneSize(startW+(dx+dy*9/16)/2);
+    const requested=startW+(dx+dy*9/16)/2;
+    // 지금 위치에서 낼 수 있는 최대치보다 더 키우려는 중이면(=창 경계에 막힌 상태) 테두리를
+    // 잠깐 경고색으로 바꿔서 "옮겨야 더 커진다"는 걸 알려준다.
+    $('mpPhone').classList.toggle('mp-blocked',requested>mpPhoneMaxW());
+    mpApplyPhoneSize(requested);
   }
   function onUp(){
     if(!dragging)return;
     dragging=false;
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
+    $('mpPhone').classList.remove('mp-blocked');
     // 드래그 중에는 크기만 반영하고, 끝났을 때 한 번만 저장 + 페이지 재분할(무거운 연산이라).
     settings.mpPhoneW=mpPhoneW;
     saveMeta();
@@ -6019,14 +6062,36 @@ function mpApplyPhoneSize(w){
 // (리사이즈 계산 등)에는 영향이 없다. 모달을 다시 열면 항상 가운데로 리셋된다.
 (function(){
   let dragging=false,startX=0,startY=0,baseX=0,baseY=0;
+  let minX=0,maxX=0,minY=0,maxY=0;
   const box=$('mpBox');
   function curOffset(){
     const m=/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(box.style.transform||'');
     return m?{x:parseFloat(m[1]),y:parseFloat(m[2])}:{x:0,y:0};
   }
+  // 지금 걸린 transform을 그대로 둔 채로, "옮기지 않았을 때(translate 0,0)" 박스가 있었을
+  // 자리를 역산해서 스토리시드 창(mobilePreviewBg) 안에 박스 전체가 들어오도록 하는
+  // translate 값의 허용 범위를 구한다. 창 크기나 폰 크기가 바뀌면 그만큼 범위도 새로
+  // 계산되므로, 매 드래그 시작 시점과 창 리사이즈 시점에 다시 불러서 쓴다.
+  function computeBounds(){
+    const bg=$('mobilePreviewBg').getBoundingClientRect();
+    const boxRect=box.getBoundingClientRect();
+    const cur=curOffset();
+    // transform을 뺀 "원래" 좌상단/우하단 좌표
+    const natLeft=boxRect.left-cur.x, natTop=boxRect.top-cur.y;
+    const natRight=boxRect.right-cur.x, natBottom=boxRect.bottom-cur.y;
+    minX=bg.left-natLeft; maxX=bg.right-natRight;
+    minY=bg.top-natTop; maxY=bg.bottom-natBottom;
+    // 창이 박스보다 작아지는 극단적인 경우 min>max가 될 수 있으니 뒤집히지 않게 보정
+    if(minX>maxX)maxX=minX=(minX+maxX)/2;
+    if(minY>maxY)maxY=minY=(minY+maxY)/2;
+  }
+  function clamp(x,y){
+    return {x:Math.min(Math.max(x,minX),maxX),y:Math.min(Math.max(y,minY),maxY)};
+  }
   function onMove(e){
     if(!dragging)return;
-    box.style.transform='translate('+(baseX+e.clientX-startX)+'px,'+(baseY+e.clientY-startY)+'px)';
+    const p=clamp(baseX+e.clientX-startX,baseY+e.clientY-startY);
+    box.style.transform='translate('+p.x+'px,'+p.y+'px)';
   }
   function onUp(){
     if(!dragging)return;
@@ -6038,14 +6103,32 @@ function mpApplyPhoneSize(w){
     e.preventDefault();
     dragging=true;
     startX=e.clientX;startY=e.clientY;
+    computeBounds();
     const o=curOffset();baseX=o.x;baseY=o.y;
     document.addEventListener('mousemove',onMove);
     document.addEventListener('mouseup',onUp);
   };
+  // 드래그로 옮겨둔 채로 스토리시드 창 크기가 바뀌면(리사이즈, 최대화 등), 범위를 새로
+  // 계산해서 박스가 화면 밖에 남아있지 않도록 즉시 안쪽으로 당겨온다.
+  window.addEventListener('resize',()=>{
+    if(!$('mobilePreviewBg').classList.contains('open'))return;
+    computeBounds();
+    const o=curOffset();
+    const p=clamp(o.x,o.y);
+    if(p.x!==o.x||p.y!==o.y)box.style.transform='translate('+p.x+'px,'+p.y+'px)';
+  });
 })();
 $('mpViewSettingsBtn').onclick=()=>{
   const on=$('mpSubToolbar').classList.toggle('open');
   $('mpViewSettingsBtn').classList.toggle('on',on);
+};
+$('mpResetBtn').onclick=()=>{
+  $('mpBox').style.transform='';
+  $('mpPhone').classList.remove('mp-blocked');
+  mpApplyPhoneSize(mpPhoneDefaultW());
+  settings.mpPhoneW=mpPhoneW;
+  saveMeta();
+  if(mpPaged)mpBuildPages();
 };
 $('mpModeBtn').onclick=()=>{
   if(!mpPaged){
@@ -6102,20 +6185,16 @@ function freeZoom(dir){
   settings.freeSize=Math.max(10,Math.min(26,(settings.freeSize||14)+dir));
   $('freeTa').style.fontSize=settings.freeSize+'px';saveMeta();
 }
-/* Ctrl+휠 배율: 에디터/시놉시스/메모/집중 모드 */
+/* Ctrl+휠 배율: 에디터/시놉시스/메모/집중 모드
+   — 시놉시스·메모·참고창·프리노트는 집중 모드에서도(고스트 오버레이로 떠 있을 때도) 항상
+   자기 영역만 따로 배율이 바뀌어야 하므로, 그 판정을 "집중 모드 전체 폰트 크기" 처리보다
+   먼저 한다. 집중 모드 분기는 위 어떤 영역에도 해당하지 않을 때(=집필 영역 위)에만 걸리는
+   폴백으로 맨 뒤로 옮겼다. */
 addEventListener('wheel',e=>{
   if(!e.ctrlKey)return;
   const dir=e.deltaY<0?1:-1;
-  if(document.body.classList.contains('focus')){
-    e.preventDefault();
-    settings.focusSize=Math.max(11,Math.min(36,(settings.focusSize||parseFloat(settings.size))+dir));
-    applyFocusOpts();saveMeta();return;
-  }
   const refPane=e.target.closest('.ref-pane');
   if(refPane){e.preventDefault();const pane=refPane.closest('.editor-pane');const i=+pane.dataset.pane;refPaneZoom(i,panes[i].refZoom+dir*10);return;}
-  const pane=e.target.closest('.editor-pane');
-  if(pane){e.preventDefault();const i=+pane.dataset.pane;paneZoom(i,panes[i].zoom+dir*10);return;}
-  if(e.target.closest('.free-area')){e.preventDefault();freeZoom(dir);return;}
   const secEl=e.target.closest('.note-sec');
   if(secEl){
     e.preventDefault();
@@ -6124,13 +6203,27 @@ addEventListener('wheel',e=>{
     sec.size=Math.max(10,Math.min(26,(sec.size||13)+dir));
     const ta=secEl.querySelector('.note-ta');if(ta)ta.style.fontSize=sec.size+'px';
     saveMeta();
+    return;
   }
+  if(e.target.closest('.free-area')){e.preventDefault();freeZoom(dir);return;}
+  if(document.body.classList.contains('focus')){
+    e.preventDefault();
+    settings.focusSize=Math.max(11,Math.min(36,(settings.focusSize||parseFloat(settings.size))+dir));
+    applyFocusOpts();saveMeta();return;
+  }
+  const pane=e.target.closest('.editor-pane');
+  if(pane){e.preventDefault();const i=+pane.dataset.pane;paneZoom(i,panes[i].zoom+dir*10);return;}
 },{passive:false});
 
 /* ═══════════ 플레인 복사 ═══════════ */
 [0,1].forEach(i=>$('copy'+i).onclick=()=>{
-  const t=panes[i].tab;if(!t)return;
-  openExportDialog([t.node],{mode:'clip'});
+  const p=panes[i];
+  if(p.tab){openExportDialog([p.tab.node],{mode:'clip'});return;}
+  if(p.docView){
+    const docs=collectDocsRecursive(p.docView.node);
+    if(!docs.length){toast('이 폴더에는 문서가 없어요');return;}
+    openExportDialog(docs,{mode:'clip',title:p.docView.node.disp||p.docView.node.name});
+  }
 });
 
 /* ═══════════ 시놉시스 패널 (작품 전체 / 이 폴더 / 이 회차) ═══════════ */
@@ -7323,10 +7416,9 @@ addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&(e.key==='='||e.key==='+'||e.key==='-')){
     e.preventDefault();
     const dir=e.key==='-'?-1:1;
-    if(document.body.classList.contains('focus')){
-      settings.focusSize=Math.max(11,Math.min(36,(settings.focusSize||parseFloat(settings.size))+dir));
-      applyFocusOpts();saveMeta();return;
-    }
+    // Ctrl+휠과 동일한 순서: 시놉시스·메모·프리노트는 집중 모드에서도(고스트 오버레이로
+    // 떠 있을 때도) 항상 자기 영역만 따로 배율이 바뀌어야 하므로, 그 판정을 "집중 모드
+    // 전체 폰트 크기" 처리보다 먼저 한다.
     const ae=document.activeElement;
     if(ae&&ae.id==='freeTa'){freeZoom(dir);return;}
     const secEl=ae&&ae.closest?ae.closest('.note-sec'):null;
@@ -7336,6 +7428,10 @@ addEventListener('keydown',e=>{
       if(sec){sec.size=Math.max(10,Math.min(26,(sec.size||13)+dir));
         const ta=secEl.querySelector('.note-ta');if(ta)ta.style.fontSize=sec.size+'px';saveMeta();}
       return;
+    }
+    if(document.body.classList.contains('focus')){
+      settings.focusSize=Math.max(11,Math.min(36,(settings.focusSize||parseFloat(settings.size))+dir));
+      applyFocusOpts();saveMeta();return;
     }
     if(editTarget.kind==='ref'){refPaneZoom(editTarget.pane,panes[editTarget.pane].refZoom+dir*10);}
     else{paneZoom(activePane,panes[activePane].zoom+dir*10);}
@@ -8392,9 +8488,10 @@ async function makeDocx(items,o){
   const alignVal=a=>a==='center'?'center':a==='right'?'right':a==='justify'?'both':a==='left'?'left':null;
   items.forEach((it,i)=>{
     if(i>0)for(let b=0;b<it.br;b++)paras+=blankP;
-    const center=(it.kind==='scene'&&o.centerScene);
+    const center=(it.kind==='scene'&&o.centerScene)||(it.kind==='chaptertitle'&&o.chapterTitleCenter);
     let jc=center?'center':(o.keepFmt?alignVal(it.align):null);
     const jcXml=jc?'<w:jc w:val="'+jc+'"/>':'';
+    const pbXml=it.pageBreak?'<w:pageBreakBefore/>':'';
     if(it.kind==='img'&&it.html){
       const info=imgInfo.get(i);
       if(info){
@@ -8412,12 +8509,15 @@ async function makeDocx(items,o){
           +'<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+info.wEMU+'" cy="'+info.hEMU+'"/></a:xfrm>'
           +'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
           +'</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>';
-        paras+='<w:p><w:pPr><w:spacing w:line="400" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>'+drawing+'</w:p>';
+        paras+='<w:p><w:pPr><w:spacing w:line="400" w:lineRule="auto"/><w:jc w:val="center"/>'+pbXml+'</w:pPr>'+drawing+'</w:p>';
       }
       return;
     }
     let runsXml;
-    if(o.keepFmt&&it.html&&it.kind!=='scene'){
+    if(it.kind==='chaptertitle'){
+      const bRpr=o.chapterTitleBold!==false?'<w:rPr><w:b/></w:rPr>':'';
+      runsXml='<w:r>'+bRpr+'<w:t xml:space="preserve">'+xmlEsc(it.text)+'</w:t></w:r>';
+    }else if(o.keepFmt&&it.html&&it.kind!=='scene'){
       runsXml=runsFromHtml(it.html).map(r=>{
         const rpr=(r.b?'<w:b/>':'')+(r.i?'<w:i/>':'')+(r.u?'<w:u w:val="single"/>':'')+(r.st?'<w:strike/>':'')
           +(r.sup?'<w:vertAlign w:val="superscript"/>':'')+(r.sub?'<w:vertAlign w:val="subscript"/>':'')
@@ -8430,7 +8530,7 @@ async function makeDocx(items,o){
       const txt=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
       runsXml='<w:r><w:t xml:space="preserve">'+xmlEsc(txt)+'</w:t></w:r>';
     }
-    paras+='<w:p><w:pPr><w:spacing w:line="400" w:lineRule="auto"/>'+jcXml+'</w:pPr>'+runsXml+'</w:p>';
+    paras+='<w:p><w:pPr><w:spacing w:line="400" w:lineRule="auto"/>'+jcXml+pbXml+'</w:pPr>'+runsXml+'</w:p>';
   });
   const doc='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'+paras+'</w:body></w:document>';
   const usedExts=new Map();
@@ -8573,6 +8673,13 @@ function readExpOpts(){
   o.rights=$('expRights').value;
   o.translator=$('expTranslator').value;
   o.order=$('expOrder').value;
+  o.chapterTitle=$('expChapterTitle').checked;
+  o.chapterTitleBold=$('expChapterTitleBold').checked;
+  o.chapterTitleCenter=$('expChapterTitleCenter').checked;
+  o.chapterPageBreak=$('expChapterPageBreak').checked;
+  o.chapterBr=+$('expChapterBr').value;
+  o.chapterBrBefore=+$('expChapterBrBefore').value;
+  o.chapterBrAfter=+$('expChapterBrAfter').value;
   return o;
 }
 function fillExpOpts(){
@@ -8601,6 +8708,34 @@ function fillExpOpts(){
   $('expRights').value=o.rights||'';
   $('expTranslator').value=o.translator||'';
   $('expOrder').value=o.order||'binder';
+  $('expChapterTitle').checked=!!o.chapterTitle;
+  $('expChapterTitleBold').checked=o.chapterTitleBold!==false;
+  $('expChapterTitleCenter').checked=!!o.chapterTitleCenter;
+  $('expChapterPageBreak').checked=!!o.chapterPageBreak;
+  $('expChapterBr').value=o.chapterBr==null?1:o.chapterBr;
+  $('expChapterBrV').textContent=$('expChapterBr').value;
+  $('expChapterBrBefore').value=o.chapterBrBefore==null?1:o.chapterBrBefore;
+  $('expChapterBrBeforeV').textContent=$('expChapterBrBefore').value;
+  $('expChapterBrAfter').value=o.chapterBrAfter==null?1:o.chapterBrAfter;
+  $('expChapterBrAfterV').textContent=$('expChapterBrAfter').value;
+  updateChapterOptsUI();
+}
+// 회차 제목/페이지바꿈 옵션에 따라 사이드바 컨트롤의 노출 상태를 갱신한다(요구사항 3의 상태 머신).
+function updateChapterOptsUI(){
+  if(!expCtx)return;
+  const fmt=$('expFmt').value;
+  const supportsFmt=['docx','hwpx','epub','pdf'].includes(fmt);
+  const supportsPageBreak=expCtx.mode==='file'&&supportsFmt;
+  $('expChapterPageBreakRow').style.display=supportsPageBreak?'':'none';
+  const titleOn=$('expChapterTitle').checked;
+  const pageBreakOn=supportsPageBreak&&$('expChapterPageBreak').checked;
+  $('expChapterTitleBoldRow').style.display=titleOn?'':'none';
+  $('expChapterTitleCenterRow').style.display=titleOn?'':'none';
+  $('expChapterBrRow').style.display=titleOn?'none':'';
+  $('expChapterTitleBrLabel').style.display=titleOn?'':'none';
+  $('expChapterTitleBrLabel').textContent=(titleOn&&pageBreakOn)?'회차 제목 뒤 줄바꿈 설정':'회차 제목 앞뒤 줄바꿈 설정';
+  $('expChapterBrBeforeRow').style.display=(titleOn&&!pageBreakOn)?'':'none';
+  $('expChapterBrAfterRow').style.display=titleOn?'':'none';
 }
 $('expMoreBtn').addEventListener('click',()=>{
   const open=$('expMoreFields').style.display==='none';
@@ -8614,18 +8749,14 @@ async function collectExpRaw(){
     if(ord==='asc')nodes.sort((a,b)=>(a.disp||a.name).localeCompare(b.disp||b.name,'ko',{numeric:true}));
     else if(ord==='desc')nodes.sort((a,b)=>(b.disp||b.name).localeCompare(a.disp||a.name,'ko',{numeric:true}));
   }
-  const parts=[];const allLines=[];
-  const sym=(settings.exp&&settings.exp.sceneSym)||'* * *';
+  const chapters=[];
   for(const n of nodes){
     try{
       const d=await getDocData(n);
-      parts.push(plainTextOf(d.body));
-      if(allLines.length){allLines.push({text:'',html:''},{text:sym,html:null},{text:'',html:''});}
-      allLines.push(...htmlLinesOf(d.body));
+      chapters.push({title:(n.disp||n.name.replace(/\.md$/,'')),raw:plainTextOf(d.body),lines:htmlLinesOf(d.body)});
     }catch{}
   }
-  expCtx.raw=parts.join('\n\n'+sym+'\n\n');
-  expCtx.lines=allLines;   // 서식 유지 내보내기용
+  expCtx.chapters=chapters;   // 회차별로 보관 (raw=평문, lines=서식 유지용)
 }
 // 문서 본문 HTML을 줄 단위 {text, html, align}로 분해
 function htmlLinesOf(body){
@@ -8731,7 +8862,8 @@ function updateExpPreview(){
   const pv=$('expPreview');
   const fmt=(expCtx.mode==='file')?$('expFmt').value:'txt';
   const supportsFmt=['docx','hwpx','epub','pdf'].includes(fmt);
-  const useFmt=o.keepFmt&&supportsFmt&&expCtx.lines&&expCtx.lines.length;
+  const hasLines=expCtx.chapters&&expCtx.chapters.some(c=>c.lines&&c.lines.length);
+  const useFmt=o.keepFmt&&supportsFmt&&hasLines;
   const centerScene=o.centerScene&&supportsFmt;
   // 서식/장면 정렬을 미리보기에 반영해야 하면 HTML로, 아니면 텍스트로
   // (실제 내보내기와 반드시 동일한 결과여야 하므로 expItemsFor()로 items를 만든다 — 미리보기 전용 분기 없음)
@@ -8741,7 +8873,12 @@ function updateExpPreview(){
     for(let i=0;i<items.length;i++){
       const it=items[i];
       if(i>0)for(let b=0;b<it.br;b++)html+='<div><br></div>';
-      if(it.kind==='scene'){
+      // 페이지 나눔은 미리보기 전용 시각 구분선으로만 표시(실제 파일에는 이 텍스트가 들어가지 않음)
+      if(i>0&&it.pageBreak)html+='<div style="opacity:.4;font-size:11px;text-align:center;margin:2px 0">─ 새 페이지 ─</div>';
+      if(it.kind==='chaptertitle'){
+        const tstyle=(o.chapterTitleBold!==false?'font-weight:bold;':'')+(o.chapterTitleCenter?'text-align:center;':'');
+        html+='<div style="'+tstyle+'">'+escHtml(it.text)+'</div>';
+      }else if(it.kind==='scene'){
         html+='<div'+(centerScene?' style="text-align:center"':'')+'>'+escHtml(o.sceneSym||'* * *')+'</div>';
       }else if(it.kind==='img'&&it.html){
         if(o.includeImg===false){
@@ -8762,7 +8899,7 @@ function updateExpPreview(){
     }
     pv.innerHTML=html||'(빈 문서)';
   }else{
-    const text=transformExport(expCtx.raw||'',o);
+    const text=itemsToText(expItemsFor(o,'txt'),o);
     pv.textContent=text.slice(0,1600)+(text.length>1600?'\n\n… (이하 생략)':'');
   }
 }
@@ -8774,6 +8911,7 @@ async function openExportDialog(nodes,opts){
   $('expDlgTitle').textContent=(expCtx.mode==='clip'?'⧉ 복사하기':'📤 내보내기')+' — '+expCtx.title+(expCtx.multi?' 외 '+(nodes.length-1)+'편':'');
   $('expFmtRow').style.display=expCtx.mode==='clip'?'none':'';
   $('expOrderRow').style.display=expCtx.multi?'':'none';
+  $('expChapterOpts').style.display=expCtx.multi?'':'none';
   $('expGo').textContent=expCtx.mode==='clip'?'복사하기':'내보내기';
   fillExpOpts();
   // 형식은 opts로 지정된 게 없으면, 유저가 마지막으로 내보낸 형식을 그대로 띄운다
@@ -8781,6 +8919,7 @@ async function openExportDialog(nodes,opts){
   if(![...$('expFmt').options].some(o=>o.value===$('expFmt').value))$('expFmt').value='txt';
   $('expEpubOpts').style.display=(expCtx.mode==='file'&&$('expFmt').value==='epub')?'':'none';
   updateSceneCenterRow();
+  updateChapterOptsUI();
   $('expCoverName').textContent='';
   $('expPreview').textContent='불러오는 중…';
   $('expBg2').classList.add('open');
@@ -8802,7 +8941,7 @@ function updateSceneCenterRow(){
   const noFmt=expCtx&&(expCtx.mode==='clip'||(expCtx.mode==='file'&&fmt==='txt'));
   $('expImgNote').style.display=noFmt?'':'none';
 }
-document.querySelectorAll('.expMode,.expN,#expScene,#expSceneBr,#expSceneCenter,#expKeepFmt,#expIncludeImg').forEach(el=>{
+document.querySelectorAll('.expMode,.expN,#expScene,#expSceneBr,#expSceneCenter,#expKeepFmt,#expIncludeImg,#expChapterTitle,#expChapterTitleBold,#expChapterTitleCenter,#expChapterPageBreak,#expChapterBr,#expChapterBrBefore,#expChapterBrAfter').forEach(el=>{
   el.addEventListener('input',()=>{
     document.querySelectorAll('.expNwrap').forEach(w=>{
       const mode=document.querySelector('.expMode[data-k="'+w.dataset.k+'"]').value;
@@ -8810,12 +8949,16 @@ document.querySelectorAll('.expMode,.expN,#expScene,#expSceneBr,#expSceneCenter,
       w.querySelector('.expNV').textContent=w.querySelector('.expN').value;
     });
     $('expSceneBrV').textContent=$('expSceneBr').value;
+    $('expChapterBrV').textContent=$('expChapterBr').value;
+    $('expChapterBrBeforeV').textContent=$('expChapterBrBefore').value;
+    $('expChapterBrAfterV').textContent=$('expChapterBrAfter').value;
+    updateChapterOptsUI();
     updateExpPreview();saveMeta();
   });
 });
 $('expFmt').addEventListener('change',()=>{
   $('expEpubOpts').style.display=$('expFmt').value==='epub'?'':'none';
-  updateSceneCenterRow();updateExpPreview();
+  updateSceneCenterRow();updateChapterOptsUI();updateExpPreview();
   settings.lastExportFmt=$('expFmt').value;saveMeta();
 });
 $('expOrder').addEventListener('change',async()=>{await collectExpRaw();updateExpPreview();saveMeta();});
@@ -8835,15 +8978,19 @@ function textToHtml(items,o){
   items.forEach((it,i)=>{
     if(i>0)for(let b=0;b<it.br;b++)html+='<div><br></div>';
     const center=(it.kind==='scene'&&o.centerScene);
-    if(it.kind==='img'&&it.html&&o.includeImg!==false){
-      html+='<div>'+it.html+'</div>';
+    const pb=it.pageBreak?'break-before:page;page-break-before:always;':'';
+    if(it.kind==='chaptertitle'){
+      const tstyle=pb+(o.chapterTitleBold!==false?'font-weight:bold;':'')+(o.chapterTitleCenter?'text-align:center;':'');
+      html+='<div style="'+tstyle+'">'+escHtml(it.text)+'</div>';
+    }else if(it.kind==='img'&&it.html&&o.includeImg!==false){
+      html+='<div'+(pb?' style="'+pb+'"':'')+'>'+it.html+'</div>';
     }else if(o.keepFmt&&it.html&&it.kind!=='scene'){
       const inner=runsToInline(runsFromHtml(it.html));
-      const al=it.align?(' style="text-align:'+it.align+'"'):'';
+      const al=(pb||it.align)?(' style="'+pb+(it.align?'text-align:'+it.align+';':'')+'"'):'';
       html+='<div'+al+'>'+(inner||'<br>')+'</div>';
     }else{
       const txt=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
-      const al=center?' style="text-align:center"':'';
+      const al=(pb||center)?(' style="'+pb+(center?'text-align:center;':'')+'"'):'';
       html+='<div'+al+'>'+(escHtml(txt)||'<br>')+'</div>';
     }
   });
@@ -8871,15 +9018,15 @@ function makeHwpx(items,title,o){
     charDefs.push('<hh:charPr id="'+id+'" height="'+height+'" textColor="'+tc+'" shadeColor="'+shade+'" useFontSpace="0" useKerning="0" symMark="NONE" borderFillIDRef="1"><hh:fontRef hangul="'+fid+'" latin="'+fid+'" hanja="'+fid+'" japanese="'+fid+'" other="'+fid+'" symbol="'+fid+'" user="'+fid+'"/><hh:ratio hangul="100" latin="100" hanja="100" japanese="100" other="100" symbol="100" user="100"/><hh:spacing hangul="0" latin="0" hanja="0" japanese="0" other="0" symbol="0" user="0"/><hh:relSz hangul="100" latin="100" hanja="100" japanese="100" other="100" symbol="100" user="100"/><hh:offset hangul="0" latin="0" hanja="0" japanese="0" other="0" symbol="0" user="0"/>'+extra+'</hh:charPr>');
     return id;
   }
-  function para(text,prIDRef,secPr){
+  function para(text,prIDRef,secPr,pb){
     const run='<hp:run charPrIDRef="0">'+(secPr||'')+'<hp:t>'+xmlEsc(text)+'</hp:t></hp:run>';
-    return '<hp:p id="'+(pid++)+'" paraPrIDRef="'+prIDRef+'" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">'+run+'</hp:p>';
+    return '<hp:p id="'+(pid++)+'" paraPrIDRef="'+prIDRef+'" styleIDRef="0" pageBreak="'+(pb?'1':'0')+'" columnBreak="0" merged="0">'+run+'</hp:p>';
   }
-  function paraFmt(runs,prIDRef,secPr){
+  function paraFmt(runs,prIDRef,secPr,pb){
     let runXml='';
     if(!runs.length)runXml='<hp:run charPrIDRef="0">'+(secPr||'')+'<hp:t></hp:t></hp:run>';
     else runs.forEach((r,idx)=>{runXml+='<hp:run charPrIDRef="'+charId(r)+'">'+(idx===0?(secPr||''):'')+'<hp:t>'+xmlEsc(r.text)+'</hp:t></hp:run>';});
-    return '<hp:p id="'+(pid++)+'" paraPrIDRef="'+prIDRef+'" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">'+runXml+'</hp:p>';
+    return '<hp:p id="'+(pid++)+'" paraPrIDRef="'+prIDRef+'" styleIDRef="0" pageBreak="'+(pb?'1':'0')+'" columnBreak="0" merged="0">'+runXml+'</hp:p>';
   }
   const alignPr=a=>a==='center'?1:a==='left'?2:a==='right'?3:0;
   // 첫 문단의 run 안에 반드시 들어가야 하는 구역 정의(페이지 크기·여백). 이게 없으면 한글이 빈 문서로 연다.
@@ -8888,19 +9035,21 @@ function makeHwpx(items,title,o){
   items.forEach((it,i)=>{
     if(i>0)for(let b=0;b<it.br;b++)paras+=para('',0,'');
     const first=i===0?secPr:'';
-    if(it.kind==='img'&&it.html){
-      paras+=para(o.includeImg!==false?'[이미지]':'',o.centerScene?1:0,first);
+    if(it.kind==='chaptertitle'){
+      paras+=paraFmt([{text:it.text,b:o.chapterTitleBold!==false}],o.chapterTitleCenter?1:0,first,it.pageBreak);
+    }else if(it.kind==='img'&&it.html){
+      paras+=para(o.includeImg!==false?'[이미지]':'',o.centerScene?1:0,first,it.pageBreak);
     }else if(o.keepFmt&&it.html&&it.kind!=='scene'){
       const runs=runsFromHtml(it.html);
-      paras+=paraFmt(runs.length?runs:[{text:it.text}],alignPr(it.align),first);
+      paras+=paraFmt(runs.length?runs:[{text:it.text}],alignPr(it.align),first,it.pageBreak);
     }else{
       const center=(it.kind==='scene'&&o.centerScene);
       const txt=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
-      paras+=para(txt,center?1:0,first);
+      paras+=para(txt,center?1:0,first,it.pageBreak);
     }
   });
   if(!items.length)paras=para('',0,secPr);   // 빈 문서 방어
-  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.3.0"/>';
+  const version='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" tagetApplication="WORDPROCESSOR" major="5" minor="0" micro="0" buildNumber="0" os="1" xmlVersion="1.4" application="StorySeed" appVersion="2.3.1"/>';
   const container='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ocf:container xmlns:ocf="urn:oasis:names:tc:opendocument:xmlns:container"><ocf:rootfiles><ocf:rootfile full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/></ocf:rootfiles></ocf:container>';
   const manifest='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><odf:manifest xmlns:odf="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><odf:file-entry full-path="Contents/content.hpf" media-type="application/hwpml-package+xml"/><odf:file-entry full-path="Contents/header.xml" media-type="application/xml"/><odf:file-entry full-path="Contents/section0.xml" media-type="application/xml"/></odf:manifest>';
   const hpf='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><opf:package xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" version="1.4" unique-identifier="storyseed" id="storyseed"><opf:metadata><opf:title>'+xmlEsc(title)+'</opf:title><opf:language>ko</opf:language></opf:metadata><opf:manifest><opf:item id="header" href="Contents/header.xml" media-type="application/xml"/><opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/></opf:manifest><opf:spine><opf:itemref idref="header" linear="yes"/><opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>';
@@ -8948,7 +9097,12 @@ function makeEpub(items,title,author,cover,o){
   items.forEach((it,i)=>{
     if(i>0)for(let b=0;b<it.br;b++)paras+='<p>\u00a0</p>\n';
     const center=(it.kind==='scene'&&o.centerScene);
-    if(it.kind==='img'&&it.html&&o.includeImg!==false){
+    const pgCls=it.pageBreak?'pgbreak':'';
+    if(it.kind==='chaptertitle'){
+      const tCls=[pgCls,o.chapterTitleCenter?'sc':''].filter(Boolean).join(' ');
+      const tOpen=o.chapterTitleBold!==false?'<b>':'',tClose=o.chapterTitleBold!==false?'</b>':'';
+      paras+='<p'+(tCls?' class="'+tCls+'"':'')+'>'+tOpen+xmlEsc(it.text)+tClose+'</p>\n';
+    }else if(it.kind==='img'&&it.html&&o.includeImg!==false){
       const tmp=document.createElement('div');tmp.innerHTML=it.html;
       const img=tmp.querySelector('img');
       const parsed=img&&/^data:/.test(img.src)?dataUrlToBytes(img.src):null;
@@ -8957,15 +9111,16 @@ function makeEpub(items,title,author,cover,o){
         const ext=mimeToExt(parsed.mime);
         const fname='img'+imgN+'.'+ext;
         epubImages.push({id:'img'+imgN,href:'images/'+fname,mime:parsed.mime,data:parsed.bytes});
-        paras+='<p style="text-align:center"><img src="images/'+fname+'" style="max-width:100%"/></p>\n';
+        paras+='<p'+(pgCls?' class="'+pgCls+'"':'')+' style="text-align:center"><img src="images/'+fname+'" style="max-width:100%"/></p>\n';
       }
     }else if(o.keepFmt&&it.html&&it.kind!=='scene'){
       const inner=runsToInline(runsFromHtml(it.html));
       const al=it.align?(' style="text-align:'+it.align+';text-indent:0"'):'';
-      paras+='<p'+al+'>'+inner+'</p>\n';
+      paras+='<p'+(pgCls?' class="'+pgCls+'"':'')+al+'>'+inner+'</p>\n';
     }else{
       const txt=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
-      paras+=(center?'<p class="sc">':'<p>')+(xmlEsc(txt)||'\u00a0')+'</p>\n';
+      const cls=[center?'sc':'',pgCls].filter(Boolean).join(' ');
+      paras+=(cls?'<p class="'+cls+'">':'<p>')+(xmlEsc(txt)||'\u00a0')+'</p>\n';
     }
   });
   const container='<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>';
@@ -8989,7 +9144,7 @@ function makeEpub(items,title,author,cover,o){
   if(o.series)extraMeta+='<meta property="belongs-to-collection" id="col">'+xmlEsc(o.series)+'</meta><meta refines="#col" property="collection-type">series</meta>';
   const opf='<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bid" xml:lang="'+lang+'"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'+idTag+titleMeta+'<dc:creator>'+xmlEsc(author||'')+'</dc:creator><dc:language>'+lang+'</dc:language>'+extraMeta+'<meta property="dcterms:modified">'+new Date().toISOString()+'</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="text" href="text.xhtml" media-type="application/xhtml+xml"/>'+coverItems+imgManifest+'</manifest><spine><itemref idref="text"/></spine></package>';
   const nav='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ko"><head><title>목차</title></head><body><nav epub:type="toc"><ol><li><a href="text.xhtml">'+xmlEsc(title)+'</a></li></ol></nav></body></html>';
-  const xhtml='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko"><head><title>'+xmlEsc(title)+'</title><style>body{font-family:serif;line-height:1.9;word-break:keep-all;}p{margin:0;text-indent:1em;}p.sc{text-align:center;text-indent:0;}</style></head><body>'+paras+'</body></html>';
+  const xhtml='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko"><head><title>'+xmlEsc(title)+'</title><style>body{font-family:serif;line-height:1.9;word-break:keep-all;}p{margin:0;text-indent:1em;}p.sc{text-align:center;text-indent:0;}p.pgbreak{page-break-before:always;break-before:page;}</style></head><body>'+paras+'</body></html>';
   const files=[
     {name:'mimetype',data:enc.encode('application/epub+zip')},
     {name:'META-INF/container.xml',data:enc.encode(container)},
@@ -9000,18 +9155,57 @@ function makeEpub(items,title,author,cover,o){
   epubImages.forEach(e=>files.push({name:'OEBPS/'+e.href,data:e.data}));
   return zipStore(files);
 }
+// 회차(문서)별로 items를 만들어 이어붙인다. 회차 경계에서 회차 제목 삽입/줄바꿈/페이지나눔을 적용한다.
+// (회차 내부의 장면전환 기호 감지가 회차 경계와 섞이지 않도록 buildExportItems는 회차 단위로 호출한다.)
+function buildChapterMergedItems(o,fmt){
+  const supportsFmt=['docx','hwpx','epub','pdf'].includes(fmt);
+  const chapters=expCtx.chapters||[];
+  const useLines=o.keepFmt&&supportsFmt&&chapters.some(c=>c.lines&&c.lines.length);
+  const supportsPageBreak=expCtx.mode==='file'&&supportsFmt;
+  const chapterTitle=!!o.chapterTitle;
+  const pageBreak=supportsPageBreak&&!!o.chapterPageBreak;
+  const items=[];
+  chapters.forEach((ch,ci)=>{
+    const src=useLines?ch.lines:ch.raw;
+    const chItems=buildExportItems(src,o);
+    if(chapterTitle){
+      items.push({text:ch.title,html:null,align:'',kind:'chaptertitle',
+        br:ci===0?0:(pageBreak?0:Math.max(0,o.chapterBrBefore||0)),
+        pageBreak:ci>0&&pageBreak});
+      chItems.forEach((it,i)=>{
+        items.push(i===0?Object.assign({},it,{br:Math.max(0,o.chapterBrAfter||0)}):it);
+      });
+    }else{
+      chItems.forEach((it,i)=>{
+        items.push(i===0?Object.assign({},it,{br:ci===0?0:Math.max(0,o.chapterBr||0),pageBreak:ci>0&&pageBreak}):it);
+      });
+    }
+  });
+  return items;
+}
 // 미리보기와 실제 내보내기가 반드시 같은 결과를 내야 하므로, items 생성은 이 함수 하나만 쓴다.
 // "서식 유지" 체크를 껐으면 서식(정렬 포함)을 전혀 반영하지 않고, 켰을 때만 원문 그대로 반영한다.
 function expItemsFor(o,fmt){
+  if(expCtx.multi)return buildChapterMergedItems(o,fmt);
+  const ch=(expCtx.chapters&&expCtx.chapters[0])||{raw:'',lines:[]};
   const supportsFmt=['docx','hwpx','epub','pdf'].includes(fmt);
-  const useLines=o.keepFmt&&supportsFmt&&expCtx.lines&&expCtx.lines.length;
-  return buildExportItems(useLines?expCtx.lines:(expCtx.raw||''),o);
+  const useLines=o.keepFmt&&supportsFmt&&ch.lines&&ch.lines.length;
+  return buildExportItems(useLines?ch.lines:(ch.raw||''),o);
+}
+// items를 평문 텍스트로 조립한다(txt/복사하기용). 회차 제목도 그대로 한 줄로 들어간다.
+function itemsToText(items,o){
+  let out='';
+  items.forEach((it,i)=>{
+    if(i>0)out+='\n'+'\n'.repeat(it.br);
+    out+=it.kind==='scene'?(o.sceneSym||'* * *'):it.text;
+  });
+  return out;
 }
 $('expGo').addEventListener('click',async()=>{
   if(!expCtx)return;
   const o=readExpOpts();saveMeta();
   const items=expItemsFor(o,$('expFmt').value);
-  const text=transformExport(expCtx.raw||'',o);
+  const text=itemsToText(expCtx.mode==='clip'?expItemsFor(o,'txt'):items,o);
   const name=expCtx.title;
   if(expCtx.mode==='clip'){
     await navigator.clipboard.writeText(text);
@@ -9049,14 +9243,20 @@ $('ctxExport').addEventListener('click',()=>{
   if(!ctxNode)return;
   if(ctxNode.type==='file')openExportDialog([ctxNode]);
   else{
-    const docs=collectDocsOf(ctxNode);
+    // "문서 보기"와 동일한 정렬(sortNodes)로 모아서 표시 순서 = 내보내기 순서를 일치시킨다.
+    const docs=collectDocsRecursive(ctxNode);
     if(!docs.length){toast('이 폴더에는 문서가 없어요');return;}
     openExportDialog(docs,{title:ctxNode.disp||ctxNode.name});
   }
 });
 [0,1].forEach(i=>$('exp'+i).onclick=()=>{
-  const t=panes[i].tab;if(!t)return;
-  openExportDialog([t.node]);
+  const p=panes[i];
+  if(p.tab){openExportDialog([p.tab.node]);return;}
+  if(p.docView){
+    const docs=collectDocsRecursive(p.docView.node);
+    if(!docs.length){toast('이 폴더에는 문서가 없어요');return;}
+    openExportDialog(docs,{title:p.docView.node.disp||p.docView.node.name});
+  }
 });
 
 /* ═══════════ 목표 글자수 ═══════════ */
